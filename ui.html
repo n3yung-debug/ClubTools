@@ -151,6 +151,17 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .banner{background:#5a1f1f;color:#fff;padding:10px 14px;font:14px system-ui}
 .bm{display:inline-block;padding:6px 10px;border-radius:6px;background:var(--acc);color:#04101f;font-weight:700;text-decoration:none}
 .rq-hit{color:var(--gold);font-weight:700}
+.rqt{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.rqt th{font-weight:600;color:var(--mut);text-align:center;padding:2px;font-size:11px}
+.rqt th:first-child,.rqt td:first-child{width:46px;text-align:left}
+.rqt td{padding:2px}
+.rqt input,.rqt select{width:100%;padding:3px 2px;font-size:12px;text-align:center;border-radius:6px}
+.rqt select{padding:3px 0}
+.rqt tr.on td:first-child{color:var(--gold);font-weight:800}
+.rqt tr.on input:not(:placeholder-shown),.rqt tr.on select:not([value=""]){border-color:#8a7433}
+.rqt tr.all td{border-bottom:1px solid var(--line);padding-bottom:5px}
+.rqt tr.all td:first-child{color:var(--acc2);font-weight:700}
+.rqt .na{color:var(--line2);text-align:center}
 .fs{color:var(--txt);letter-spacing:.2px} .fs b{color:var(--gold)}
 a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px;font-weight:600} a.ext:hover{text-decoration:underline}
 a.ext.sub{color:var(--mut);font-weight:400;font-size:11px;margin-left:4px}
@@ -290,18 +301,21 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
               <label class="chk"><input type="checkbox" id="xHero"> No Heroes</label>
               <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
             </div>
-            <div class="small mut" style="margin:12px 0 4px">Required stats <span class="mut">(suggested cards must have these)</span></div>
-            <div class="grid2">
-              <label class="f">Weak foot at least<select id="rqWf"><option value="0">Any</option><option value="3">3★</option><option value="4">4★</option><option value="5">5★</option></select></label>
-              <label class="f">Skill moves at least<select id="rqSm"><option value="0">Any</option><option value="3">3★</option><option value="4">4★</option><option value="5">5★</option></select></label>
-            </div>
-            <div class="small mut" style="margin:8px 0 4px">Minimum face stats (blank = any; outfield only)</div>
-            <div id="rqFs" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
-            <div class="small mut" style="margin:8px 0 4px">Apply these at:</div>
-            <div id="rqPos" style="display:flex;flex-wrap:wrap;gap:4px 12px"></div>
             <details><summary>Only use cards I own (optional)</summary>
               <textarea id="clubList" rows="5" style="width:100%" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card."></textarea>
             </details>
+          </div>
+        </details>
+        <details class="acc" id="rqDet"><summary>Required stats <span class="mut small" id="rqSum" style="font-weight:400">· none</span></summary>
+          <div class="accb">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
+              <span class="small mut" style="flex:1">Suggested cards must have at least these, per position.</span>
+              <button class="sm ghost" id="rqClear" title="Remove all required stats">Clear all</button>
+            </div>
+            <div class="small mut" style="margin-bottom:6px">Pick stars or type a minimum. The <b>All</b> row fills every position shown. Blank = no requirement. Keepers only take WF/SM.</div>
+            <table class="rqt"><thead><tr><th>Pos</th><th title="Weak foot">WF</th><th title="Skill moves">SM</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th></tr></thead>
+              <tbody id="rqBody"></tbody></table>
+            <label class="chk small" style="margin-top:6px"><input type="checkbox" id="rqAllPos"> Show all positions (not just this formation's)</label>
           </div>
         </details>
         <details class="acc" id="psDet"><summary id="psSum">Preferred PlayStyles</summary>
@@ -631,21 +645,56 @@ const NW_DEFAULT = ["GK","CB"];
 function writeNoWomen(list){
   $("noWomen").innerHTML = CAP_POS.map(p => `<label class="chk" style="font-size:12px"><input type="checkbox" data-nw="${p}" ${list.includes(p)?"checked":""}> ${p}</label>`).join("");
 }
-const RQ_POS_DEFAULT = CAP_POS.filter(p => p !== "GK");
+// Required stats per position: RQ = {ST: {wf, sm, fs:[6]}, CB: {...}}. Blank/0 = no requirement.
+let RQ = {}, rqShownKey = "";
+const rqEmpty = () => ({wf:0, sm:0, fs:[0,0,0,0,0,0]});
+const rqOn = r => !!r && (r.wf || r.sm || (r.fs||[]).some(Boolean));
 function writeReqs(r){
+  RQ = {};
   r = r || {};
-  $("rqWf").value = String(r.wf || 0); $("rqSm").value = String(r.sm || 0);
-  $("rqFs").innerHTML = FACE.map((l,k) => `<label class="f" style="font-size:11px">${l}<input type="number" min="1" max="99" data-fs="${k}" value="${(r.fs||[])[k]||""}" placeholder="–" style="padding:3px 5px"></label>`).join("");
-  const pos = r.pos || RQ_POS_DEFAULT;
-  $("rqPos").innerHTML = CAP_POS.map(p => `<label class="chk" style="font-size:12px"><input type="checkbox" data-rq="${p}" ${pos.includes(p)?"checked":""}> ${p}</label>`).join("");
+  if(r.by_pos) for(const [p,x] of Object.entries(r.by_pos)) RQ[p] = {wf:+x.wf||0, sm:+x.sm||0, fs:[0,1,2,3,4,5].map(k => +(x.fs||[])[k]||0)};
+  else if(r.pos && rqOn(r)) for(const p of r.pos) RQ[p] = {wf:+r.wf||0, sm:+r.sm||0, fs:[0,1,2,3,4,5].map(k => +(r.fs||[])[k]||0)};   // older single set
+  rqShownKey = ""; renderRq();
 }
 function readReqs(){
-  if(!$("rqWf")) return null;
-  const fs = [...document.querySelectorAll("#rqFs input")].map(i => +i.value || 0);
-  const pos = [...document.querySelectorAll("#rqPos input:checked")].map(i => i.dataset.rq);
-  return {wf:+$("rqWf").value||0, sm:+$("rqSm").value||0, fs, pos};
+  const by_pos = {};
+  for(const [p,x] of Object.entries(RQ)) if(rqOn(x)) by_pos[p] = {wf:x.wf, sm:x.sm, fs:p === "GK" ? [0,0,0,0,0,0] : x.fs.slice()};
+  return {by_pos};
 }
-const reqsActive = r => r && r.pos.length && (r.wf || r.sm || r.fs.some(Boolean));
+const reqAt = pos => rqOn(RQ[pos]) ? RQ[pos] : null;
+const reqsActive = () => Object.values(RQ).some(rqOn);
+function rqPositions(){
+  const inForm = new Set(S.slots || []), withReq = new Set(Object.keys(RQ).filter(p => rqOn(RQ[p])));
+  return CAP_POS.filter(p => $("rqAllPos").checked || inForm.has(p) || withReq.has(p));
+}
+function renderRq(force){
+  if(!$("rqBody")) return;
+  const rows = rqPositions(), key = rows.join(",") + "|" + $("rqAllPos").checked;
+  if(!force && key === rqShownKey) return;
+  rqShownKey = key;
+  const star = (p, k, v) => `<select data-p="${p}" data-k="${k}" value="${v||""}">${[["","–"],["3","3★"],["4","4★"],["5","5★"]].map(([o,l]) => `<option value="${o}" ${String(v||"")===o?"selected":""}>${l}</option>`).join("")}</select>`;
+  const num = (p, k, v) => `<input type="number" min="1" max="99" data-p="${p}" data-k="fs${k}" value="${v||""}" placeholder="–">`;
+  const row = (p, x, cls) => `<tr class="${cls}" data-row="${p}"><td>${p === "*" ? "All" : p}</td><td>${star(p,"wf",x.wf)}</td><td>${star(p,"sm",x.sm)}</td>${
+      p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,k,x.fs[k])}</td>`).join("")}</tr>`;
+  $("rqBody").innerHTML = row("*", rqEmpty(), "all") + rows.map(p => row(p, RQ[p] || rqEmpty(), rqOn(RQ[p]) ? "on" : "")).join("");
+}
+function rqSet(p, k, v){
+  const x = RQ[p] = RQ[p] || rqEmpty();
+  if(k.startsWith("fs")) x.fs[+k.slice(2)] = v; else x[k] = v;
+  if(!rqOn(x)) delete RQ[p];
+}
+function updRqSum(){
+  const groups = {};   // same requirement at several positions -> one entry
+  for(const p of CAP_POS) if(reqAt(p)){ const d = rqDescribe(RQ[p]); (groups[d] = groups[d] || []).push(p); }
+  const parts = Object.entries(groups).map(([d, ps]) => `${d} at ${ps.join(", ")}`);
+  if($("rqSum")){ $("rqSum").textContent = parts.length ? "· " + parts.join(" · ") : "· none"; $("rqSum").classList.toggle("rq-hit", !!parts.length); }
+}
+function rqDescribe(x){
+  const t = [];
+  if(x.wf) t.push(`${x.wf}★ WF`); if(x.sm) t.push(`${x.sm}★ SM`);
+  (x.fs||[]).forEach((v,k) => { if(v) t.push(`${FACE[k]} ${v}+`); });
+  return t.join(" + ");
+}
 const readNoWomen = () => [...document.querySelectorAll("#noWomen input:checked")].map(i => i.dataset.nw);
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
@@ -671,10 +720,10 @@ function diamonds(n){
   return `<span class="dia ${n===0?'z':''}">${full}${empty}</span>`;
 }
 const FACE = ["PAC","SHO","PAS","DRI","DEF","PHY"], FACE_GK = ["DIV","HAN","KIC","REF","SPE","POS"];
-function faceStats(c){
+function faceStats(c, pos){
   if(!c.fs) return "";
-  const lab = c.p==="GK" ? FACE_GK : FACE;
-  return `<span class="fs">${c.fs.map((v,k)=>`<b>${v}</b> ${lab[k]}`).join(" · ")}</span>`;
+  const lab = c.p==="GK" ? FACE_GK : FACE, R = pos && pos !== "GK" && c.p !== "GK" ? reqAt(pos) : null;
+  return `<span class="fs">${c.fs.map((v,k)=>`<b${R && R.fs[k] && v >= R.fs[k] ? ' class="rq-hit"' : ""}>${v}</b> ${lab[k]}`).join(" · ")}</span>`;
 }
 // FUT.GG card page for this exact version (FUT.GG redirects /players/<base id>/<card slug>/ to the full page)
 const cardUrl = c => /^\d+-\d+$/.test(String(c.s)) && c.bp ? `https://www.fut.gg/players/${encodeURIComponent(c.bp)}/${encodeURIComponent(c.s)}/` : "";
@@ -686,11 +735,11 @@ function cardLink(c){
        + (g ? ` <a class="ext sub" href="${g}" target="_blank" rel="noopener" title="Open this exact card on FUT.GG">fut.gg</a>` : "");
 }
 function typeTag(c){ return c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
-function cardLine(c){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}${wfsm(c)}`; }
+function cardLine(c, pos){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}${wfsm(c, pos)}`; }
 // weak foot / skill moves / foot; a requirement that is set and met is shown in gold
-function wfsm(c){
+function wfsm(c, pos){
   if(!c || (c.wf == null && c.sm == null)) return "";
-  const R = readReqs(), hit = (k) => R && R[k] && c[k] >= R[k] ? ' class="rq-hit"' : "";
+  const R = pos ? reqAt(pos) : null, hit = (k) => R && R[k] && c[k] >= R[k] ? ' class="rq-hit"' : "";
   return ` · <span${hit("wf")} title="Weak foot">${c.wf ?? "?"}★ WF</span> · <span${hit("sm")} title="Skill moves">${c.sm ?? "?"}★ SM</span>${c.ft ? ` · <span title="Preferred foot">${c.ft === "L" ? "Left" : "Right"}</span>` : ""}`;
 }
 
@@ -754,7 +803,7 @@ function renderTotal(){
 }
 
 async function refresh(){
-  renderPitch(); renderTotal(); save(); updFillInfo();
+  renderPitch(); renderTotal(); save(); updFillInfo(); renderRq();
   clearTimeout(evalTimer);
   if(!S.squad.some(Boolean)){ lastEval = null; renderPitch(); renderTotal(); return; }
   evalTimer = setTimeout(async ()=>{   // chemistry is live while the squad is being built, not only at 11/11
@@ -788,7 +837,7 @@ function highlightSlot(i){
 }
 function hitHtml(c, k){
   const okPos = fits(c, S.slots[pickIdx]);
-  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}<div class="small mut">${esc(c.rt)} · ${cardLine(c)}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c)}</div>${psHtml(c, S.slots[pickIdx])}</div></div>`;
+  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}<div class="small mut">${esc(c.rt)} · ${cardLine(c, S.slots[pickIdx])}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c, S.slots[pickIdx])}</div>${psHtml(c, S.slots[pickIdx])}</div></div>`;
 }
 let hitCache = [], hitQuery = "", liveError = null;
 function renderHits(){
@@ -836,7 +885,7 @@ const banBtn = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "
   + (pos && !isPosBanned(c, pos) ? ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>` : "");
 function swapHtml(s){
   const a=s.out, b=s.in;
-  return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b, S.slots[s.slot])}<div class="small mut">${esc(b.rt)} · ${cardLine(b)}${b.g===2?" · women":""}</div><div class="small">${faceStats(b)}</div>${psHtml(b, S.slots[s.slot])}</div>`;
+  return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b, S.slots[s.slot])}<div class="small mut">${esc(b.rt)} · ${cardLine(b, S.slots[s.slot])}${b.g===2?" · women":""}</div><div class="small">${faceStats(b, S.slots[s.slot])}</div>${psHtml(b, S.slots[s.slot])}</div>`;
 }
 function chip(d){ return `<span class="chip ${d>=0?"pos":"neg"}">${d>=0?"+":""}${d}</span>`; }
 let VIEW = "plan", COMBO_MGR = false, MODE = "chem";
@@ -913,7 +962,7 @@ function resultsBody(r){
 function upgradeWhy(U, k){
   const rows = (U.slots || []).map(w => {
     const where = `<span class="tag">${esc(w.pos)}</span> now ${w.cur}`;
-    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (${reqsActive(readReqs()) && readReqs().pos.includes(w.pos) ? "<b>required stats</b>, " : ""}blacklist, position blocks, minimum rating).</li>`;
+    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (${reqAt(w.pos) ? `<b>required stats (${esc(rqDescribe(reqAt(w.pos)))})</b>, ` : ""}blacklist, position blocks, minimum rating).</li>`;
     if(!w.in_cap) return `<li>${where}: max OVR ${w.cap} — all ${w.higher} better cards are rated above it, and an upgrade has to be rated higher than ${w.cur}. Raise the cap above ${w.cur} for ${esc(w.pos)}.</li>`;
     if(!w.keep_chem) return `<li>${where}: ${w.in_cap} better card${w.in_cap===1?"":"s"} within the cap, but each drops chemistry below ${U.floor}. Allow more chemistry loss to see them.</li>`;
     return `<li>${where}: ${w.keep_chem} upgrade${w.keep_chem===1?"":"s"} possible on its own.</li>`;
@@ -969,7 +1018,7 @@ function renderFill(){
   const F = window.__F; if(!F) return;
   let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
     <strong>✚ Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
-  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${reqsActive(readReqs()) ? "<b>required stats</b>, " : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
+  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqAt(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqAt(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqAt(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
   else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
       ${o.league && o.li != null ? `<div class="small" style="margin-bottom:3px">League Modifier → <b>${esc(leagueName(o.li))}</b></div>` : ""}
@@ -979,7 +1028,7 @@ function renderFill(){
   $("results").innerHTML = h + `</div>`;
 }
 function reqsDataWarning(){
-  if(reqsActive(readReqs()) && !META.has_wf){
+  if(reqsActive() && !META.has_wf){
     $("goMsg").textContent = "Your card data has no weak foot / skill moves yet: ⚙ → Update card data first, then search again.";
     return true;
   }
@@ -1239,7 +1288,7 @@ async function init(){
   $("bmLink").href = bookmarklet();
   if(!$("capGrid").children.length) writeCaps({});
   if(!$("noWomen").children.length) writeNoWomen(NW_DEFAULT);
-  if(!$("rqPos").children.length) writeReqs({});
+  if(!$("rqBody").children.length) renderRq(true);
   setMode(["up","fill"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
   renderSaved(); renderBL(); renderPS(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
@@ -1355,7 +1404,15 @@ $("impClose").onclick = () => $("impDlg").close();
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
 $("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); });
 $("noWomen").addEventListener("change", save);
-for(const id of ["rqWf","rqSm","rqFs","rqPos"]) $(id).addEventListener("change", save);
+$("rqBody").addEventListener("change", e => {
+  const el = e.target.closest("[data-p]"); if(!el) return;
+  const v = Math.max(0, Math.min(99, +el.value || 0)), p = el.dataset.p, k = el.dataset.k;
+  if(p === "*"){ for(const q of rqPositions()) if(!(q === "GK" && k.startsWith("fs"))) rqSet(q, k, v); }
+  else rqSet(p, k, v);
+  renderRq(true); save(); updFiltSum();
+});
+$("rqAllPos").addEventListener("change", () => renderRq());
+$("rqClear").onclick = () => { RQ = {}; renderRq(true); save(); updFiltSum(); };
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
@@ -1435,7 +1492,7 @@ function compareHtml(swaps, ev0, ev1, mgrPatch){
     const a = w.out, b = w.in, pos = S.slots[w.slot];
     const head = c => !c ? `<div class="mut">empty slot</div>` :
       `<div><b>${c.ov}</b> ${esc(c.n)} <span class="tag">${esc(c.p)}${c.a&&c.a.length?"/"+esc(c.a.join("/")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}</div>
-       <div class="small mut">${esc(c.rt||"")} · ${cardLine(c)}${c.g===2?" · women":""}</div>`;
+       <div class="small mut">${esc(c.rt||"")} · ${cardLine(c, pos)}${c.g===2?" · women":""}</div>`;
     h += `<div class="cmp"><div class="cmp-h"><span class="tag">${esc(pos)}</span> ${a ? `${a.ov} ${esc(a.n)}` : "empty"} <span class="arrow">→</span> <b>${b.ov} ${esc(b.n)}</b>
            ${a ? chip(b.ov - a.ov) + ` <span class="small mut">OVR</span>` : ""}</div>
       <div class="cmp-grid">
@@ -1571,8 +1628,7 @@ function updFiltSum(){
   if(+$("gender").value) o.push(+$("gender").value===1?"men only":"women only");
   const x = ["xIcon","xHero","xHof"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
   if($("clubList").value.trim()) o.push("own cards only");
-  const R = readReqs();
-  if(reqsActive(R)){ const t = []; if(R.wf) t.push(`${R.wf}★ WF`); if(R.sm) t.push(`${R.sm}★ SM`); if(R.fs.some(Boolean)) t.push("min stats"); o.push(t.join(" + ") + (R.pos.length < CAP_POS.length ? ` at ${R.pos.length === 1 ? R.pos[0] : R.pos.length + " positions"}` : "")); }
+  updRqSum();
   $("filtSum").textContent = o.length ? "· "+o.join(" · ") : "";
 }
 $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps()).length; $("capSum").textContent = `Max OVR per position${n?` (${n} set)`:""}`; });

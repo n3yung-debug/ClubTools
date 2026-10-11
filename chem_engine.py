@@ -279,15 +279,16 @@ def make_value(prefs=None, w_plus=3, w_ps=1):
 
 def meets(c, pos, reqs):
     """Does card c satisfy the user's requirements at position pos?
-    reqs: {"wf": min weak foot, "sm": min skill moves, "fs": [min PAC, SHO, PAS, DRI, DEF, PHY], "pos": positions}.
+    reqs: {position: {"wf": min weak foot, "sm": min skill moves, "fs": [min PAC, SHO, PAS, DRI, DEF, PHY]}}.
     Face-stat minimums are outfield stats, so they never apply to keepers. Unknown values count as not met."""
-    if not reqs or pos not in reqs.get("pos", ()):
+    r = reqs.get(pos) if reqs else None
+    if not r:
         return True
     for k in ("wf", "sm"):
-        need = reqs.get(k) or 0
+        need = r.get(k) or 0
         if need and (c.get(k) or 0) < need:
             return False
-    mins = reqs.get("fs") or ()
+    mins = r.get("fs") or ()
     if pos != "GK" and any(mins):
         fs = c.get("fs")
         if not fs or c.get("p") == "GK" or any(m and v < m for v, m in zip(fs, mins)):

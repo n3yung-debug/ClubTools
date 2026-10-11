@@ -463,14 +463,25 @@ def find_cards(name, rating=None):
 
 
 def reqs(opts):
-    """Minimum weak foot / skill moves / face stats from the UI, for eng.index_pool."""
+    """Per-position minimum weak foot / skill moves / face stats from the UI, for eng.index_pool.
+    New shape: {"by_pos": {"ST": {"wf": 0, "sm": 5, "fs": [0]*6}, ...}}; the older single set
+    {"wf", "sm", "fs", "pos": [...]} is still understood. Returns {pos: {...}} or None."""
     r = opts.get("reqs") or {}
-    out = {"wf": int(r.get("wf") or 0), "sm": int(r.get("sm") or 0),
-           "fs": [int(x or 0) for x in (r.get("fs") or [])][:6],
-           "pos": {p for p in r.get("pos") or [] if p in eng.POS_GROUP}}
-    if not (out["wf"] or out["sm"] or any(out["fs"])) or not out["pos"]:
-        return None
-    return out
+    if "by_pos" in r:
+        raw = r.get("by_pos") or {}
+    else:   # older settings: one requirement for a list of positions
+        raw = {p: r for p in r.get("pos") or []}
+    out = {}
+    for p, x in raw.items():
+        if p not in eng.POS_GROUP or not isinstance(x, dict):
+            continue
+        one = {"wf": int(x.get("wf") or 0), "sm": int(x.get("sm") or 0),
+               "fs": [int(v or 0) for v in (x.get("fs") or [])][:6]}
+        if p == "GK":
+            one["fs"] = []   # keeper face stats are different numbers
+        if one["wf"] or one["sm"] or any(one["fs"]):
+            out[p] = one
+    return out or None
 
 
 def pos_bans(opts):

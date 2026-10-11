@@ -336,20 +336,31 @@ def test_position_ban_reaches_the_search():
 
 
 def test_required_weak_foot_skills_and_stats():
-    r = {"wf": 5, "sm": 4, "fs": [90, 0, 0, 0, 0, 0], "pos": {"ST", "CM"}}
+    st = {"wf": 5, "sm": 4, "fs": [90, 0, 0, 0, 0, 0]}
+    r = {"ST": st, "CM": st, "CB": {"wf": 0, "sm": 0, "fs": [80, 0, 0, 0, 0, 0]}}
     good = card(720, "ST", alts=("CM",), wf=5, sm=4, fs=[92, 80, 75, 85, 40, 70])
     slow = card(721, "ST", wf=5, sm=5, fs=[85, 90, 80, 88, 40, 75])   # PAC 85 < 90
     weak = card(722, "ST", wf=4, sm=5, fs=[95, 90, 80, 88, 40, 75])   # 4* WF
     unknown = card(723, "ST", fs=[95, 90, 80, 88, 40, 75])            # no WF/SM data: not met
     keeper = card(724, "GK", wf=2, sm=1, fs=[85, 84, 80, 86, 50, 84])
+    fast_cb = card(725, "CB", wf=2, sm=2, fs=[82, 40, 60, 65, 85, 80])
+    slow_cb = card(726, "CB", wf=5, sm=5, fs=[70, 40, 60, 65, 88, 85])
     assert eng.meets(good, "ST", r) and eng.meets(good, "CM", r)
     assert not eng.meets(slow, "ST", r) and not eng.meets(weak, "ST", r) and not eng.meets(unknown, "ST", r)
-    assert eng.meets(weak, "CB", r) and eng.meets(keeper, "GK", r)   # positions not chosen: no requirement
-    by_pos = eng.index_pool([good, slow, weak, unknown, keeper], reqs=r)
-    assert by_pos["ST"] == [good] and by_pos["GK"] == [keeper]
-    assert cb.reqs({"reqs": {"wf": 5, "pos": ["ST", "XX"]}}) == {"wf": 5, "sm": 0, "fs": [], "pos": {"ST"}}
-    assert cb.reqs({"reqs": {"wf": 0, "sm": 0, "fs": [0] * 6, "pos": ["ST"]}}) is None   # nothing required
-    assert cb.reqs({"reqs": {"wf": 5, "pos": []}}) is None                             # nowhere to apply
+    assert eng.meets(weak, "LW", r) and eng.meets(keeper, "GK", r)   # positions without requirements
+    assert eng.meets(fast_cb, "CB", r) and not eng.meets(slow_cb, "CB", r)   # CB: only pace matters, not skills
+    by_pos = eng.index_pool([good, slow, weak, unknown, keeper, fast_cb, slow_cb], reqs=r)
+    assert by_pos["ST"] == [good] and by_pos["GK"] == [keeper] and by_pos["CB"] == [fast_cb]
+    # server side: new per-position shape, older single-set shape, and nothing set
+    z = [0] * 6
+    assert cb.reqs({"reqs": {"by_pos": {"ST": {"sm": 5, "fs": z}, "CB": {"fs": [80, 0, 0, 0, 0, 0]},
+                                        "XX": {"sm": 5}, "LW": {"wf": 0, "sm": 0, "fs": z},
+                                        "GK": {"wf": 3, "fs": [90, 0, 0, 0, 0, 0]}}}}) == {
+        "ST": {"wf": 0, "sm": 5, "fs": z}, "CB": {"wf": 0, "sm": 0, "fs": [80, 0, 0, 0, 0, 0]},
+        "GK": {"wf": 3, "sm": 0, "fs": []}}
+    assert cb.reqs({"reqs": {"wf": 5, "pos": ["ST", "XX"]}}) == {"ST": {"wf": 5, "sm": 0, "fs": []}}
+    assert cb.reqs({"reqs": {"by_pos": {"ST": {"wf": 0, "sm": 0, "fs": z}}}}) is None
+    assert cb.reqs({"reqs": {"wf": 5, "pos": []}}) is None
 
 
 def test_fill_squad_respects_required_stats():
@@ -358,7 +369,7 @@ def test_fill_squad_respects_required_stats():
     squad[0] = None   # an empty ST slot
     five = card(850, "ST", ni=100, li=200, wf=5, sm=5, ov=80)
     four = card(851, "ST", ni=101, li=201, wf=4, sm=5, ov=90)   # better rated but only 4* WF
-    by_pos = eng.index_pool([five, four], reqs={"wf": 5, "sm": 0, "fs": [], "pos": {"ST"}})
+    by_pos = eng.index_pool([five, four], reqs={"ST": {"wf": 5, "sm": 0, "fs": []}})
     res = eng.fill_squad(SLOTS, squad, None, by_pos)
     picks = {o["fills"][0]["in"]["s"] for o in res["options"]}
     assert picks == {five["s"]}
