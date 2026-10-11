@@ -13,14 +13,14 @@ I've built **ClubTools**, a free Windows tool for EA SPORTS FC 27 Ultimate Team.
 Your terms ask for written permission before automated access or commercial use of FUT.GG data. I want to do this properly, so I'm asking before I release it more widely.
 
 **What ClubTools uses from FUT.GG today:**
-- Public card data from your player list endpoint: name, rating, positions, nation, league, club, face stats, PlayStyles. It's downloaded about once a day per user, or when the user presses "Update card data", not continuously.
+- Public card data from your player list endpoint: name, rating, positions, nation, league, club, face stats, PlayStyles. It's downloaded only when the user presses "Update card data" (or on first start if there's no data). If the user ticks "also search FUT.GG live" in the player search, it also looks that name up on FUT.GG.
 - Squad import from a FUT.GG squad-builder share link the user pastes.
 - It does **not** use or show your price data, and it doesn't log in or touch any user accounts.
 
 **What FUT.GG gets in return:**
 - Attribution in the app ("Card data: FUT.GG") and in its About page.
 - Every suggested card has a **fut.gg** link that opens that card's page on your site, sending users your way.
-- I'm happy to add a more visible credit or link, use any official or partner endpoint you prefer, cap request rates, or add a custom User-Agent so you can identify and limit it.
+- I'm happy to add a more visible credit or link, use any official or partner endpoint you prefer, cap request rates, or switch from the standard browser User-Agent it sends today to a custom "ClubTools" one so you can identify and limit it.
 
 **Money:** ClubTools is and will stay free. I'd like to cover costs with passive ads on the ClubTools website and voluntary donations; nothing is paywalled. If you'd rather it carry no ads while it uses your data, or you have other conditions (fees, rate limits, a partner agreement), please tell me.
 
