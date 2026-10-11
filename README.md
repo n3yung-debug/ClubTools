@@ -47,7 +47,7 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 - PlayStyle ids/names come from FUT.GG's feed and site code (Oct 2026).
 
 ## Prices
-- Prices can't be read automatically (FUT.GG and FUTBIN keep them behind a Cloudflare browser check), so there is no budget filter. Every suggested card links to its FUT.GG page, where the price is one click away.
+- Prices can't be read automatically (FUT.GG and FUTBIN keep them behind a Cloudflare browser check), so there is no budget filter. Every suggested card has a **FUTBIN ↗** link: it opens FUTBIN's search for that player's name (FUTBIN uses its own player ids, which aren't available to programs), listing every version so you can pick the one with the right rating and see its price. A small **fut.gg** link next to it opens the exact card on FUT.GG.
 
 ## Rules implemented (checked 8 Oct 2026 against community guides; no EA primary source found)
 - 0–3 chem per starter, max 33. Counts include the player. Club 2/4/7, league 3/5/8, nation 2/5/8; types add, capped at 3.

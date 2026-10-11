@@ -743,8 +743,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/open":   # the desktop window asks to open a link in the normal web browser
                 url = str(body.get("url") or "")
                 own = f"http://127.0.0.1:{self.server.server_address[1]}/"
-                if not (url.startswith("https://www.fut.gg/") or url.startswith(own)):
-                    return self._send(400, {"error": "only FUT.GG and ClubTools links are opened"})
+                if not (url.startswith(("https://www.fut.gg/", "https://www.futbin.com/")) or url.startswith(own)):
+                    return self._send(400, {"error": "only FUTBIN, FUT.GG and ClubTools links are opened"})
                 webbrowser.open(url)
                 return self._send(200, {"ok": True})
             if self.path == "/api/bye":

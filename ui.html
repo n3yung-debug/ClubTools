@@ -151,7 +151,8 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .banner{background:#5a1f1f;color:#fff;padding:10px 14px;font:14px system-ui}
 .bm{display:inline-block;padding:6px 10px;border-radius:6px;background:var(--acc);color:#04101f;font-weight:700;text-decoration:none}
 .fs{color:var(--txt);letter-spacing:.2px} .fs b{color:var(--gold)}
-a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ext:hover{text-decoration:underline}
+a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px;font-weight:600} a.ext:hover{text-decoration:underline}
+a.ext.sub{color:var(--mut);font-weight:400;font-size:11px;margin-left:4px}
 .pss{margin-top:3px;line-height:1.8} .ps{display:inline-block;padding:0 6px;border-radius:5px;background:#ffffff0d;color:var(--mut);font-size:11px;margin-right:3px}
 .ps.ps-plus{color:var(--txt);border:1px solid #8a7433} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
 h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
@@ -597,7 +598,13 @@ function faceStats(c){
 }
 // FUT.GG card page for this exact version (FUT.GG redirects /players/<base id>/<card slug>/ to the full page)
 const cardUrl = c => /^\d+-\d+$/.test(String(c.s)) && c.bp ? `https://www.fut.gg/players/${encodeURIComponent(c.bp)}/${encodeURIComponent(c.s)}/` : "";
-function cardLink(c){ const u = cardUrl(c); return u ? ` <a class="ext" href="${u}" target="_blank" rel="noopener" title="Open this card on FUT.GG (price, stats)">FUT.GG ↗</a>` : ""; }
+// FUTBIN uses its own player ids (not EA's), so the FUTBIN link is a name search listing every version of the player
+const futbinUrl = c => c && c.n ? `https://www.futbin.com/players?page=1&search=${encodeURIComponent(c.n)}` : "";
+function cardLink(c){
+  const b = futbinUrl(c), g = cardUrl(c);
+  return (b ? ` <a class="ext" href="${b}" target="_blank" rel="noopener" title="Find ${esc(c.n)} on FUTBIN (prices, stats) - pick the ${c.ov} ${esc(c.rt||"")} version">FUTBIN ↗</a>` : "")
+       + (g ? ` <a class="ext sub" href="${g}" target="_blank" rel="noopener" title="Open this exact card on FUT.GG">fut.gg</a>` : "");
+}
 function typeTag(c){ return c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
 function cardLine(c){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}`; }
 
