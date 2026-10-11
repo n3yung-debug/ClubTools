@@ -25,8 +25,7 @@ jobs:
         run: python test_engine.py
 
       - name: Stamp version
-        shell: pwsh
-        run: Set-Content -NoNewline version.txt ("{0} ({1})" -f (Get-Date -Format "yyyy-MM-dd HH:mm"), "${{ github.sha }}".Substring(0,7))
+        run: python -c "import datetime, os; open('version.txt', 'w').write(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + os.environ['GITHUB_SHA'][:7] + ')')"
 
       - name: Build ChemBuilder.exe
         run: >
