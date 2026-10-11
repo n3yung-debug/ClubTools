@@ -15,11 +15,15 @@ Card data comes from FUT.GG's public JSON feed (the same one its own player list
 It is fetched politely (one request every ~0.4 s) and cached in cards.json next to this file.
 """
 import argparse
+import datetime
+import glob
+import hashlib
 import json
 import os
 import re
 import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -700,6 +704,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
+        if u.path == "/api/update":
+            return self._send(200, dict(UPDATE, current=current_version(), can_install=can_self_update(), auto=auto_update_on()))
         if u.path == "/api/diag":
             return self._send(200, diagnose())
         if u.path == "/api/sync_status":
@@ -752,12 +758,20 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/open":   # the desktop window asks to open a link in the normal web browser
                 url = str(body.get("url") or "")
                 own = f"http://127.0.0.1:{self.server.server_address[1]}/"
-                if not (url.startswith(("https://www.fut.gg/", "https://www.futbin.com/")) or url.startswith(own)):
+                if not (url.startswith(("https://www.fut.gg/", "https://www.futbin.com/", "https://github.com/n3yung-debug/")) or url.startswith(own)):
                     return self._send(400, {"error": "only FUTBIN, FUT.GG and ClubTools links are opened"})
                 webbrowser.open(url)
                 return self._send(200, {"ok": True})
             if self.path == "/api/bye":
                 LIFE.bye(body.get("tab"))
+                return self._send(200, {"ok": True})
+            if self.path == "/api/update":
+                act = body.get("action")
+                busy = UPDATE["state"] in ("checking", "downloading", "installing", "restarting")
+                if act == "check" and not busy:
+                    threading.Thread(target=check_update, daemon=True).start()
+                elif act == "install" and not busy and UPDATE["state"] == "available":
+                    threading.Thread(target=install_update, daemon=True).start()
                 return self._send(200, {"ok": True})
             if self.path == "/api/quit":
                 threading.Timer(0.3, LIFE.stop).start()
@@ -896,6 +910,187 @@ SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to ClubTools</ti
 <p style="color:#8fa0c0">You can close this tab.</p></div></body>"""
 
 
+# ------------------------------------------------------------------ updates (GitHub Releases)
+# The app asks GitHub for the latest published release on start. Installing downloads ClubTools.exe from
+# that release, checks it against the SHA-256 GitHub records for the file, swaps it in next to the running
+# exe (Windows lets a running exe be renamed, not deleted) and restarts. Nothing runs without a matching hash.
+UPDATE_REPO = "n3yung-debug/FifaChemPlus"   # public; GitHub redirects API calls if the repo is renamed
+UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
+UPDATE_HOSTS = {"github.com", "api.github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
+UPDATE = {"state": "idle", "latest": None, "error": "", "done": 0, "total": 0, "updated": False}
+WINDOW = {"win": None, "port": 8765}
+
+
+def current_version():
+    return os.environ.get("CLUBTOOLS_FAKE_VERSION") or app_version()   # the env var is for the update test only
+
+
+def version_info(v):
+    """'1.2.0 · 2026-10-11 11:20 UTC (abc1234)' -> ((1, 2, 0), build time). Either part may be None."""
+    m = re.match(r"\s*v?(\d+)\.(\d+)\.(\d+)\b", v or "")
+    t = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) UTC", v or "")
+    built = datetime.datetime.strptime(t.group(1), "%Y-%m-%d %H:%M").replace(tzinfo=datetime.timezone.utc) if t else None
+    return (tuple(int(x) for x in m.groups()) if m else None), built
+
+
+def is_newer(tag, published, mine):
+    """Is release `tag` newer than this build? Release builds compare version numbers; test builds from
+    GitHub Actions (no number) compare dates; running from the Python files never offers an update."""
+    theirs, _ = version_info(tag)
+    sem, built = version_info(mine)
+    if theirs is None:
+        return False
+    if sem is not None:
+        return theirs > sem
+    if built is not None and published:
+        pub = datetime.datetime.strptime(published, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+        return pub > built + datetime.timedelta(minutes=10)
+    return False
+
+
+def _github_json(url):
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "ClubTools-updater", "X-GitHub-Api-Version": "2022-11-28"}
+    if os.environ.get("CLUBTOOLS_GITHUB_TOKEN"):   # only the release test sets this (shared CI machines hit the anonymous limit)
+        headers["Authorization"] = "Bearer " + os.environ["CLUBTOOLS_GITHUB_TOKEN"]
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.load(r)
+
+
+def check_update():
+    UPDATE.update(state="checking", error="")
+    try:
+        rel = _github_json(UPDATE_API)
+        tag = str(rel.get("tag_name") or "")
+        asset = next((x for x in rel.get("assets") or [] if x.get("name") == "ClubTools.exe"), None)
+        UPDATE["latest"] = {"version": tag.lstrip("v"), "notes": str(rel.get("body") or "")[:5000],
+                            "page": rel.get("html_url") or "", "published": rel.get("published_at") or "",
+                            "asset": asset and {"url": asset.get("browser_download_url") or "", "size": asset.get("size") or 0,
+                                                "digest": asset.get("digest") or ""}}
+        UPDATE["state"] = "available" if asset and is_newer(tag, rel.get("published_at"), current_version()) else "current"
+    except urllib.error.HTTPError as e:   # 404: no release published yet
+        UPDATE.update(state="current" if e.code == 404 else "error", error="" if e.code == 404 else f"GitHub answered HTTP {e.code}")
+    except Exception as e:  # noqa: BLE001
+        UPDATE.update(state="error", error=f"couldn't reach GitHub ({e})"[:240])
+    print(f"Update check: {UPDATE['state']} {UPDATE['error']}".rstrip(), flush=True)
+
+
+def download_verified(url, digest, dest, hosts=UPDATE_HOSTS, progress=None):
+    """Download url to dest; keep it only if its SHA-256 matches digest ('sha256:<hex>')."""
+    if not str(digest).startswith("sha256:"):
+        raise RuntimeError("this release has no checksum, so it isn't installed automatically - use the release page")
+    if not url.startswith("https://") or urllib.parse.urlparse(url).hostname not in hosts:
+        raise RuntimeError("unexpected download address: " + url[:80])
+    h = hashlib.sha256()
+    req = urllib.request.Request(url, headers={"User-Agent": "ClubTools-updater", "Accept": "application/octet-stream"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r, open(dest, "wb") as f:
+            if urllib.parse.urlparse(r.geturl()).hostname not in hosts:
+                raise RuntimeError("the download was redirected to an unexpected address")
+            while True:
+                chunk = r.read(1 << 16)
+                if not chunk:
+                    break
+                f.write(chunk)
+                h.update(chunk)
+                if progress:
+                    progress(len(chunk))
+        if h.hexdigest() != digest.split(":", 1)[1].strip().lower():
+            raise RuntimeError("the downloaded file doesn't match the release checksum - not installed")
+    except BaseException:
+        try:
+            os.remove(dest)
+        except OSError:
+            pass
+        raise
+
+
+def swap_exe(exe, new):
+    """Put `new` where `exe` is. The running exe is renamed to *.old.exe (removed on the next start)."""
+    old = exe[:-4] + ".old.exe"
+    if os.path.exists(old):
+        try:
+            os.remove(old)
+        except OSError:
+            old = exe[:-4] + f".old{int(time.time())}.exe"
+    os.replace(exe, old)
+    try:
+        os.replace(new, exe)
+    except BaseException:
+        os.replace(old, exe)
+        raise
+    return old
+
+
+def cleanup_old_exes(wait=60):
+    """Remove what an update left behind (the previous version may still be closing)."""
+    if not FROZEN:
+        return
+    folder = os.path.dirname(os.path.abspath(sys.executable))
+    deadline = time.time() + wait
+    while True:
+        left = glob.glob(os.path.join(folder, "ClubTools.old*.exe")) + glob.glob(os.path.join(folder, "ClubTools.new.exe"))
+        for f in list(left):
+            try:
+                os.remove(f)
+                left.remove(f)
+            except OSError:
+                pass
+        if not left or time.time() > deadline:
+            return
+        time.sleep(2)
+
+
+def can_self_update():
+    return FROZEN and os.name == "nt" and sys.executable.lower().endswith(".exe")
+
+
+def quit_app():
+    win = WINDOW.get("win")
+    if win is not None:
+        try:
+            win.destroy()
+            return
+        except Exception:  # noqa: BLE001
+            pass
+    LIFE.stop()
+
+
+def install_update():
+    lat = UPDATE.get("latest") or {}
+    a = lat.get("asset") or {}
+    try:
+        if not can_self_update():
+            raise RuntimeError("automatic install only works in ClubTools.exe - use the release page")
+        exe = os.path.abspath(sys.executable)
+        new = os.path.join(os.path.dirname(exe), "ClubTools.new.exe")
+        UPDATE.update(state="downloading", done=0, total=int(a.get("size") or 0), error="")
+
+        def prog(n):
+            UPDATE["done"] += n
+        download_verified(a.get("url") or "", a.get("digest") or "", new, progress=prog)
+        UPDATE["state"] = "installing"
+        swap_exe(exe, new)
+        args = [exe] + [x for x in sys.argv[1:] if x != "--after-update"] + ["--after-update"]
+        env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")   # a fresh, independent copy of the new exe
+        subprocess.Popen(args, env=env, cwd=os.path.dirname(exe), close_fds=True,
+                         creationflags=0x00000008 | 0x00000200)   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        UPDATE["state"] = "restarting"
+        print(f"Updated to {lat.get('version')}; restarting.", flush=True)
+        threading.Timer(1.0, quit_app).start()
+    except PermissionError:
+        UPDATE.update(state="error", error="ClubTools can't replace its own file in this folder (no write access). "
+                                           "Move ClubTools.exe to e.g. Documents, or download it from the release page.")
+    except Exception as e:  # noqa: BLE001
+        UPDATE.update(state="error", error=str(e)[:300])
+    if UPDATE["state"] == "error":
+        print("Update failed: " + UPDATE["error"], flush=True)
+
+
+def auto_update_on():
+    return read_state().get("chemBuilder.autoUpdate") != "0"
+
+
 def windowless():
     """True under pythonw (start.bat), where there is no console to print to."""
     return sys.stdout is None or sys.stderr is None
@@ -953,7 +1148,7 @@ def run_app(url, smoke=False):
         print("pywebview is not installed (pip install pywebview==6.2.1) - opening in the browser instead.")
         return False
     os.makedirs(DATA_DIR, exist_ok=True)
-    win = webview.create_window("ClubTools - EA FC 27", url + "?app=1", width=1500, height=950,
+    win = WINDOW["win"] = webview.create_window("ClubTools - EA FC 27", url + "?app=1", width=1500, height=950,
                                 min_size=(1000, 700), background_color="#0e1420")
     if smoke:  # build check: wait for the page to render the pitch, report, close
         def check():
@@ -993,6 +1188,7 @@ def main():
     ap.add_argument("--browser", action="store_true", help="open in the web browser even from the .exe")
     ap.add_argument("--selftest", action="store_true", help="start, check the page and data, exit (build check)")
     ap.add_argument("--smoke", action="store_true", help="open the window, check it renders, close (build check)")
+    ap.add_argument("--after-update", action="store_true", help=argparse.SUPPRESS)   # started by the updater
     a = ap.parse_args()
     ensure_cards()
     if a.selftest:
@@ -1017,6 +1213,13 @@ def main():
             return
     app = (a.app or a.smoke or FROZEN) and not a.browser
     url = f"http://127.0.0.1:{a.port}/"
+    WINDOW["port"] = a.port
+    if a.after_update:   # the previous version is closing: wait for it to free the port
+        for _ in range(60):
+            if not already_running(a.port):
+                break
+            time.sleep(0.5)
+        UPDATE["updated"] = True
     if already_running(a.port):  # second start: just show the app that is already running
         print(f"ClubTools is already running at {url}")
         if app and run_app(url, a.smoke):
@@ -1027,11 +1230,20 @@ def main():
     load_cache()
     if not STATE["cards"]:
         fatal("No card data. Run: python chem_builder.py --sync")
-    try:
-        srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
-    except OSError as e:
-        fatal(f"Port {a.port} is in use by another program ({e}). Close it or start with --port 8766.")
+    srv = None
+    for attempt in range(40 if a.after_update else 1):   # after an update the old version may still hold the port
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
+            break
+        except OSError as e:
+            if attempt == (39 if a.after_update else 0):
+                fatal(f"Port {a.port} is in use by another program ({e}). Close it or start with --port 8766.")
+            time.sleep(0.5)
     LIFE.server = srv
+    if FROZEN and not a.smoke:
+        threading.Thread(target=cleanup_old_exes, daemon=True).start()
+        if auto_update_on():
+            threading.Thread(target=check_update, daemon=True).start()
     print(f"{len(STATE['cards'])} cards loaded (synced {STATE['meta'].get('synced_at', '?')}). {url}")
     serving = threading.Thread(target=srv.serve_forever, daemon=True)
     serving.start()

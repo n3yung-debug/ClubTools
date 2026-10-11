@@ -14,6 +14,16 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 
 **From the Python files:** double-click **start.bat** (needs Python 3.9+). With `pip install pywebview==6.2.1` it opens the same app window; without it, it opens in your browser and stops about 30 s after the tab closes. **start_console.bat** shows error messages. Command line: `python chem_builder.py --app` (window) or `python chem_builder.py` (browser).
 
+## Updates
+
+**For users:** when ClubTools.exe starts it asks GitHub for the latest release of this repository. If there is a newer version, a bar under the header shows it with **What's new**, **Update now**, **Later** and **Skip this version**. Update now downloads the new ClubTools.exe, checks it against the SHA-256 checksum GitHub records for the release file (it refuses to install anything that doesn't match, or a release without a checksum), puts it in place of the running exe and restarts. Squads and settings are untouched (they live in `%APPDATA%\ClubTools`). ⚙ → **Check for updates** checks by hand; untick **Check for updates when ClubTools starts** to turn the automatic check off. If ClubTools.exe sits in a folder it can't write to (e.g. Program Files) the bar links to the release page instead.
+
+**Publishing an update** (the GitHub workflow `Release ClubTools` does everything):
+- Push a version tag: `git tag -a v1.2.0 -m "What's new text" && git push origin v1.2.0` (or ask Claude to "release 1.2.0"), or
+- on GitHub: **Actions → Release ClubTools → Run workflow**, type the version (and optionally the notes). This button appears once the workflow file is on the default branch.
+
+The workflow builds and self-tests the exe, publishes it as a pre-release (nobody is offered it yet), then runs an old copy of ClubTools on a Windows machine that updates itself to the new release and checks the installed file's checksum. Only when that passes does it become the latest release, which every ClubTools offers on its next start. Version numbers must go up (1.2.0 → 1.2.1 / 1.3.0); release notes default to the list of changes since the previous release. Builds from the normal "Build Windows app" workflow (test builds without a version number) are offered a release published after them.
+
 ## Use
 - Pick a formation (all 29 FC 27 Ultimate Team formations, taken from FUT.GG's squad builder), or edit any slot's position dropdown.
 - Click an empty slot to start **fill mode**: type a name, press Enter, and the picker moves to the next empty slot (↑↓ to choose, Esc to stop). Chemistry updates live as you add players.

@@ -1,0 +1,156 @@
+name: Release ClubTools
+
+# Publishes a new version that every installed ClubTools offers on its next start.
+#   - push a tag:      git tag v1.2.0 && git push origin v1.2.0
+#   - or on GitHub:    Actions -> Release ClubTools -> Run workflow -> enter 1.2.0 (needs this file on the default branch)
+# The release goes out as a pre-release first (not offered to anyone), an older ClubTools then updates itself
+# to it on a Windows machine, and only if that works does it become the "latest" release users are offered.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number, e.g. 1.2.0 (higher than the last release)"
+        required: true
+      notes:
+        description: "What's new (shown in the app). Blank = list of changes since the last release"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the version number
+        id: v
+        shell: python
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          import os, re
+          v = (os.environ["INPUT_VERSION"] if os.environ["EVENT"] == "workflow_dispatch" else os.environ["REF_NAME"]).strip().lstrip("v")
+          if not re.fullmatch(r"\d+\.\d+\.\d+", v):
+              raise SystemExit(f"The version must look like 1.2.0 - got {v!r}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={v}\n")
+
+      - name: Install build tools
+        run: python -m pip install pywebview==6.2.1 pyinstaller==6.22.3
+
+      - name: Rule tests
+        run: python test_engine.py
+
+      - name: Stamp version
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: python -c "import datetime, os; open('version.txt', 'w', encoding='utf-8').write(os.environ['VERSION'] + ' · ' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + os.environ['GITHUB_SHA'][:7] + ')')"
+
+      - name: Build ClubTools.exe
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name ClubTools --icon icon.ico
+          --add-data "ui.html;." --add-data "cards.json;." --add-data "version.txt;." --collect-all webview chem_builder.py
+
+      - name: Self-test the exe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\ClubTools.exe -ArgumentList "--selftest","--port","8790" -Wait -PassThru
+          $log = Get-Content "$env:APPDATA\ClubTools\clubtools.log" -Raw
+          Write-Output $log
+          if ($p.ExitCode -ne 0 -or $log -notmatch "SELFTEST OK") { throw "self-test failed (exit $($p.ExitCode))" }
+
+      - name: Release notes
+        shell: pwsh
+        env:
+          NOTES: ${{ inputs.notes }}
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $tagMsg = ""
+          if ($env:EVENT -eq "push" -and (git cat-file -t "refs/tags/$env:REF_NAME") -eq "tag") {   # annotated tag: its message
+            $tagMsg = (git tag -l --format="%(contents)" "$env:REF_NAME") -join "`n"
+          }
+          if ($env:NOTES) { $text = $env:NOTES }
+          elseif ($tagMsg.Trim()) { $text = $tagMsg.Trim() }
+          else {
+            $prev = git describe --tags --abbrev=0 --match "v*.*.*" "$env:GITHUB_SHA^" 2>$null
+            $range = if ($LASTEXITCODE -eq 0 -and $prev) { "$prev..$env:GITHUB_SHA" } else { "$env:GITHUB_SHA" }
+            $text = (git log $range --no-merges --format="- %s" -n 40) -join "`n"
+          }
+          Set-Content -Path notes.md -Value $text -Encoding utf8
+          Get-Content notes.md
+          exit 0
+
+      - name: Publish as a pre-release (not offered to users yet)
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          gh release create "v$env:VERSION" dist/ClubTools.exe --title "ClubTools $env:VERSION" --notes-file notes.md --prerelease --target $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+
+      - name: Update test - an older ClubTools updates itself to this release
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          CLUBTOOLS_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "updtest"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item dist\ClubTools.exe "$dir\ClubTools.exe"
+          $env:CLUBTOOLS_FAKE_VERSION = "0.0.1"   # pretend to be an old version
+          $env:CLUBTOOLS_UPDATE_API = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/v$env:VERSION"
+          $base = "http://127.0.0.1:8797"
+          function Get-Upd { try { Invoke-RestMethod "$base/api/update" -TimeoutSec 3 } catch { $null } }
+          function Post-Upd($action) { Invoke-RestMethod -Method Post "$base/api/update" -ContentType "application/json" -Body (@{action=$action} | ConvertTo-Json) | Out-Null }
+          function Wait-For($what, $secs, [scriptblock]$ok) {
+            $end = (Get-Date).AddSeconds($secs)
+            while ((Get-Date) -lt $end) { $u = Get-Upd; if (& $ok $u) { return $u }; Start-Sleep -Milliseconds 500 }
+            Get-Content "$env:APPDATA\ClubTools\clubtools.log" -Raw -ErrorAction SilentlyContinue
+            throw "timed out waiting for: $what"
+          }
+          $old = Start-Process "$dir\ClubTools.exe" -ArgumentList "--browser","--no-browser","--stay","--port","8797" -PassThru
+          Wait-For "the old version to start" 60 { param($u) $u -ne $null } | Out-Null
+          Post-Upd "check"
+          $u = Wait-For "the update check" 60 { param($u) $u -and $u.state -ne "checking" -and $u.state -ne "idle" }
+          if ($u.state -ne "available") { throw "update not offered: state=$($u.state) error=$($u.error)" }
+          Write-Output "Offered $($u.latest.version), download $($u.latest.asset.url), $($u.latest.asset.digest)"
+          Post-Upd "install"
+          if (-not $old.WaitForExit(120000)) { throw "the old version didn't close after installing" }
+          $u = Wait-For "the new version to start" 90 { param($u) $u -and $u.updated }
+          $want = $u.latest.asset.digest
+          $have = "sha256:" + (Get-FileHash "$dir\ClubTools.exe" -Algorithm SHA256).Hash.ToLower()
+          if ($have -ne $want) { throw "installed exe $have doesn't match the release $want" }
+          $end = (Get-Date).AddSeconds(60)
+          while ((Get-ChildItem "$dir\ClubTools.old*.exe" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $end) { Start-Sleep 1 }
+          if (Get-ChildItem "$dir\ClubTools.old*.exe" -ErrorAction SilentlyContinue) { throw "the previous version's file was not cleaned up" }
+          Get-Content "$env:APPDATA\ClubTools\clubtools.log" -Raw
+          Invoke-RestMethod -Method Post "$base/api/quit" -ContentType "application/json" -Body "{}" | Out-Null
+          Write-Output "UPDATE TEST OK: the old exe downloaded, verified and swapped in v$env:VERSION and restarted"
+
+      - name: Make it the latest release (offered to everyone on their next start)
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          gh release edit "v$env:VERSION" --prerelease=false --latest
+          if ($LASTEXITCODE -ne 0) { throw "gh release edit failed" }

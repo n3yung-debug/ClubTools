@@ -1,4 +1,5 @@
 """Rule tests for chem_engine.  Run:  python test_engine.py"""
+import os
 import time
 import chem_builder as cb
 import chem_engine as eng
@@ -429,6 +430,81 @@ def test_ids_import_dedupes_and_seats():
         cb.fetch_json = real
     assert [x["card"]["s"] for x in r["rows"]] == ["27-231747", "27-37576"]  # duplicate id placed once
     assert r["unmatched"] == ["card id 999999999"]
+
+
+def test_update_version_compare():
+    assert cb.version_info("1.2.0 · 2026-10-11 11:20 UTC (abc1234)")[0] == (1, 2, 0)
+    assert cb.version_info("2026-10-11 11:20 UTC (abc1234)")[0] is None
+    assert cb.is_newer("v1.2.0", "2026-10-12T10:00:00Z", "1.1.9 · 2026-10-11 11:20 UTC (x)")
+    assert not cb.is_newer("v1.2.0", "2026-10-12T10:00:00Z", "1.2.0 · 2026-10-12 09:50 UTC (x)")
+    assert not cb.is_newer("v1.10.0", "2026-10-12T10:00:00Z", "1.10.1")
+    assert cb.is_newer("v1.10.0", "2026-10-12T10:00:00Z", "1.9.9")       # numeric, not text, comparison
+    assert cb.is_newer("v1.0.0", "2026-10-12T10:00:00Z", "2026-10-11 11:20 UTC (x)")       # test build, older
+    assert not cb.is_newer("v1.0.0", "2026-10-11T11:25:00Z", "2026-10-11 11:20 UTC (x)")   # built alongside
+    assert not cb.is_newer("v9.0.0", "2026-10-12T10:00:00Z", "dev")   # from the Python files: never
+
+
+def test_update_check_reads_release(monkeypatch=None):
+    rel = {"tag_name": "v9.9.9", "published_at": "2030-01-01T00:00:00Z", "html_url": "https://github.com/n3yung-debug/x",
+           "body": "notes", "assets": [{"name": "ClubTools.exe", "browser_download_url": "https://github.com/a/b",
+                                        "size": 3, "digest": "sha256:" + "0" * 64}]}
+    old_json, old_ver = cb._github_json, cb.current_version
+    try:
+        cb._github_json, cb.current_version = (lambda url: rel), (lambda: "1.0.0")
+        cb.check_update()
+        assert cb.UPDATE["state"] == "available" and cb.UPDATE["latest"]["version"] == "9.9.9"
+        assert cb.UPDATE["latest"]["asset"]["digest"].startswith("sha256:")
+        rel["assets"] = []   # a release without the exe is never offered
+        cb.check_update()
+        assert cb.UPDATE["state"] == "current"
+    finally:
+        cb._github_json, cb.current_version = old_json, old_ver
+
+
+def test_update_download_is_verified():
+    import hashlib, io, tempfile
+    data = b"new exe bytes"
+    good = "sha256:" + hashlib.sha256(data).hexdigest()
+
+    class Resp(io.BytesIO):
+        def __init__(self, url): super().__init__(data); self.url = url
+        def geturl(self): return self.url
+        def __enter__(self): return self
+        def __exit__(self, *a): self.close()
+    real = cb.urllib.request.urlopen
+    d = tempfile.mkdtemp()
+    dest = os.path.join(d, "ClubTools.new.exe")
+    try:
+        cb.urllib.request.urlopen = lambda req, timeout=0: Resp("https://release-assets.githubusercontent.com/x")
+        cb.download_verified("https://github.com/o/r/releases/download/v1/ClubTools.exe", good, dest)
+        assert open(dest, "rb").read() == data
+        for url, dg, why in [("https://github.com/x", "sha256:" + "1" * 64, "doesn't match"),
+                             ("https://github.com/x", "", "no checksum"),
+                             ("https://evil.example/x", good, "unexpected download address"),
+                             ("http://github.com/x", good, "unexpected download address")]:
+            try:
+                cb.download_verified(url, dg, dest)
+                raise AssertionError("accepted " + why)
+            except RuntimeError as e:
+                assert why in str(e), e
+            assert not os.path.exists(dest)   # nothing half-downloaded or unverified is left behind
+        cb.urllib.request.urlopen = lambda req, timeout=0: Resp("https://evil.example/x")   # redirected elsewhere
+        try:
+            cb.download_verified("https://github.com/x", good, dest)
+            raise AssertionError("accepted a redirect to another host")
+        except RuntimeError as e:
+            assert "redirected" in str(e)
+    finally:
+        cb.urllib.request.urlopen = real
+
+
+def test_update_swap_keeps_old_until_restart():
+    import tempfile
+    d = tempfile.mkdtemp()
+    exe, new = os.path.join(d, "ClubTools.exe"), os.path.join(d, "ClubTools.new.exe")
+    open(exe, "w").write("old"); open(new, "w").write("new")
+    old = cb.swap_exe(exe, new)
+    assert open(exe).read() == "new" and open(old).read() == "old" and not os.path.exists(new)
 
 
 def _opt_body(**opts):

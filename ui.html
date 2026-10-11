@@ -164,6 +164,11 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .gobar{display:flex;flex-direction:column;gap:6px;margin-top:14px}
 .gobar #go{width:100%;padding:11px;font-size:15px}
 #goMsg{min-height:1em;text-align:center}
+/* update bar */
+.updbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:9px 18px;background:linear-gradient(90deg,#123a2a,#13284a);border-bottom:1px solid #2f7a5c;font-size:13px}
+.updbar b{color:#8ff0c0} .updbar .sp{flex:1}
+.updbar pre{flex-basis:100%;margin:4px 0 0;white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.5;color:var(--txt);background:#0006;border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px;max-height:220px;overflow:auto}
+.updbar progress{width:180px;height:8px;accent-color:var(--ok)}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -195,12 +200,16 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
       <div class="small mut" id="dataInfo"></div>
       <hr>
       <button id="sync" class="sm">⟳ Update card data</button>
+      <button id="updCheck" class="sm">⬆ Check for updates</button>
+      <label class="chk small" style="padding:0 2px"><input type="checkbox" id="updAuto" checked> Check for updates when ClubTools starts</label>
+      <hr>
       <button id="diag" class="sm">Test connection</button>
       <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
       <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
     </div>
   </div>
 </header>
+<div id="updBar" class="updbar" hidden></div>
 <div id="syncMsg"></div>
 <main>
   <section>
@@ -1151,7 +1160,7 @@ async function init(){
     const m = await api("/api/meta"); META = m;
     FORMATIONS = Object.fromEntries(m.formations.map(f => [f.name, f]));
     $("dataInfo").textContent = `${m.n.toLocaleString()} cards · synced ${m.meta.synced_at||"?"} · FUT.GG · version ${m.version||"dev"}`;
-    $("footVer").textContent = `v ${m.version||"dev"} · ${m.n.toLocaleString()} cards`;
+    $("footVer").textContent = `${/^\d+\.\d+\.\d+/.test(m.version||"") ? "v"+m.version.split(" ")[0] : "build "+(m.version||"dev")} · ${m.n.toLocaleString()} cards`;
     fillSelect($("mNation"), m.nations, "— none —"); fillSelect($("mLeague"), m.leagues, "— none —");
     fillSelect($("cNat"), m.nations); fillSelect($("cLg"), m.leagues); fillSelect($("cClub"), m.clubs, "— no club —");
   }catch(e){ $("dataInfo").textContent = "card data unavailable: "+e.message; return; }
@@ -1400,6 +1409,52 @@ $("sync").onclick = async () => {
     if(!s.running){ clearInterval(t); $("sync").disabled=false; if(s.msg.startsWith("done")) init(); }
   }, 1500);
 };
+/* ---------- updates ---------- */
+let UPD = null, updTimer = null, updManual = false, updNotes = false, updInstalling = false;
+const KEY_SKIP = "chemBuilder.skipVersion", KEY_AUTO = "chemBuilder.autoUpdate";
+async function pollUpdate(){
+  clearTimeout(updTimer);
+  try{ UPD = await api("/api/update"); }catch(e){ return; }
+  renderUpdate();
+  if(["checking","downloading","installing","restarting"].includes(UPD.state)) updTimer = setTimeout(pollUpdate, 800);
+}
+function renderUpdate(){
+  const bar = $("updBar"), u = UPD, L = u && u.latest;
+  $("updAuto").checked = !u || u.auto;
+  if(!u) return;
+  const ver = L ? esc(L.version) : "";
+  const page = L && L.page ? `<a class="ext" href="${esc(L.page)}" target="_blank" rel="noopener">release page ↗</a>` : "";
+  let html = "";
+  if(u.state === "available" && (updManual || DB.get(KEY_SKIP) !== L.version)){
+    html = `<span>⬆ <b>ClubTools ${ver}</b> is available <span class="mut">(you have ${esc(String(u.current).split(" ")[0])})</span></span>
+      <button class="sm ghost" id="updNotesBtn">${updNotes?"Hide":"What's new"}</button>
+      <span class="sp"></span>
+      ${u.can_install ? `<button class="sm primary" id="updGo">Update now</button>` : page.replace('class="ext"','class="ext" style="font-weight:700"').replace("release page ↗","Download ↗")}
+      <button class="sm ghost" id="updLater">Later</button><button class="sm ghost" id="updSkip" title="Don't remind me about ${ver}">Skip this version</button>
+      ${updNotes ? `<pre>${esc(L.notes || "No release notes.")}</pre>` : ""}`;
+  } else if(u.state === "downloading"){
+    const mb = x => (x/1048576).toFixed(1);
+    html = `<span>⬇ Downloading ClubTools ${ver}…</span><progress max="${u.total||1}" value="${u.done}"></progress><span class="mut small">${mb(u.done)} / ${mb(u.total)} MB</span>`;
+  } else if(u.state === "installing" || u.state === "restarting"){
+    html = `<span>✔ Checksum verified — installing ClubTools ${ver} and restarting…</span>`;
+  } else if(u.state === "error" && (updManual || updInstalling)){
+    html = `<span style="color:var(--bad)">Update problem: ${esc(u.error)}</span><span class="sp"></span>${page}<button class="sm ghost" id="updLater">Close</button>`;
+  } else if(updManual && u.state === "current"){
+    $("syncMsg").textContent = `You're on the latest version (${String(u.current).split(" ")[0]}).`; updManual = false;
+  } else if(updManual && u.state === "checking"){ html = `<span class="mut">Checking for updates…</span>`; }
+  bar.innerHTML = html; bar.hidden = !html;
+  if(u.updated && !renderUpdate.shown){ renderUpdate.shown = true; $("syncMsg").textContent = `Updated to ClubTools ${String(u.current).split(" ")[0]} ✔`; }
+}
+$("updBar").addEventListener("click", async e => {
+  const id = e.target.id;
+  if(id === "updNotesBtn"){ updNotes = !updNotes; renderUpdate(); }
+  if(id === "updLater"){ $("updBar").hidden = true; updManual = false; updInstalling = false; }
+  if(id === "updSkip"){ DB.set(KEY_SKIP, UPD.latest.version); updManual = false; renderUpdate(); }
+  if(id === "updGo"){ updInstalling = true; e.target.disabled = true; await api("/api/update", {action:"install"}); setTimeout(pollUpdate, 300); }
+});
+$("updCheck").onclick = async () => { updManual = true; await api("/api/update", {action:"check"}); setTimeout(pollUpdate, 300); };
+$("updAuto").onchange = e => { DB.set(KEY_AUTO, e.target.checked ? "1" : "0"); };
+
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {
   const m = b.closest(".menu"), was = m.classList.contains("open");
@@ -1431,7 +1486,7 @@ function updFiltSum(){
 $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps()).length; $("capSum").textContent = `Max OVR per position${n?` (${n} set)`:""}`; });
 $("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
 
-init().then(updFiltSum);
+init().then(() => { updFiltSum(); pollUpdate(); setTimeout(pollUpdate, 4000); });
 </script>
 </body>
 </html>
