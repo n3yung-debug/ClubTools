@@ -226,6 +226,9 @@ def test_upgrades_raise_rating_within_chem_budget():
     strict = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=2, max_loss=0)
     assert [w["in"]["s"] for w in strict["by_k"][1][0]["swaps"]] == ["t200"] and strict["by_k"][1][0]["total"] == 33
     assert strict["by_k"][2] == []  # the only other upgrade (t201) costs chemistry
+    capped = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=2, max_loss=3, max_ovr=90)
+    assert all(w["in"]["ov"] <= 90 for k in capped["by_k"].values() for x in k for w in x["swaps"])
+    assert capped["by_k"][1][0]["swaps"][0]["in"]["s"] == "t200"  # the 95 is over the cap
     two = res["by_k"][2][0]
     assert {w["in"]["s"] for w in two["swaps"]} == {"t200", "t201"} and two["dr"] == 23 and two["total"] >= 30
 

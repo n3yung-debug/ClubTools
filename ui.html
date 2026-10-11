@@ -118,6 +118,7 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
           <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
           <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
           <label class="f">Rating upgrades: chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
+          <label class="f">Rating upgrades: max OVR of a suggested card<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
         </div>
         <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
           <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
@@ -341,13 +342,13 @@ function reseat(squad, locks, oldSlots, newSlots){
 }
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
-    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value),
+    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
     blacklist:BL.map(x => x.bp), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
-  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
+  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
   const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof");
 }
 
@@ -534,8 +535,8 @@ function resultsBody(r){
   }
   if(VIEW.startsWith("u")){
     const U = r.upgrades, k = VIEW.slice(1), list = (U && U.by_k[k]) || [];
-    h += `<div class="small mut">Better cards for the same positions (higher overall, or your preferred PlayStyles ★), keeping squad chemistry at ${U.floor}/33 or more (now ${r.base}/33; change “chemistry you'll give up” to allow more or less). Ranked by overall + PlayStyle value gained.</div>`;
-    if(!list.length) return h + `<div class="mut small">No ${k}-player upgrade keeps chemistry at ${U.floor} or more with the current filters (minimum rating, blacklist, locks).</div>`;
+    h += `<div class="small mut">Better cards for the same positions (higher overall, or your preferred PlayStyles ★), keeping squad chemistry at ${U.floor}/33 or more (now ${r.base}/33; change “chemistry you'll give up” to allow more or less)${+$("upMaxOvr").value?`, cards rated ${+$("upMaxOvr").value} or lower`:""}. Ranked by overall + PlayStyle value gained.</div>`;
+    if(!list.length) return h + `<div class="mut small">No ${k}-player upgrade keeps chemistry at ${U.floor} or more with the current filters (min/max OVR, blacklist, locks).</div>`;
     const lm = c => c.league && c.li != null ? `<div class="small" style="margin-bottom:3px">League Modifier → <b>${esc(leagueName(c.li))}</b></div>` : "";
     return h + list.map((c,j)=>`<div class="res"><div style="flex:1">${lm(c)}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right"><span class="chip pos">+${c.dr} OVR</span>${c.dv>c.dr?`<div class="small" style="color:var(--gold)">★ +${+(c.dv-c.dr).toFixed(1)} PlayStyles</div>`:""}<div class="small mut">chem ${r.base} → ${c.total}/33</div><button class="sm" data-up="${j}">Apply</button></div></div>`).join("");
   }
@@ -578,13 +579,14 @@ function renderResults(r){
 async function runOptimize(){
   if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first."; return; }
   $("goMsg").textContent = "Searching…"; $("go").disabled = true;
+  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";   // old results are out of date now
   try{
     const r = await api("/api/optimize", {slots:S.slots, squad:S.squad, locks:S.locks, mgr:S.mgr, opts:readOpts()});
     $("goMsg").textContent = "";
     if(r.base >= 33 && !VIEW.startsWith("u")) VIEW = "u1";   // full chemistry: nothing to gain, show rating upgrades
     renderResults(r);
   }catch(e){ $("goMsg").textContent = e.message; }
-  $("go").disabled = false;
+  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
 }
 function applySwaps(list){ commit(); list.forEach(s => S.squad[s.slot] = s.in); $("results").innerHTML = ""; refresh(); }
 
@@ -858,7 +860,7 @@ $("mInfo").addEventListener("click", e => { if(e.target.id==="useBestLi" && last
 $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
-for(const id of ["psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
+for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
   const R = window.__R; if(!R) return;

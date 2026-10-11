@@ -570,7 +570,7 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
 
 
 def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_loss=3, n=25,
-                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0, val=plain_value):
+                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0, val=plain_value, max_ovr=None):
     """Rating upgrades: swap in HIGHER-rated cards for the same positions while squad chemistry stays at or
     above base - max_loss (base = the squad as it is, with the current manager). Ranked by overall
     gained, then chemistry. The manager league is free (League Modifier); results say which league they use.
@@ -595,6 +595,8 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         for c in by_pos.get(pos, ()):
             # an upgrade = a better card for this position: higher overall, or wanted PlayStyles worth more
             if val(c, pos) <= cur_v or c["ov"] < cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
+                continue
+            if max_ovr and c["ov"] > max_ovr:  # price stand-in: nothing above this overall
                 continue
             tc[c["s"]] = ts[i] = _t(c)
             scored.append((_ttotal(slots, ts, mni, mli, True), c))
