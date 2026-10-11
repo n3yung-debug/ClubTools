@@ -229,6 +229,12 @@ def test_upgrades_raise_rating_within_chem_budget():
     capped = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=2, max_loss=3, max_ovr=90)
     assert all(w["in"]["ov"] <= 90 for k in capped["by_k"].values() for x in k for w in x["swaps"])
     assert capped["by_k"][1][0]["swaps"][0]["in"]["s"] == "t200"  # the 95 is over the cap
+    st_only = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=1, max_loss=3,
+                                 max_ovr=85, pos_caps={"ST": 99})   # per-position cap beats the general one
+    assert {w["in"]["s"] for x in st_only["by_k"][1] for w in x["swaps"]} == {"t200", "t201"}
+    blocked = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=1, max_ovr=80)
+    st = [w for w in blocked["slots"] if w["pos"] == "ST"][0]
+    assert blocked["by_k"][1] == [] and st["higher"] == 2 and st["in_cap"] == 0 and st["cap"] == 80
     two = res["by_k"][2][0]
     assert {w["in"]["s"] for w in two["swaps"]} == {"t200", "t201"} and two["dr"] == 23 and two["total"] >= 30
 

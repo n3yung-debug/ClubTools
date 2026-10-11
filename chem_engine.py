@@ -570,12 +570,15 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
 
 
 def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_loss=3, n=25,
-                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0, val=plain_value, max_ovr=None):
+                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0, val=plain_value, max_ovr=None,
+                   pos_caps=None):
     """Rating upgrades: swap in HIGHER-rated cards for the same positions while squad chemistry stays at or
     above base - max_loss (base = the squad as it is, with the current manager). Ranked by overall
     gained, then chemistry. The manager league is free (League Modifier); results say which league they use.
     Beam search per number of upgraded players (1..k_max); every swap is a strict rating upgrade.
-    Returns {"by_k": {k: [ {swaps, total, d, dr, li, league} ]}, "floor": int, "timed_out": bool}."""
+    max_ovr caps the overall of a suggested card; pos_caps {"ST": 90, ...} overrides it per position (of the slot).
+    Returns {"by_k": {k: [ {swaps, total, d, dr, li, league} ]}, "floor": int, "timed_out": bool,
+             "slots": [ {slot, pos, cur, cap, higher, in_cap, keep_chem} ]} - the last explains empty results."""
     started = time.time()
     mgr = dict(mgr or {}, li_free=True)
     mni, mli, cur_li = mgr.get("ni"), mgr.get("li"), mgr.get("li")
@@ -584,10 +587,12 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
     floor = base - max_loss
     t0 = [_t(c) for c in squad]
     # shortlist per slot: upgrades that keep chemistry best on their own, plus the biggest upgrades still in range
-    sl, tc = {}, {}
+    sl, tc, why = {}, {}, []
     for i, cur in enumerate(squad):
         if locks[i] or cur is None:
             continue
+        cap = (pos_caps or {}).get(slots[i]) or max_ovr or None
+        n_higher = n_cap = n_keep = 0
         others = {c["bp"] for j, c in enumerate(squad) if c and j != i}
         scored = []
         ts = list(t0)
@@ -596,10 +601,16 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
             # an upgrade = a better card for this position: higher overall, or wanted PlayStyles worth more
             if val(c, pos) <= cur_v or c["ov"] < cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
                 continue
-            if max_ovr and c["ov"] > max_ovr:  # price stand-in: nothing above this overall
+            n_higher += 1
+            if cap and c["ov"] > cap:  # price stand-in: nothing above this overall
                 continue
+            n_cap += 1
             tc[c["s"]] = ts[i] = _t(c)
-            scored.append((_ttotal(slots, ts, mni, mli, True), c))
+            t = _ttotal(slots, ts, mni, mli, True)
+            n_keep += t >= floor
+            scored.append((t, c))
+        why.append({"slot": i, "pos": pos, "cur": cur["ov"], "cap": cap, "higher": n_higher, "in_cap": n_cap,
+                    "keep_chem": n_keep})
         by_chem = sorted(scored, key=lambda x: (-x[0], -val(x[1], pos)))
         by_ov = sorted((x for x in scored if x[0] >= floor), key=lambda x: (-val(x[1], pos), -x[0]))
         seen, merged = set(), []
@@ -656,4 +667,4 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         swaps = [{"slot": s, "out": squad[s], "in": sq[s]} for s, _ in key]
         out[k].append({"swaps": swaps, "total": t, "d": t - base, "dv": g, "li": li, "league": li != cur_li,
                        "dr": sum(w["in"]["ov"] - w["out"]["ov"] for w in swaps)})
-    return {"by_k": out, "floor": floor, "timed_out": timed_out}
+    return {"by_k": out, "floor": floor, "timed_out": timed_out, "slots": why}

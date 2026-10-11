@@ -121,6 +121,12 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
           <label class="f">Rating upgrades: chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
           <label class="f">Rating upgrades: max OVR of a suggested card<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
         </div>
+        <details style="margin-top:8px" id="capDet"><summary class="small mut" id="capSum">Rating upgrades: max OVR per position</summary>
+          <div class="small mut" style="margin-top:4px">Overrides the max OVR above for that position (blank = use it). The position is the slot being upgraded.</div>
+          <div id="capGrid" style="margin-top:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+        </details>
+        <div class="grid2" style="margin-top:8px">
+        </div>
         <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
           <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
           <label class="chk"><input type="checkbox" id="xHero"> exclude Heroes</label>
@@ -383,15 +389,26 @@ function reseat(squad, locks, oldSlots, newSlots){
   P.forEach((p,k) => { out[top[1][k]] = p.c; lk[top[1][k]] = p.lock; });
   return {squad:out, locks:lk};
 }
+const CAP_POS = ["GK","CB","LB","RB","CDM","CM","LM","RM","CAM","LW","RW","ST"];
+function readCaps(){
+  const out = {};
+  document.querySelectorAll("#capGrid input").forEach(i => { if(+i.value) out[i.dataset.pos] = +i.value; });
+  return out;
+}
+function writeCaps(c){
+  $("capGrid").innerHTML = CAP_POS.map(p => `<label class="f" style="font-size:11px">${p}<input type="number" min="40" max="99" data-pos="${p}" value="${c[p]||""}" placeholder="–" style="padding:3px 5px"></label>`).join("");
+  const n = Object.keys(c).filter(k => c[k]).length;
+  $("capSum").textContent = `Rating upgrades: max OVR per position${n?` (${n} set)`:""}`;
+}
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
-    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0,
+    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(),
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
     blacklist:BL.map(x => x.bp), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
-  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
+  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
   const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof");
 }
 
@@ -578,8 +595,10 @@ function resultsBody(r){
   }
   if(VIEW.startsWith("u")){
     const U = r.upgrades, k = VIEW.slice(1), list = (U && U.by_k[k]) || [];
-    h += `<div class="small mut">Better cards for the same positions (higher overall, or your preferred PlayStyles ★), keeping squad chemistry at ${U.floor}/33 or more (now ${r.base}/33; change “chemistry you'll give up” to allow more or less)${+$("upMaxOvr").value?`, cards rated ${+$("upMaxOvr").value} or lower`:""}. Ranked by overall + PlayStyle value gained.</div>`;
-    if(!list.length) return h + `<div class="mut small">No ${k}-player upgrade keeps chemistry at ${U.floor} or more with the current filters (min/max OVR, blacklist, locks).</div>`;
+    h += `<div class="small mut">Better cards for the same positions (higher overall, or your preferred PlayStyles ★), keeping squad chemistry at ${U.floor}/33 or more (now ${r.base}/33; change “chemistry you'll give up” to allow more or less)${+$("upMaxOvr").value?`, cards rated ${+$("upMaxOvr").value} or lower`:""}${Object.keys(readCaps()).length?` (per position: ${Object.entries(readCaps()).map(([p,v])=>`${p} ≤${v}`).join(", ")})`:""}. Ranked by overall + PlayStyle value gained.</div>`;
+    if(!list.length) return h + upgradeWhy(U, k);
+    const blocked = (U.slots||[]).filter(w => w.higher && !w.in_cap);
+    if(blocked.length) h += `<div class="small" style="margin-top:4px;color:var(--warn)">Max OVR leaves no upgrade for: ${blocked.map(w => `${esc(w.pos)} (now ${w.cur}, cap ${w.cap})`).join(", ")}.</div>`;
     const lm = c => c.league && c.li != null ? `<div class="small" style="margin-bottom:3px">League Modifier → <b>${esc(leagueName(c.li))}</b></div>` : "";
     return h + list.map((c,j)=>`<div class="res"><div style="flex:1">${lm(c)}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right"><span class="chip pos">+${c.dr} OVR</span>${c.dv>c.dr?`<div class="small" style="color:var(--gold)">★ +${+(c.dv-c.dr).toFixed(1)} PlayStyles</div>`:""}<div class="small mut">chem ${r.base} → ${c.total}/33</div><button class="sm" data-up="${j}">Apply</button></div></div>`).join("");
   }
@@ -593,6 +612,17 @@ function resultsBody(r){
   const extra = c => [c.mgr ? `Manager from <b>${esc(c.mgr.nn || nationName(c.mgr.ni))}</b> <span class="mut">(new manager card)</span>` : "",
                       c.league && c.li != null ? `League Modifier → <b>${esc(leagueName(c.li))}</b>` : ""].filter(Boolean).join(" + ");
   return list.map((c,j)=>`<div class="res"><div style="flex:1">${extra(c)?`<div class="small" style="margin-bottom:3px">${extra(c)}</div>`:""}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right">${chip(c.d)}<div class="small mut">${c.total}/33 · rating ${c.dr>=0?"+":""}${c.dr}</div><button class="sm" data-combo="${j}">Apply</button></div></div>`).join("");
+}
+// why the upgrade lists are short or empty: per position, what the cap and the chemistry limit leave
+function upgradeWhy(U, k){
+  const rows = (U.slots || []).map(w => {
+    const where = `<span class="tag">${esc(w.pos)}</span> now ${w.cur}`;
+    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (blacklist, minimum rating).</li>`;
+    if(!w.in_cap) return `<li>${where}: max OVR ${w.cap} — all ${w.higher} better cards are rated above it, and an upgrade has to be rated higher than ${w.cur}. Raise the cap above ${w.cur} for ${esc(w.pos)}.</li>`;
+    if(!w.keep_chem) return `<li>${where}: ${w.in_cap} better card${w.in_cap===1?"":"s"} within the cap, but each drops chemistry below ${U.floor}. Allow more chemistry loss to see them.</li>`;
+    return `<li>${where}: ${w.keep_chem} upgrade${w.keep_chem===1?"":"s"} possible on its own.</li>`;
+  }).join("");
+  return `<div class="note warn">No ${k}-player upgrade fits all the limits. By position:<ul style="margin:6px 0 0;padding-left:18px">${rows || "<li>Every slot is locked.</li>"}</ul></div>`;
 }
 function viewOptions(r){
   const best = list => list && list.length ? ` (best +${list[0].d})` : "";
@@ -867,6 +897,7 @@ async function init(){
   syncMgrInputs();
   $("cPos").innerHTML = POS.map(p=>`<option>${p}</option>`).join("");
   $("bmLink").href = bookmarklet();
+  if(!$("capGrid").children.length) writeCaps({});
   renderSaved(); renderBL(); renderPS(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
@@ -943,6 +974,7 @@ $("mInfo").addEventListener("click", e => { if(e.target.id==="useBestLi" && last
 $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
+$("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); });
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
