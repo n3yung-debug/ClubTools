@@ -280,6 +280,38 @@ def test_alternate_positions_and_playstyles_follow_the_slot():
     assert val(alt, "CB") == 81                                 # same card in a CB slot: no CB preference set
 
 
+def test_fill_squad_completes_around_fixed_players():
+    # 5 placed players from nation 1 / league 1 / club A; the pool has a linking card and a non-linking
+    # (higher rated) card for every position
+    sq = squad_of(ni=[1] * 11, li=[1] * 11, ck=["A"] * 11, ov=85)
+    keep = {0, 2, 6, 9, 10}
+    partial = [c if i in keep else None for i, c in enumerate(sq)]
+    pool = []
+    for i, pos in enumerate(SLOTS):
+        pool.append(card(500 + i, pos, ni=1, li=1, ck="A", ov=84))   # links with everyone
+        pool.append(card(600 + i, pos, ni=900 + i, li=900 + i, ck=f"Z{i}", ov=90))   # better rated, links nothing
+    res = eng.fill_squad(SLOTS, partial, None, eng.index_pool(pool))
+    best = res["options"][0]
+    assert res["empty"] == [i for i in range(11) if i not in keep]
+    assert best["total"] == 33 and {f["slot"] for f in best["fills"]} == set(res["empty"])
+    assert all(f["in"]["ni"] == 1 for f in best["fills"])            # chemistry beats rating
+    filled = list(partial)
+    for f in best["fills"]:
+        filled[f["slot"]] = f["in"]
+    assert eng.total_only(SLOTS, filled, None) == 33 and all(filled[i] is partial[i] for i in keep)
+    capped = eng.fill_squad(SLOTS, partial, None, eng.index_pool(pool), max_ovr=80)
+    assert capped["options"] == [] and capped["no_cards"]           # nothing rated 80 or lower exists
+    assert eng.fill_squad(SLOTS, sq, None, eng.index_pool(pool))["options"] == []  # nothing to fill
+
+
+def test_no_women_at_chosen_positions():
+    w = card(700, "CB", alts=("CDM",), g=2)
+    m = card(701, "CB")
+    by_pos = eng.index_pool([w, m], no_women={"GK", "CB"})
+    assert by_pos["CB"] == [m] and by_pos["CDM"] == [w]   # still suggested where allowed
+    assert eng.index_pool([w, m])["CB"] == [w, m]
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")

@@ -683,7 +683,10 @@ class Handler(BaseHTTPRequestHandler):
                 fixed, free = _mgr_modes(body.get("mgr"))
                 ev = eng.evaluate(body["slots"], body["squad"], fixed)
                 best = eng.evaluate(body["slots"], body["squad"], free)
-                return self._send(200, dict(ev, best_li=best["mgr_li"], best_total=best["total"]))
+                return self._send(200, dict(ev, best_li=best["mgr_li"], best_total=best["total"],
+                                            best_mgr=eng.best_manager(body["slots"], body["squad"], fixed)))
+            if self.path == "/api/fill":
+                return self._send(200, self.fill(body))
             if self.path == "/api/optimize":
                 return self._send(200, self.optimize(body))
             if self.path == "/api/import_preview":
@@ -726,6 +729,23 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
     @staticmethod
+    def fill(b):
+        """Suggest players for the empty slots, keeping the ones already placed."""
+        slots, squad, mgr, o = b["slots"], b["squad"], b.get("mgr"), b.get("opts", {})
+        pool, unmatched = build_pool(o)
+        fixed, free = _mgr_modes(mgr)
+        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
+        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women")), int(o.get("min_rating", 0)),
+                             max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
+        for opt in res["options"]:
+            full = list(squad)
+            for f in opt["fills"]:
+                full[f["slot"]] = f["in"]
+            opt["best_mgr"] = eng.best_manager(slots, full, fixed)
+        res.update(pool=len(pool), unmatched=unmatched, base=eng.total_only(slots, squad, fixed))
+        return res
+
+    @staticmethod
     def optimize(b):
         slots, squad, locks, mgr, o, by_pos, pool, unmatched = _search_setup(b)
         ok = None
@@ -754,6 +774,7 @@ class Handler(BaseHTTPRequestHandler):
                 "singles": singles, "chain": chain, "chain_total": chain_total,
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
+                "best_mgr": eng.best_manager(slots, squad, fixed),
                 "mgr_suggest_after": eng.manager_suggestions(slots, final, fixed)}
 
 
@@ -769,7 +790,7 @@ def _search_setup(b):
         raise ValueError("Fill all 11 slots first.")
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
-    by_pos = eng.index_pool(pool)
+    by_pos = eng.index_pool(pool, o.get("no_women"))
     return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 

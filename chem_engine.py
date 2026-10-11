@@ -277,10 +277,15 @@ def make_value(prefs=None, w_plus=3, w_ps=1):
     return value
 
 
-def index_pool(pool):
+def index_pool(pool, no_women=()):
+    """Cards by every position they can play. no_women: positions where women's cards are never suggested
+    (they can still play their other positions)."""
+    no_women = set(no_women or ())
     by_pos = {}
     for c in pool:
         for p in prefs(c):
+            if c.get("g") == 2 and p in no_women:
+                continue
             by_pos.setdefault(p, []).append(c)
     return by_pos
 
@@ -668,3 +673,139 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         out[k].append({"swaps": swaps, "total": t, "d": t - base, "dv": g, "li": li, "league": li != cur_li,
                        "dr": sum(w["in"]["ov"] - w["out"]["ov"] for w in swaps)})
     return {"by_k": out, "floor": floor, "timed_out": timed_out, "slots": why}
+
+
+def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=None, val=plain_value, n=25,
+               beam=60, per_slot=40, time_limit=8.0):
+    """Fill the empty slots of a partly picked squad. The players already placed are kept as they are.
+    Per empty slot a shortlist of cards that link best with the placed players (club, league, nation,
+    manager, ICONs) and the best-rated ones; a beam search fills one slot at a time, then each result is
+    polished by single swaps until nothing improves. Ranked by squad chemistry (manager league free:
+    League Modifier), then overall + PlayStyle value. Returns {"options": [...], "empty": [slot idx],
+    "timed_out": bool}; each option: {fills: [{slot, in}], total, li, league, avg_ov, value}."""
+    started = time.time()
+    mgr = dict(mgr or {}, li_free=True)
+    mni, mli = mgr.get("ni"), mgr.get("li")
+    empty = [i for i, c in enumerate(squad) if c is None]
+    fixed = [c for c in squad if c is not None]
+    if not empty:
+        return {"options": [], "empty": [], "timed_out": False}
+    fixed_bp = {c["bp"] for c in fixed}
+    leagues = Counter(c["li"] for c in fixed)
+    nations = Counter(c["ni"] for c in fixed)
+    clubs = Counter(c["ck"] for c in fixed if c.get("ck"))
+
+    def potential(c):
+        return (2 * clubs.get(c.get("ck"), 0) + leagues[c["li"]] + nations[c["ni"]]
+                + (1 if mni is not None and c["ni"] == mni else 0) + (4 if c.get("ty") == "icon" else 0)
+                + (3 if c.get("fc") else 0))
+    sl, tc = {}, {}
+    for i in empty:
+        pos = slots[i]
+        cap = (pos_caps or {}).get(pos) or max_ovr or None
+        cands = [c for c in by_pos.get(pos, ()) if c["ov"] >= min_rating and (not cap or c["ov"] <= cap)
+                 and c["bp"] not in fixed_bp]
+        by_pot = sorted(cands, key=lambda c: (potential(c), val(c, pos)), reverse=True)
+        by_val = sorted(cands, key=lambda c: val(c, pos), reverse=True)
+        seen, merged = set(), []
+        for c in by_pot[:per_slot] + by_val[:per_slot // 4]:
+            if c["s"] not in seen:
+                seen.add(c["s"])
+                merged.append(c)
+                tc[c["s"]] = _t(c)
+        sl[i] = merged
+    if any(not sl[i] for i in empty):
+        return {"options": [], "empty": empty, "timed_out": False,
+                "no_cards": [slots[i] for i in empty if not sl[i]]}
+    order = sorted(empty, key=lambda i: len(sl[i]))           # tightest slots first
+    t0 = [_t(c) for c in squad]
+
+    def value_of(sq):
+        return sum(val(c, slots[i]) for i, c in enumerate(sq) if c is not None and squad[i] is None)
+    frontier = [(list(squad), t0)]
+    timed_out = False
+    for i in order:
+        if time.time() - started > time_limit:
+            timed_out = True
+            break
+        nxt = {}
+        for sq, ts in frontier:
+            bps = {c["bp"] for c in sq if c}
+            for c in sl[i]:
+                if c["bp"] in bps:
+                    continue
+                key = tuple(sorted((j, sq[j]["s"]) for j in empty if sq[j] is not None and j != i) + [(i, c["s"])])
+                if key in nxt:
+                    continue
+                nts = list(ts)
+                nts[i] = tc[c["s"]]
+                nxt[key] = (_ttotal(slots, nts, mni, mli, True), sq, nts, i, c)
+        ranked = sorted(nxt.values(), key=lambda e: (-e[0], -val(e[4], slots[e[3]])))
+        frontier = []
+        for t, sq, nts, j, c in ranked[:beam]:
+            new = list(sq)
+            new[j] = c
+            frontier.append((new, nts))
+    if timed_out or any(sq[i] is None for sq, _ in frontier for i in empty):
+        frontier = [(sq, ts) for sq, ts in frontier if all(sq[i] is not None for i in empty)]
+
+    def polish(sq, ts):
+        """Single swaps on the filled slots while they raise (chemistry, value)."""
+        best = (_ttotal(slots, ts, mni, mli, True), value_of(sq))
+        for _ in range(4):
+            improved = False
+            for i in empty:
+                bps = {c["bp"] for j, c in enumerate(sq) if c and j != i}
+                for c in sl[i]:
+                    if c["bp"] in bps or c["s"] == sq[i]["s"]:
+                        continue
+                    nts = list(ts)
+                    nts[i] = tc[c["s"]]
+                    t = _ttotal(slots, nts, mni, mli, True)
+                    v = best[1] - val(sq[i], slots[i]) + val(c, slots[i])
+                    if (t, v) > best:
+                        sq = list(sq)
+                        sq[i], ts, best, improved = c, nts, (t, v), True
+                        bps = {x["bp"] for j, x in enumerate(sq) if x and j != i}
+            if not improved or time.time() - started > time_limit + 2:
+                break
+        return sq, ts, best
+    finals, seen = [], set()
+
+    def keep(t, v, sq):
+        key = tuple(sorted(sq[i]["bp"] for i in empty))   # other versions of the same players count as one
+        if key not in seen:
+            seen.add(key)
+            finals.append((t, v, sq))
+    for sq, ts in frontier[:max(n * 2, 40)]:                   # polished: the best each start leads to
+        psq, _, (t, v) = polish(sq, ts)
+        keep(t, v, psq)
+    for sq, ts in frontier:                                     # unpolished: keeps the list varied
+        keep(_ttotal(slots, ts, mni, mli, True), value_of(sq), sq)
+    finals.sort(key=lambda x: (-x[0], -x[1]))
+    out = []
+    for t, v, sq in finals[:n]:
+        _, li = _manager_rows(slots, sq, mgr)
+        out.append({"fills": [{"slot": i, "in": sq[i]} for i in empty], "total": t, "li": li, "league": li != mli,
+                    "avg_ov": round(sum(c["ov"] for c in sq) / len(sq), 1), "value": v})
+    return {"options": out, "empty": empty, "timed_out": timed_out}
+
+
+def best_manager(slots, squad, mgr=None):
+    """The manager nation + league that give this squad the most chemistry (every nation and league in the
+    squad is tried; ties keep the current nation/league). Returns {ni, li, total, current, nation, league}."""
+    mgr = mgr or {}
+    cur_ni, cur_li = mgr.get("ni"), mgr.get("li")
+    ts = [_t(c) for c in squad]
+    current = _ttotal(slots, ts, cur_ni, cur_li, False)
+    nations = {c["ni"] for c in squad if c is not None} | {cur_ni}
+    leagues = {c["li"] for c in squad if c is not None} | {cur_li}
+    best = (current, 0, cur_ni, cur_li)
+    for ni in nations:
+        for li in leagues:
+            t = _ttotal(slots, ts, ni, li, False)
+            key = (t, -((ni != cur_ni) + (li != cur_li)))   # on a tie, fewer changes
+            if key > best[:2]:
+                best = (t, key[1], ni, li)
+    t, _, ni, li = best
+    return {"ni": ni, "li": li, "total": t, "current": current, "nation": ni != cur_ni, "league": li != cur_li}

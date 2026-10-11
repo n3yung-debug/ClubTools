@@ -66,7 +66,7 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
 .pss{margin-top:2px;line-height:1.7} .ps{display:inline-block;padding:0 5px;border-radius:4px;background:#0004;color:var(--mut);font-size:11px;margin-right:2px}
 .ps.ps-plus{color:var(--txt);border:1px solid #6a5a2a} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
 h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
-.modetabs{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.modetabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .modetabs .mt{border:0;border-radius:0;padding:9px;font-weight:700;background:var(--panel2);color:var(--mut)}
 .modetabs .mt.on{background:#14315a;color:var(--txt);box-shadow:inset 0 -3px 0 var(--acc)}
 .hdrgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -121,12 +121,20 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
         <div class="modetabs">
           <button class="mt" data-mode="chem">⚗ Chemistry</button>
           <button class="mt" data-mode="up">▲ Rating upgrades</button>
+          <button class="mt" data-mode="fill">✚ Fill squad</button>
         </div>
         <div data-modepane="chem">
           <div class="small mut" style="margin:8px 0">Raise squad chemistry: swaps, a step-by-step plan and manager changes.</div>
           <div class="grid2">
             <label class="f">How much lower-rated a swap may be (per player)<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
             <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
+          </div>
+        </div>
+        <div data-modepane="fill" hidden>
+          <div class="small mut" style="margin:8px 0">Place the players you want, leave the other slots empty (click a player → <b>Remove player</b>), and get complete squads built around them. Your players are never changed.</div>
+          <div class="grid2">
+            <label class="f">Max OVR of a filler card (all positions)<input id="fillMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
+            <div class="small mut" style="align-self:end" id="fillEmpty"></div>
           </div>
         </div>
         <div data-modepane="up" hidden>
@@ -143,6 +151,8 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
           <label class="f">Minimum rating of any suggested card<input id="minRating" type="number" min="0" max="99" value="0"></label>
           <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
         </div>
+        <div class="small mut" style="margin-bottom:4px">Don't suggest women at:</div>
+        <div id="noWomen" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px"></div>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
           <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
           <label class="chk"><input type="checkbox" id="xHero"> exclude Heroes</label>
@@ -208,6 +218,7 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
 <dialog id="dlg">
   <div style="display:flex;gap:8px;align-items:center">
     <strong id="dlgTitle" style="flex:1">Pick player</strong>
+    <button id="dlgRemove" class="sm" hidden title="Empty this slot (e.g. to let ✚ Fill squad suggest someone)">Remove player</button>
     <button id="dlgClose" class="sm">Close</button>
   </div>
   <div class="small mut" id="fillHint" style="margin-top:4px"></div>
@@ -416,15 +427,20 @@ function writeCaps(c){
   const n = Object.keys(c).filter(k => c[k]).length;
   $("capSum").textContent = `Max OVR per position (overrides the one above; blank = use it)${n?` — ${n} set`:""}:`;
 }
+const NW_DEFAULT = ["GK","CB"];
+function writeNoWomen(list){
+  $("noWomen").innerHTML = CAP_POS.map(p => `<label class="chk" style="font-size:12px"><input type="checkbox" data-nw="${p}" ${list.includes(p)?"checked":""}> ${p}</label>`).join("");
+}
+const readNoWomen = () => [...document.querySelectorAll("#noWomen input:checked")].map(i => i.dataset.nw);
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
-    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(),
+    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
     blacklist:BL.map(x => x.bp), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
-  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
+  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
   const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof");
 }
 
@@ -488,15 +504,18 @@ function renderTotal(){
     if(+g===t) note.innerHTML = `<div class="note">Matches the game ✔ — the rules in this tool agree with what you see in-game.</div>`;
     else note.innerHTML = `<div class="note bad">Mismatch: the game shows ${esc(g)}, this tool computes ${t}. Check the manager nation/league, slot positions and any boosted-chemistry card. If everything is right, the chemistry rules may have changed — tell me and I'll re-check.</div>`;
   } else note.innerHTML = "";
-  const mi = $("mInfo");
+  const mi = $("mInfo"), bm = lastEval && lastEval.best_mgr;
+  let hint = "";
   if(lastEval && lastEval.best_total > lastEval.total && lastEval.best_li != null)
-    mi.innerHTML = `💡 A League Modifier to <strong>${esc(leagueName(lastEval.best_li))}</strong> would give <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33. <button class="sm" id="useBestLi">Use it</button>`;
-  else if(lastEval && full) mi.textContent = "Your manager's league is already the best one for this squad.";
-  else mi.textContent = "";
+    hint += `<div>💡 A League Modifier to <strong>${esc(leagueName(lastEval.best_li))}</strong> would give <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33. <button class="sm" id="useBestLi">Use it</button></div>`;
+  if(bm && bm.nation && bm.total > Math.max(lastEval.total, lastEval.best_total || 0))
+    hint += `<div style="margin-top:3px">💡 Best manager for this squad: <strong>${mgrPair(bm)}</strong> → ${bm.total}/33 <span class="chip pos">+${bm.total - lastEval.total}</span> <span class="mut">(new manager card${bm.league?" + League Modifier":""})</span> <button class="sm" id="useBestMgr">Use it</button></div>`;
+  if(!hint && lastEval && full) hint = "Your manager is already the best nation + league for this squad.";
+  mi.innerHTML = hint;
 }
 
 async function refresh(){
-  renderPitch(); renderTotal(); save();
+  renderPitch(); renderTotal(); save(); updFillInfo();
   clearTimeout(evalTimer);
   if(!S.squad.some(Boolean)){ lastEval = null; renderPitch(); renderTotal(); return; }
   evalTimer = setTimeout(async ()=>{   // chemistry is live while the squad is being built, not only at 11/11
@@ -515,6 +534,7 @@ function openPicker(i){
   pickIdx = i; fillMode = !S.squad[i];
   const empty = S.squad.filter(c => !c).length;
   $("dlgTitle").textContent = `Pick player for ${S.slots[i]}`;
+  $("dlgRemove").hidden = !S.squad[i];
   $("fillHint").innerHTML = fillMode ? `Fill mode · ${empty} empty slot${empty===1?"":"s"} left · <b>Enter</b> picks the highlighted card and moves on · <b>↑↓</b> choose · <b>Esc</b> stop`
                                      : `Replacing ${esc(S.squad[i].n)} · <b>Enter</b> picks · <b>↑↓</b> choose · <b>Esc</b> cancel`;
   $("q").value = ""; hitCache = []; hitQuery = ""; hl = 0;
@@ -580,15 +600,22 @@ function swapHtml(s){
 }
 function chip(d){ return `<span class="chip ${d>=0?"pos":"neg"}">${d>=0?"+":""}${d}</span>`; }
 let VIEW = "plan", COMBO_MGR = false, MODE = "chem";
-const LAST_VIEW = {chem:"plan", up:"u1"};
+const LAST_VIEW = {chem:"plan", up:"u1", fill:"f"};
+function updFillInfo(){
+  const n = S.squad.filter(c => !c).length;
+  if($("fillEmpty")) $("fillEmpty").textContent = n ? `${n} empty slot${n===1?"":"s"} to fill.` : "No empty slots yet — remove the players you don't want first.";
+}
 function setMode(m, rerender=true){
   MODE = m;
   document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
-  $("go").textContent = m === "up" ? "Find rating upgrades" : "Find chemistry upgrades";
+  $("go").textContent = m === "up" ? "Find rating upgrades" : m === "fill" ? "Fill empty slots" : "Find chemistry upgrades";
   VIEW = LAST_VIEW[m];
   try{ DB.set("chemBuilder.mode", m); }catch(e){}
-  if(rerender && window.__R) renderResults();
+  updFillInfo();
+  if(!rerender) return;
+  if(m === "fill"){ if(window.__F) renderFill(); else $("results").innerHTML = ""; return; }
+  if(window.__R) renderResults(); else $("results").innerHTML = "";
 }
 const mgrText = o => {
   const what = [];
@@ -616,6 +643,9 @@ function resultsBody(r){
   if(VIEW === "mgr"){
     const ms = r.mgr_suggest || [];
     h += `<div class="small mut">Current manager: ${S.mgr.ni==null?"no nation set":esc(nationName(S.mgr.ni))} · ${S.mgr.li==null?"no league set":esc(leagueName(S.mgr.li))} → ${r.base}/33.</div>`;
+    if(r.best_mgr) h += `<div class="note">${r.best_mgr.nation||r.best_mgr.league
+      ? `Best manager for this squad: <b>${mgrPair(r.best_mgr)}</b> → ${r.best_mgr.total}/33 <span class="chip pos">+${r.best_mgr.total-r.base}</span>`
+      : `Your manager (${mgrPair(r.best_mgr)}) is already the best nation + league for this squad.`}</div>`;
     if(!ms.length) return h + `<div class="mut small">No manager change raises chemistry — your manager is already the best choice for this squad.</div>`;
     return h + ms.map((o,k)=>`<div class="res"><div style="flex:1">${mgrText(o)}</div><div style="text-align:right">${chip(o.d)}<div class="small mut">${o.total}/33</div><button class="sm" data-mgr="${k}">Apply</button></div></div>`).join("");
   }
@@ -678,8 +708,39 @@ function renderResults(r){
   $("results").innerHTML = h;
   $("resView").value = VIEW;
 }
+async function runFill(){
+  if(S.squad.every(Boolean)){ $("goMsg").textContent = "No empty slots: click a player you don't want and choose “Remove player”."; return; }
+  $("goMsg").textContent = "Building squads…"; $("go").disabled = true;
+  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
+  try{
+    window.__F = await api("/api/fill", {slots:S.slots, squad:S.squad, mgr:S.mgr, opts:readOpts()});
+    $("goMsg").textContent = ""; renderFill();
+  }catch(e){ $("goMsg").textContent = e.message; }
+  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+}
+const mgrPair = m => `${m.ni==null?"no nation":esc(nationName(m.ni))} + ${m.li==null?"no league":esc(leagueName(m.li))}`;
+function bestMgrLine(b, now){
+  if(!b) return "";
+  if(!b.nation && !b.league) return `<div class="small" style="margin-top:3px">Best manager: your current one (${mgrPair(b)}).</div>`;
+  const what = [b.nation?"a manager from that nation (new card)":"", b.league?"a League Modifier":""].filter(Boolean).join(" + ");
+  return `<div class="small" style="margin-top:3px">Best manager: <b>${mgrPair(b)}</b> → ${b.total}/33${now!=null&&b.total>now?` <span class="chip pos">+${b.total-now}</span>`:""} <span class="mut">(${what})</span></div>`;
+}
+function renderFill(){
+  const F = window.__F; if(!F) return;
+  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+    <strong>✚ Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
+  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (max OVR, minimum rating, blacklist, women filter, owned cards).</div>`;
+  else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
+  h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
+      ${o.league && o.li != null ? `<div class="small" style="margin-bottom:3px">League Modifier → <b>${esc(leagueName(o.li))}</b></div>` : ""}
+      ${o.fills.map(f => swapHtml({slot:f.slot, out:{ov:"", n:"empty"}, in:f.in})).join("")}
+      ${bestMgrLine(o.best_mgr, o.total)}</div>
+    <div style="text-align:right"><span class="chip pos">${o.total}/33</span><div class="small mut">avg ${o.avg_ov} OVR</div><button class="sm" data-fill="${j}">Apply</button></div></div>`).join("");
+  $("results").innerHTML = h + `</div>`;
+}
 async function runOptimize(){
-  if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first."; return; }
+  if(MODE === "fill") return runFill();
+  if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first (or use the ✚ Fill squad tab)."; return; }
   $("goMsg").textContent = "Searching…"; $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";   // old results are out of date now
   try{
@@ -927,7 +988,8 @@ async function init(){
   $("cPos").innerHTML = POS.map(p=>`<option>${p}</option>`).join("");
   $("bmLink").href = bookmarklet();
   if(!$("capGrid").children.length) writeCaps({});
-  setMode(DB.get("chemBuilder.mode") === "up" ? "up" : "chem", false);
+  if(!$("noWomen").children.length) writeNoWomen(NW_DEFAULT);
+  setMode(["up","fill"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
   renderSaved(); renderBL(); renderPS(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
@@ -955,6 +1017,7 @@ $("pitch").addEventListener("click", e => {
 });
 $("pitch").addEventListener("change", e => { const s = e.target.closest(".posSel"); if(s){ commit(); S.slots[+s.dataset.i] = s.value; refresh(); } });
 $("dlgClose").onclick = () => $("dlg").close();
+$("dlgRemove").onclick = () => { commit(); S.squad[pickIdx] = null; S.locks[pickIdx] = false; $("dlg").close(); $("results").innerHTML = ""; window.__F = null; refresh(); };
 $("dlg").addEventListener("close", () => { fillMode = false; highlightSlot(-1); });
 $("q").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 150); };
 $("q").addEventListener("keydown", e => {
@@ -1000,15 +1063,27 @@ $("cAdd").onclick = () => {
 };
 $("mNation").onchange = e => { commit(); S.mgr.ni = e.target.value===""?null:+e.target.value; refresh(); };
 $("mLeague").onchange = e => { commit(); S.mgr.li = e.target.value===""?null:+e.target.value; refresh(); };
-$("mInfo").addEventListener("click", e => { if(e.target.id==="useBestLi" && lastEval){ commit(); S.mgr.li = lastEval.best_li; syncMgrInputs(); refresh(); } });
+$("mInfo").addEventListener("click", e => {
+  if(e.target.id==="useBestLi" && lastEval){ commit(); S.mgr.li = lastEval.best_li; syncMgrInputs(); refresh(); }
+  if(e.target.id==="useBestMgr" && lastEval && lastEval.best_mgr){ commit(); S.mgr.ni = lastEval.best_mgr.ni; S.mgr.li = lastEval.best_mgr.li; syncMgrInputs(); refresh(); }
+});
 $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
 $("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); });
+$("noWomen").addEventListener("change", save);
+$("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
+  const af = e.target.closest("[data-fill]");
+  if(af && window.__F){
+    const o = window.__F.options[+af.dataset.fill]; commit();
+    o.fills.forEach(f => S.squad[f.slot] = f.in);
+    if(o.league && o.li != null) S.mgr.li = o.li;
+    syncMgrInputs(); window.__F = null; $("results").innerHTML = ""; refresh(); return;
+  }
   const R = window.__R; if(!R) return;
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban(bn.dataset.ban, bn.dataset.name); $("goMsg").textContent = `${bn.dataset.name} blacklisted — searching again…`; runOptimize(); return; }
