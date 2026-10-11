@@ -331,6 +331,13 @@ def test_blacklist_single_card_keeps_other_versions():
     assert banned not in {c["s"] for c in left} and len(left) == len(versions) - 1
 
 
+def test_name_matching_prefers_word_starts():
+    cb.load_cache()
+    assert {c["n"] for c in cb.find_cards("Isco")} == {"Isco"}            # not Francisco Trincão
+    assert any(c["n"].startswith("Vini") for c in cb.find_cards("Vini"))
+    assert cb.search_cards("isco")["hits"][0]["n"] == "Isco"
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")

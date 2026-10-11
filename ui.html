@@ -69,6 +69,11 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
 .modetabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .modetabs .mt{border:0;border-radius:0;padding:9px;font-weight:700;background:var(--panel2);color:var(--mut)}
 .modetabs .mt.on{background:#14315a;color:var(--txt);box-shadow:inset 0 -3px 0 var(--acc)}
+.cmp{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;background:var(--panel2)}
+.cmp-h{margin-bottom:6px}
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr 190px;gap:12px;align-items:start}
+@media(max-width:760px){.cmp-grid{grid-template-columns:1fr}}
+.cmp-t{border-collapse:collapse;font-size:12px;width:100%} .cmp-t td,.cmp-t th{padding:1px 6px;text-align:right} .cmp-t td:first-child{text-align:left}
 .hdrgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 </style>
 </head>
@@ -213,6 +218,15 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
   </div>
   <div class="small mut" id="impMsg" style="margin-top:6px"></div>
   <div id="impOut"></div>
+</dialog>
+
+<dialog id="cmpDlg" style="width:min(980px,96vw)">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <strong style="flex:1">Final check — compare before applying</strong>
+    <button id="cmpCancel" class="sm">Cancel</button>
+    <button id="cmpOk" class="primary">Confirm and apply</button>
+  </div>
+  <div id="cmpBody" style="max-height:72vh;overflow:auto"></div>
 </dialog>
 
 <dialog id="dlg">
@@ -1078,42 +1092,94 @@ document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMod
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
-  const af = e.target.closest("[data-fill]");
-  if(af && window.__F){
-    const o = window.__F.options[+af.dataset.fill]; commit();
-    o.fills.forEach(f => S.squad[f.slot] = f.in);
-    if(o.league && o.li != null) S.mgr.li = o.li;
-    syncMgrInputs(); window.__F = null; $("results").innerHTML = ""; refresh(); return;
-  }
-  const R = window.__R; if(!R) return;
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt});
     $("goMsg").textContent = `${bn.dataset.ov} ${bn.dataset.name} (${bn.dataset.rt}) blacklisted — searching again…`; runOptimize(); return; }
+  const af = e.target.closest("[data-fill]");
+  if(af && window.__F){
+    const o = window.__F.options[+af.dataset.fill];
+    return confirmApply(o.fills.map(f => ({slot:f.slot, out:null, in:f.in})), {li: o.league ? o.li : undefined},
+                        () => { window.__F = null; });
+  }
+  const R = window.__R; if(!R) return;
   if(e.target.id==="applyChain"){
     const last = R.chain[R.chain.length-1];
-    applySwaps(R.chain.flatMap(s=>s.swaps));
-    if(last && last.li != null && last.li !== S.mgr.li){ S.mgr.li = last.li; syncMgrInputs(); refresh(); }
-    return;
+    return confirmApply(R.chain.flatMap(s=>s.swaps), {li: last && last.li != null && last.li !== S.mgr.li ? last.li : undefined});
   }
   const am = e.target.closest("[data-mgr]");
   if(am) return applyMgr(R.mgr_suggest[+am.dataset.mgr]);
   const au = e.target.closest("[data-up]");
   if(au){
     const c = (R.upgrades.by_k[VIEW.slice(1)] || [])[+au.dataset.up];
-    commit(); c.swaps.forEach(s => S.squad[s.slot] = s.in);
-    if(c.league && c.li != null) S.mgr.li = c.li;
-    syncMgrInputs(); $("results").innerHTML = ""; refresh(); return;
+    return confirmApply(c.swaps, {li: c.league ? c.li : undefined});
   }
   const ac = e.target.closest("[data-combo]");
   if(ac){
     const c = ((COMBO_MGR ? R.combosMgr : R.combos).by_k[VIEW.slice(1)] || [])[+ac.dataset.combo];
-    commit(); c.swaps.forEach(s => S.squad[s.slot] = s.in);
-    if(c.mgr) S.mgr.ni = c.mgr.ni;
-    if(c.league && c.li != null) S.mgr.li = c.li;
-    syncMgrInputs();
-    $("results").innerHTML = ""; refresh();
+    return confirmApply(c.swaps, {ni: c.mgr ? c.mgr.ni : undefined, li: c.league ? c.li : undefined});
   }
 });
+
+/* ---------- final check before applying player changes ---------- */
+let PENDING = null;
+async function confirmApply(swaps, mgrPatch, after){
+  // fresh card data (cards saved in older squads may lack stats / PlayStyles)
+  const slugs = swaps.flatMap(w => [w.out && w.out.s, w.in && w.in.s]).filter(x => x && /^27-/.test(x));
+  let fresh = {};
+  try{ if(slugs.length) fresh = (await api("/api/cards", {slugs})).cards || {}; }catch(e){}
+  const up = c => c && fresh[c.s] ? Object.assign({}, c, fresh[c.s]) : c;
+  swaps = swaps.map(w => ({slot:w.slot, out: up(w.out || S.squad[w.slot]), in: up(w.in)}));
+  const mgr = Object.assign({}, S.mgr);
+  if(mgrPatch.ni !== undefined && mgrPatch.ni !== null) mgr.ni = mgrPatch.ni;
+  if(mgrPatch.li !== undefined && mgrPatch.li !== null) mgr.li = mgrPatch.li;
+  const after_sq = S.squad.slice(); swaps.forEach(w => after_sq[w.slot] = w.in);
+  let ev0 = null, ev1 = null;
+  try{
+    [ev0, ev1] = await Promise.all([api("/api/evaluate", {slots:S.slots, squad:S.squad, mgr:S.mgr}),
+                                    api("/api/evaluate", {slots:S.slots, squad:after_sq, mgr})]);
+  }catch(e){}
+  PENDING = {swaps, mgr, after};
+  $("cmpBody").innerHTML = compareHtml(swaps, ev0, ev1, mgrPatch);
+  $("cmpDlg").showModal();
+}
+function statCells(a, b, pos){
+  const lab = (b && b.p === "GK") || pos === "GK" ? FACE_GK : FACE;
+  return lab.map((l,k) => {
+    const x = a && a.fs ? a.fs[k] : null, y = b && b.fs ? b.fs[k] : null;
+    const d = x != null && y != null ? y - x : null;
+    return `<tr><td class="mut">${l}</td><td>${x ?? "–"}</td><td><b>${y ?? "–"}</b></td><td>${d == null ? "" : d > 0 ? `<span style="color:var(--ok)">+${d}</span>` : d < 0 ? `<span style="color:var(--bad)">${d}</span>` : `<span class="mut">0</span>`}</td></tr>`;
+  }).join("");
+}
+function compareHtml(swaps, ev0, ev1, mgrPatch){
+  const chem = (ev, i) => ev && ev.players[i] ? ev.players[i].chem : null;
+  const dia = n => n == null ? "–" : diamonds(n);
+  let h = `<div class="small" style="margin-bottom:8px">Squad chemistry: <b>${ev0 ? ev0.total : "?"}</b> → <b>${ev1 ? ev1.total : "?"}</b>/33${ev0 && ev1 ? ` ${chip(ev1.total - ev0.total)}` : ""}</div>`;
+  if(mgrPatch.ni != null) h += `<div class="note">Manager: switch to a manager from <b>${esc(nationName(mgrPatch.ni))}</b> (new manager card).</div>`;
+  if(mgrPatch.li != null && mgrPatch.li !== S.mgr.li) h += `<div class="note">Manager league: apply a League Modifier to <b>${esc(leagueName(mgrPatch.li))}</b>.</div>`;
+  for(const w of swaps){
+    const a = w.out, b = w.in, pos = S.slots[w.slot];
+    const head = c => !c ? `<div class="mut">empty slot</div>` :
+      `<div><b>${c.ov}</b> ${esc(c.n)} <span class="tag">${esc(c.p)}${c.a&&c.a.length?"/"+esc(c.a.join("/")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}</div>
+       <div class="small mut">${esc(c.rt||"")} · ${cardLine(c)}${c.g===2?" · women":""}</div>`;
+    h += `<div class="cmp"><div class="cmp-h"><span class="tag">${esc(pos)}</span> ${a ? `${a.ov} ${esc(a.n)}` : "empty"} <span class="arrow">→</span> <b>${b.ov} ${esc(b.n)}</b>
+           ${a ? chip(b.ov - a.ov) + ` <span class="small mut">OVR</span>` : ""}</div>
+      <div class="cmp-grid">
+        <div>${head(a)}<div class="small" style="margin-top:4px">Chemistry now: ${dia(chem(ev0, w.slot))}</div>${a ? psHtml(a, pos) || `<div class="small mut">no PlayStyles listed</div>` : ""}</div>
+        <div>${head(b)}<div class="small" style="margin-top:4px">Chemistry after: ${dia(chem(ev1, w.slot))}</div>${psHtml(b, pos) || `<div class="small mut">no PlayStyles listed</div>`}${cardLink(b)}</div>
+        <table class="cmp-t"><tr><th></th><th>now</th><th>new</th><th></th></tr>${statCells(a, b, pos)}</table>
+      </div></div>`;
+  }
+  return h;
+}
+$("cmpCancel").onclick = () => { PENDING = null; $("cmpDlg").close(); };
+$("cmpOk").onclick = () => {
+  const P = PENDING; if(!P) return;
+  commit();
+  P.swaps.forEach(w => S.squad[w.slot] = w.in);
+  S.mgr = P.mgr; syncMgrInputs();
+  if(P.after) P.after();
+  PENDING = null; $("cmpDlg").close(); $("results").innerHTML = ""; refresh();
+};
 function applyMgr(o){
   commit(); S.mgr.ni = o.ni; if(o.league){ S.mgr.li = o.li; }
   syncMgrInputs(); $("results").innerHTML = ""; refresh();

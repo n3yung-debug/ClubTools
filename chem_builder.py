@@ -359,7 +359,7 @@ def search_cards(q, live=False, limit=40):
         return {"hits": [], "live_error": None}
     live_error = None
     hits = [c for c in STATE["cards"] if all(t in c["_k"] for t in toks)]
-    hits.sort(key=lambda c: -c["ov"])
+    hits.sort(key=lambda c: (not word_match(c, toks), -c["ov"]))   # word-start matches first, then rating
     out = [public(c) for c in hits[:limit]]
     if live and len(out) < limit:
         try:
@@ -410,11 +410,24 @@ def parse_line(line):
     return {"pos": pos, "name": name, "rating": rating, "raw": line.strip()}
 
 
+def word_match(c, toks):
+    """Every typed word starts a word of the name ("vini" -> Vinícius, but "isco" is not in "Francisco")."""
+    words = c["_k"].replace("-", " ").replace(".", " ").split()
+    return all(any(w.startswith(t) for w in words) for t in toks)
+
+
+def name_hits(toks):
+    """Cards whose name matches the typed words: word starts first; plain substrings only if nothing else."""
+    hits = [c for c in STATE["cards"] if all(t in c["_k"] for t in toks)]
+    starts = [c for c in hits if word_match(c, toks)]
+    return starts or hits
+
+
 def find_cards(name, rating=None):
     toks = fold(name).split()
     if not toks:
         return []
-    hits = [c for c in STATE["cards"] if all(t in c["_k"] for t in toks)]
+    hits = name_hits(toks)
     if rating is not None:
         exact = [c for c in hits if c["ov"] == rating]
         hits = exact or hits
