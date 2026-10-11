@@ -3,15 +3,15 @@
 Local tool that shows how to raise squad chemistry, with lockable players.
 
 ## Run
-Windows: double-click **start.bat**. The app opens in your browser with no console window to keep open.
-It stops by itself about 30 seconds after you close its tab (or press **Stop app**). Double-clicking
-start.bat while it's already running just opens the page again. For a desktop icon: right-click
-start.bat → Send to → Desktop (create shortcut).
-If something goes wrong, run **start_console.bat** instead (it shows the messages) or read `chem_builder.log`.
-1. Install Python 3.9+ (standard library only, nothing else to install).
-2. Or in this folder: `python chem_builder.py`  (opens http://127.0.0.1:8765; `--stay` keeps it running after the tab closes)
-3. Card data refresh: click **Update card data** in the app, or `python chem_builder.py --sync`
-   (default: all cards rated 75+; `--min-rating 70` for more). cards.json here is a snapshot from 2026-10-11 (includes face stats and PlayStyles; older cards.json files need "Update card data" to show them).
+**Desktop app (recommended):** run **ChemBuilder.exe**. It opens in its own window (no browser) and quits when you close the window.
+- Get it from GitHub: the repo's **Actions** tab → latest "Build Windows app" run → **ChemBuilder-windows** artifact (a zip containing ChemBuilder.exe).
+- It's not code-signed, so Windows SmartScreen may say "Windows protected your PC" the first time: click **More info → Run anyway**.
+- It uses Microsoft Edge WebView2, which is built into Windows 10 and 11.
+- Saved squads, blacklist, PlayStyle preferences and settings live in `%APPDATA%\ChemBuilder` (`state.json`), together with the card data and `chem_builder.log`.
+- Coming from the browser version? Click **Bring over browser data** once in the app: it opens a page in your browser that copies what the browser had saved into the app.
+- The FUTBIN bookmark and share links open in your browser; while the app is open they are handed straight to the app window.
+
+**From the Python files:** double-click **start.bat** (needs Python 3.9+). With `pip install pywebview==6.2.1` it opens the same app window; without it, it opens in your browser and stops about 30 s after the tab closes. **start_console.bat** shows error messages. Command line: `python chem_builder.py --app` (window) or `python chem_builder.py` (browser).
 
 ## Use
 - Pick a formation (all 29 FC 27 Ultimate Team formations, taken from FUT.GG's squad builder), or edit any slot's position dropdown.

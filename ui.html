@@ -88,6 +88,7 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
   <button id="sync" class="sm">Update card data</button>
   <button id="diag" class="sm">Test connection</button>
   <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
+  <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
   <span class="small" id="syncMsg"></span>
 </header>
 <main>
@@ -166,7 +167,8 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
   <div data-pane="futbin" hidden>
     <div class="small mut">FUTBIN blocks programs from reading its pages, so this works through your browser instead:</div>
     <ol class="small" style="margin:6px 0;padding-left:18px">
-      <li>Drag this button to your bookmarks bar: <a class="bm" id="bmLink" href="#">→ Chem Builder</a></li>
+      <li>Drag this button to your bookmarks bar: <a class="bm" id="bmLink" href="#">→ Chem Builder</a>
+        <span class="small mut">— or <button class="sm" id="bmCopy">Copy bookmark</button>, then in your browser add a new bookmark, name it “→ Chem Builder” and paste into its URL field.</span></li>
       <li>On FUTBIN, open your squad (after <b>My Club → Import my club</b>, build or open the squad you play).</li>
       <li>With Chem Builder running, click the bookmark. This app opens with the squad ready to check.</li>
     </ol>
@@ -212,6 +214,44 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
 const POS = ["GK","LB","CB","RB","CDM","CM","CAM","LM","RM","LW","ST","RW"];
 const DEFAULT_FORMATION = "4-1-2-1-2 (2)";
 const LEGACY_NAMES = {"4-3-3 (holding)":"4-3-3 (2)"};  // v1 preset that isn't an FC 27 formation name
+// Saved data (squads, blacklist, preferences, settings) lives in a file in AppData via /api/state, so the
+// desktop window and a browser tab share it. Browser storage is kept as a fallback copy.
+const APP = new URLSearchParams(location.search).has("app");        // running inside the desktop window
+const DB = {data:{}, pending:{}, timer:null,
+  get(k){ if(k in this.data) return this.data[k]; try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k, v){
+    if(v === null) delete this.data[k]; else this.data[k] = v;
+    try{ v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); }catch(e){}
+    this.pending[k] = v; clearTimeout(this.timer); this.timer = setTimeout(() => this.flush(), 300);
+  },
+  async flush(){
+    const set = this.pending; this.pending = {};
+    if(!Object.keys(set).length) return;
+    try{ await fetch("/api/state", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({set})}); }
+    catch(e){ this.pending = Object.assign(set, this.pending); }
+  },
+  async load(){
+    try{ const r = await fetch("/api/state"); this.data = r.ok ? await r.json() : {}; }catch(e){ this.data = {}; }
+    if(!Object.keys(this.data).length && !APP) await this.importBrowser(false);   // first run: take this browser's data
+  },
+  browserKeys(){ const out = {}; try{ for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.startsWith("chemBuilder.")) out[k] = localStorage.getItem(k); } }catch(e){} return out; },
+  // copy what this browser saved into the shared file: saved squads and blacklist are merged, other keys
+  // only fill gaps (or replace everything when replace=true)
+  async importBrowser(replace){
+    const mine = this.browserKeys(), up = {};
+    for(const [k, v] of Object.entries(mine)){
+      if(k === "chemBuilder.saved" && this.data[k]){ try{ up[k] = JSON.stringify(Object.assign({}, JSON.parse(this.data[k]), JSON.parse(v))); continue; }catch(e){} }
+      if(k === "chemBuilder.blacklist" && this.data[k]){ try{ const a = JSON.parse(this.data[k]), b = JSON.parse(v);
+        up[k] = JSON.stringify(a.concat(b.filter(x => !a.some(y => String(y.bp) === String(x.bp))))); continue; }catch(e){} }
+      if(k === "chemBuilder.v2" && this.data[k]){   // the browser's current squad wins over an empty one here
+        try{ const here = JSON.parse(this.data[k]); if(!(here.S && here.S.squad || []).some(Boolean)){ up[k] = v; continue; } }catch(e){}
+      }
+      if(replace || !(k in this.data)) up[k] = v;
+    }
+    Object.assign(this.data, up); Object.assign(this.pending, up); await this.flush();
+    return Object.keys(mine).length;
+  }
+};
 const KEY = "chemBuilder.v2", KEY_V1 = "chemBuilder.v1", KEY_SAVED = "chemBuilder.saved", KEY_BL = "chemBuilder.blacklist";
 // Preferred PlayStyles per position. 31 = 1v1 Close Down, 12 = Intercept, 16 = Technical, 34 = Low Driven Shot
 const PS_POS = ["GK","CB","LB","RB","CDM","CM","LM","RM","CAM","LW","RW","ST"];
@@ -219,17 +259,20 @@ const KEY_PS = "chemBuilder.psprefs2", KEY_PS_OLD = "chemBuilder.psprefs";
 const PS_DEFAULT = {GK:[31], CB:[12], LB:[12], RB:[12], CDM:[12], CM:[16], LM:[], RM:[], CAM:[34,16], LW:[34,16], RW:[34,16], ST:[34,16]};
 const POS_GROUP = {GK:"GK",CB:"DEF",LB:"DEF",RB:"DEF",CDM:"MID",CM:"MID",LM:"MID",RM:"MID",CAM:"ATT",LW:"ATT",RW:"ATT",ST:"ATT"};
 let PSP = JSON.parse(JSON.stringify(PS_DEFAULT));
-try{
-  const saved = JSON.parse(localStorage.getItem(KEY_PS) || "null"), old = JSON.parse(localStorage.getItem(KEY_PS_OLD) || "null");
-  if(saved) PSP = Object.assign(PSP, saved);
-  else if(old){   // earlier version stored 4 groups: each position keeps its group's list (including removals),
-    const added = {CDM:[12], CM:[16], CAM:[16]};   // plus the per-position additions: CDM Intercept, CM/CAM Technical
-    for(const pos of PS_POS) PSP[pos] = [...new Set([...(old[POS_GROUP[pos]] || []), ...(added[pos] || [])])];
-    localStorage.setItem(KEY_PS, JSON.stringify(PSP));
-  }
-}catch(e){}
+function loadPS(){
+  PSP = JSON.parse(JSON.stringify(PS_DEFAULT));
+  try{
+    const saved = JSON.parse(DB.get(KEY_PS) || "null"), old = JSON.parse(DB.get(KEY_PS_OLD) || "null");
+    if(saved) PSP = Object.assign(PSP, saved);
+    else if(old){   // earlier version stored 4 groups: each position keeps its group's list (including removals),
+      const added = {CDM:[12], CM:[16], CAM:[16]};   // plus the per-position additions: CDM Intercept, CM/CAM Technical
+      for(const pos of PS_POS) PSP[pos] = [...new Set([...(old[POS_GROUP[pos]] || []), ...(added[pos] || [])])];
+      DB.set(KEY_PS, JSON.stringify(PSP));
+    }
+  }catch(e){}
+}
 const psName = id => (META.playstyles && META.playstyles[id]) || `PlayStyle ${id}`;
-function savePS(){ try{ localStorage.setItem(KEY_PS, JSON.stringify(PSP)); }catch(e){} renderPS(); }
+function savePS(){ DB.set(KEY_PS, JSON.stringify(PSP)); renderPS(); }
 function renderPS(){
   if(!META.playstyles) return;
   const gk = new Set((META.gk_playstyles||[]).map(Number)), all = Object.keys(META.playstyles).map(Number).sort((a,b)=>psName(a).localeCompare(psName(b)));
@@ -251,8 +294,8 @@ function psHtml(c, pos){
   return plus.length || base.length ? `<div class="small pss">${plus.concat(base).join(" ")}</div>` : "";
 }
 let BL = [];   // [{bp, n}] players never to suggest (every version)
-try{ BL = JSON.parse(localStorage.getItem(KEY_BL) || "[]") || []; }catch(e){ BL = []; }
-function saveBL(){ try{ localStorage.setItem(KEY_BL, JSON.stringify(BL)); }catch(e){} renderBL(); }
+function loadBL(){ try{ BL = JSON.parse(DB.get(KEY_BL) || "[]") || []; }catch(e){ BL = []; } }
+function saveBL(){ DB.set(KEY_BL, JSON.stringify(BL)); renderBL(); }
 function renderBL(){
   $("blSum").textContent = `Blacklisted players (${BL.length})`;
   $("blList").innerHTML = BL.length ? BL.map(x => `<span class="tag" style="font-size:12px;padding:2px 6px">${esc(x.n)} <button class="sm" data-unban="${esc(x.bp)}" title="Allow this player again" style="padding:0 5px">✕</button></span>`).join("")
@@ -294,12 +337,12 @@ function undo(){ if(!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop())
 function redo(){ if(!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
 function updUndo(){ $("undo").disabled = !UNDO.length; $("redo").disabled = !REDO.length; }
 
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify({S, opts:readOpts()})); }catch(e){} }
+function save(){ DB.set(KEY, JSON.stringify({S, opts:readOpts()})); }
 function load(){
   try{
-    let d = JSON.parse(localStorage.getItem(KEY)||"null");
+    let d = JSON.parse(DB.get(KEY)||"null");
     if(!d){  // first run after the update: bring the v1 squad across, re-seated into the new slot order
-      const old = JSON.parse(localStorage.getItem(KEY_V1)||"null");
+      const old = JSON.parse(DB.get(KEY_V1)||"null");
       if(old && old.S && old.S.slots && old.S.slots.length===11){
         const name = FORMATIONS[old.S.formation] ? old.S.formation : (LEGACY_NAMES[old.S.formation] || DEFAULT_FORMATION);
         const r = reseat(old.S.squad, old.S.locks||[], old.S.slots, FORMATIONS[name].slots);
@@ -671,7 +714,16 @@ $("impOut").addEventListener("click", e => {
   $("impDlg").close(); $("results").innerHTML = ""; refresh();
 });
 document.querySelectorAll("#impDlg [data-tab]").forEach(b => b.onclick = () => impTab(b.dataset.tab));
-$("fggGo").onclick = () => { const u = $("fggUrl").value.trim(); if(u) runPreview({mode:"fgg", url:u}); };
+$("bmCopy").onclick = async () => {
+  try{ await navigator.clipboard.writeText($("bmLink").href); $("bmCopy").textContent = "Copied ✔"; }
+  catch(e){ prompt("Copy this and paste it as the bookmark's URL:", $("bmLink").href); }
+};
+$("fggGo").onclick = () => {
+  const u = $("fggUrl").value.trim(); if(!u) return;
+  const shared = u.match(/[?#&]squad=([A-Za-z0-9_-]+)/);   // a Chem Builder share link works here too
+  if(shared){ $("impDlg").close(); return openShared(shared[1]); }
+  runPreview({mode:"fgg", url:u});
+};
 $("fggUrl").addEventListener("keydown", e => { if(e.key==="Enter") $("fggGo").click(); });
 $("impGo").onclick = () => { const t = $("impText").value; if(t.trim()) runPreview({mode:"text", text:t}); };
 function bookmarklet(){
@@ -679,15 +731,15 @@ function bookmarklet(){
   // EA card id (cdn.futbin.com/content/fifa27/img/players/p50563395.png = special, /231747.png = base).
   const base = location.origin + "/";
   const code = `(function(){var B=${JSON.stringify(base)};var u=location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);`
-    + `if(/fut\\.gg$/.test(location.hostname)&&u){window.open(B+'#import=fgg:'+u[0]);return}`
+    + `if(/fut\\.gg$/.test(location.hostname)&&u){window.open(B+'send?import=fgg:'+u[0]);return}`
     + `var ids=[],seen={};document.querySelectorAll('img').forEach(function(i){[i.currentSrc,i.src,i.getAttribute('data-src'),i.getAttribute('data-original'),i.getAttribute('srcset')].forEach(function(s){var m=s&&String(s).match(/\\/players\\/p?(\\d{3,})\\.(?:png|webp)/);if(m&&!seen[m[1]]){seen[m[1]]=1;ids.push(m[1])}})});`
     + `if(!ids.length){alert('Chem Builder: no player cards found on this page. Open a squad page and try again.');return}`
-    + `window.open(B+'#import=ids:'+ids.join(','))})()`;
+    + `window.open(B+'send?import=ids:'+ids.join(','))})()`;
   return "javascript:" + encodeURIComponent(code);
 }
 
 /* ---------- saved squads + share links ---------- */
-function savedAll(){ try{ return JSON.parse(localStorage.getItem(KEY_SAVED)||"{}"); }catch(e){ return {}; } }
+function savedAll(){ try{ return JSON.parse(DB.get(KEY_SAVED)||"{}"); }catch(e){ return {}; } }
 function renderSaved(sel){
   const all = savedAll(), names = Object.keys(all).sort((a,b)=>a.localeCompare(b));
   $("savedSel").innerHTML = `<option value="">Saved squads${names.length?` (${names.length})`:""}…</option>` + names.map(n=>`<option ${n===sel?"selected":""}>${esc(n)}</option>`).join("");
@@ -698,13 +750,13 @@ $("saveAs").onclick = () => {
   const all = savedAll();
   if(all[name] && name !== $("savedSel").value && !confirm(`Replace the saved squad "${name}"?`)) return;
   all[name] = snap();
-  try{ localStorage.setItem(KEY_SAVED, JSON.stringify(all)); }catch(e){ alert("Couldn't save: "+e.message); return; }
+  DB.set(KEY_SAVED, JSON.stringify(all));
   renderSaved(name);
 };
 $("savedSel").onchange = e => { const x = savedAll()[e.target.value]; if(x){ commit(); restore(x); } };
 $("delSaved").onclick = () => {
   const n = $("savedSel").value; if(!n || !confirm(`Delete the saved squad "${n}"?`)) return;
-  const all = savedAll(); delete all[n]; localStorage.setItem(KEY_SAVED, JSON.stringify(all)); renderSaved();
+  const all = savedAll(); delete all[n]; DB.set(KEY_SAVED, JSON.stringify(all)); renderSaved();
 };
 const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0)));
@@ -713,7 +765,7 @@ $("share").onclick = async () => {
   const d = {v:1, f:S.formation, p:S.squad.map(c => !c ? null : String(c.s).startsWith("custom:") ? c : c.s),
              l:S.locks.flatMap((x,i)=>x?[i]:[]), m:S.mgr};
   if(!f || f.slots.some((p,i)=>p!==S.slots[i])) d.sl = S.slots;
-  const url = location.origin + "/#squad=" + b64e(JSON.stringify(d));
+  const url = location.origin + "/send?squad=" + b64e(JSON.stringify(d));
   try{ await navigator.clipboard.writeText(url); $("syncMsg").textContent = "Share link copied. Whoever opens it needs Chem Builder running on their PC."; }
   catch(e){ prompt("Copy this link (whoever opens it needs Chem Builder running):", url); }
 };
@@ -735,7 +787,11 @@ async function openShared(enc){
 }
 function handleHash(){
   const h = decodeURIComponent(location.hash.slice(1)); if(!h) return;
-  history.replaceState(null, "", location.pathname);
+  history.replaceState(null, "", location.pathname + location.search);
+  handleItem(h);
+}
+function handleItem(h){
+  if(h === "import=reload"){ location.reload(); return; }
   if(h.startsWith("squad=")) return openShared(h.slice(6));
   if(h.startsWith("import=fgg:")){ openImport("fgg"); $("fggUrl").value = h.slice(11); return runPreview({mode:"fgg", url:h.slice(11)}); }
   if(h.startsWith("import=ids:")){ openImport("futbin"); return runPreview({mode:"ids", ids:h.slice(11).split(",")}); }
@@ -745,10 +801,34 @@ function handleHash(){
 const TAB = Math.random().toString(36).slice(2);
 let downShown = false;
 async function ping(){
-  try{ await api("/api/ping", {tab:TAB}); if(downShown){ const b = $("downBanner"); if(b) b.remove(); downShown = false; } }
-  catch(e){ if(!downShown){ downShown = true; document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">Chem Builder isn't running. Start it again with <b>start.bat</b> — this page reconnects by itself.</div>`); } }
+  try{
+    const r = await api("/api/ping", {tab:TAB, app:APP});
+    if(downShown){ const b = $("downBanner"); if(b) b.remove(); downShown = false; }
+    for(const item of r.inbox || []) handleItem(item);   // sent from the browser (FUTBIN bookmark, share link)
+  }
+  catch(e){ if(!downShown){ downShown = true; document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">Chem Builder isn't running. Start it again${APP?"":" with <b>start.bat</b>"} — this page reconnects by itself.</div>`); } }
 }
-addEventListener("pagehide", () => { try{ navigator.sendBeacon("/api/bye", JSON.stringify({tab:TAB})); }catch(e){} });
+addEventListener("pagehide", () => {
+  try{ if(Object.keys(DB.pending).length) navigator.sendBeacon("/api/state", JSON.stringify({set:DB.pending})); }catch(e){}
+  try{ navigator.sendBeacon("/api/bye", JSON.stringify({tab:TAB})); }catch(e){}
+});
+// "Bring over browser data": the app opens /?migrate=1 in the web browser, which still holds the old data
+async function migratePage(){
+  const n = await DB.importBrowser(false);
+  await api("/api/ping", {tab:TAB});
+  document.body.innerHTML = `<div style="display:grid;place-items:center;height:90vh;font:16px system-ui;text-align:center"><div>
+    <div style="font-size:42px">${n ? "✔" : "ℹ"}</div><p>${n ? "Your squads, blacklist and preferences were copied to the Chem Builder app." : "This browser has no Chem Builder data saved (or it was already copied)."}</p>
+    <p class="mut">You can close this tab — the app reloads with the data in a moment.</p></div></div>`;
+  try{ await fetch("/send?import=" + encodeURIComponent("reload")); }catch(e){}
+}
+$("migrate").onclick = () => { DB.set("chemBuilder.migrated", "1"); $("migrate").hidden = true;
+  openExternal(location.origin + "/?migrate=1"); };
+// in the desktop window, links open in the normal web browser (via the app)
+function openExternal(url){ if(APP) api("/api/open", {url}).catch(()=>{}); else window.open(url, "_blank"); }
+document.addEventListener("click", e => {
+  const a = e.target.closest("a.ext"); if(!a || !APP) return;
+  e.preventDefault(); openExternal(a.href);
+});
 addEventListener("pageshow", e => { if(e.persisted) ping(); });
 $("quit").onclick = async () => {
   if(!confirm("Stop Chem Builder? Your squad stays saved in this browser.")) return;
@@ -770,6 +850,9 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
+  await DB.load(); loadPS(); loadBL();
+  if(new URLSearchParams(location.search).has("migrate")) return migratePage();
+  if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
     const m = await api("/api/meta"); META = m;
     FORMATIONS = Object.fromEntries(m.formations.map(f => [f.name, f]));

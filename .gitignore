@@ -1,3 +1,6 @@
 chem_builder.log
 cards.json.tmp
 __pycache__/
+build/
+dist/
+*.spec

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Chem Builder (EA FC 27) -- local tool. Standard library only.
 
-  python chem_builder.py              start the app at http://127.0.0.1:8765
+  python chem_builder.py --app        open as a desktop app (own window, needs: pip install pywebview==6.2.1)
+  python chem_builder.py              start the app in your web browser at http://127.0.0.1:8765
   python chem_builder.py --sync       refresh cards.json from FUT.GG first (then start)
   python chem_builder.py --sync-only  refresh and exit
   options: --min-rating 75  --port 8765  --no-browser  --stay (don't stop when the last app tab closes)
@@ -31,11 +32,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import chem_engine as eng
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CACHE = os.path.join(HERE, "cards.json")
-UI = os.path.join(HERE, "ui.html")
+FROZEN = getattr(sys, "frozen", False)                       # running as ChemBuilder.exe (PyInstaller)
+BUNDLE = getattr(sys, "_MEIPASS", HERE)                       # where ui.html / the shipped cards.json live
+DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
+                        "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")
+CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards.json")   # the .exe keeps updatable card data in AppData
+UI = os.path.join(BUNDLE, "ui.html")
+STATE_FILE = os.path.join(DATA_DIR, "state.json")             # saved squads, blacklist, preferences, settings
 API = "https://www.fut.gg/api/fut/players/v2/27/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-LOG = os.path.join(HERE, "chem_builder.log")
+LOG = os.path.join(DATA_DIR if FROZEN else HERE, "chem_builder.log")
 PSEUDO_CLUBS = {"ICON", "HERO", "HALL OF FUT"}
 
 STATE = {"cards": [], "meta": {}, "by_slug": {}, "by_bp": {}, "sync": {"running": False, "msg": "", "done": 0, "total": 0}}
@@ -237,6 +243,63 @@ def sync_cards(min_rating=75, status=None):
         status.update(running=False, msg=f"done: {len(uniq)} cards")
     except Exception as e:  # noqa: BLE001
         status.update(running=False, msg=f"failed: {e}")
+
+
+def ensure_cards():
+    """The .exe ships a cards.json; copy it to AppData unless the copy there is newer (e.g. after an update)."""
+    shipped = os.path.join(BUNDLE, "cards.json")
+    if not FROZEN or not os.path.exists(shipped):
+        return
+    def synced(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f).get("meta", {}).get("synced_at", "")
+        except Exception:  # noqa: BLE001
+            return ""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    if not os.path.exists(CACHE) or synced(shipped) > synced(CACHE):
+        import shutil
+        shutil.copyfile(shipped, CACHE)
+
+
+# ------------------------------------------------------------------ saved state (squads, blacklist, preferences)
+# Kept in a file rather than browser storage so the desktop window and a browser tab share it.
+STATE_LOCK = threading.Lock()
+
+
+def read_state():
+    try:
+        with open(STATE_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def write_state(updates):
+    """updates: {key: string value, or None to delete}."""
+    with STATE_LOCK:
+        d = read_state()
+        for k, v in updates.items():
+            if not isinstance(k, str) or not k.startswith("chemBuilder."):
+                continue
+            if v is None:
+                d.pop(k, None)
+            else:
+                d[k] = str(v)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+        os.replace(tmp, STATE_FILE)
+        return d
+
+
+# ------------------------------------------------------------------ hand-off from the browser to the app window
+# The FUTBIN bookmark and share links open http://127.0.0.1:8765/send?... in the web browser. When the desktop
+# window is open, the request is queued and the window picks it up on its next ping; otherwise the browser
+# tab handles it itself.
+INBOX = []
 
 
 def load_cache():
@@ -589,6 +652,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, diagnose())
         if u.path == "/api/sync_status":
             return self._send(200, STATE["sync"])
+        if u.path == "/api/state":
+            return self._send(200, read_state())
+        if u.path == "/send":
+            item = ("squad=" + qs["squad"][0]) if qs.get("squad") else ("import=" + qs["import"][0]) if qs.get("import") else ""
+            if not item:
+                return self._send(400, {"error": "nothing to send"})
+            if LIFE.app_open():
+                INBOX.append(item)
+                return self._send(200, SENT_PAGE.encode("utf-8"), "text/html")
+            self.send_response(302)
+            self.send_header("Location", "/#" + urllib.parse.quote(item, safe="=:,-_"))
+            self.end_headers()
+            return
         self._send(404, {"error": "not found"})
 
     def do_POST(self):
@@ -611,7 +687,19 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/cards":
                 return self._send(200, cards_for_slugs(body.get("slugs") or []))
             if self.path == "/api/ping":
-                LIFE.ping(body.get("tab"))
+                LIFE.ping(body.get("tab"), app=bool(body.get("app")))
+                out = {"ok": True}
+                if body.get("app") and INBOX:
+                    out["inbox"] = [INBOX.pop(0) for _ in range(len(INBOX))]
+                return self._send(200, out)
+            if self.path == "/api/state":
+                return self._send(200, write_state(body.get("set") or {}))
+            if self.path == "/api/open":   # the desktop window asks to open a link in the normal web browser
+                url = str(body.get("url") or "")
+                own = f"http://127.0.0.1:{self.server.server_address[1]}/"
+                if not (url.startswith("https://www.fut.gg/") or url.startswith(own)):
+                    return self._send(400, {"error": "only FUT.GG and Chem Builder links are opened"})
+                webbrowser.open(url)
                 return self._send(200, {"ok": True})
             if self.path == "/api/bye":
                 LIFE.bye(body.get("tab"))
@@ -684,9 +772,15 @@ class Life:
 
     def __init__(self):
         self.tabs, self.server, self.enabled, self.empty_since, self.seen_any = {}, None, False, None, False
+        self.app_seen = 0.0
         self.lock = threading.Lock()
 
-    def ping(self, tab):
+    def app_open(self):
+        return time.time() - self.app_seen < 25  # the app window pings every 10 s
+
+    def ping(self, tab, app=False):
+        if app:
+            self.app_seen = time.time()
         with self.lock:
             self.tabs[str(tab)] = time.time()
             self.empty_since, self.seen_any = None, True
@@ -722,6 +816,11 @@ class Life:
 
 LIFE = Life()
 
+SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to Chem Builder</title>
+<body style="font:16px system-ui;background:#0e1420;color:#e8edf7;display:grid;place-items:center;height:90vh">
+<div style="text-align:center"><div style="font-size:42px">✔</div><p>Sent to the Chem Builder window.</p>
+<p style="color:#8fa0c0">You can close this tab.</p></div></body>"""
+
 
 def windowless():
     """True under pythonw (start.bat), where there is no console to print to."""
@@ -748,8 +847,64 @@ def already_running(port):
         return False
 
 
+def start_server(port):
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def selftest(port):
+    """Start the server, check the page and card data answer, stop. Used by the Windows build."""
+    ensure_cards()
+    load_cache()
+    srv = start_server(port)
+    try:
+        base = f"http://127.0.0.1:{port}"
+        with urllib.request.urlopen(base + "/", timeout=10) as r:
+            assert b"Chem Builder" in r.read()
+        with urllib.request.urlopen(base + "/api/meta", timeout=10) as r:
+            meta = json.load(r)
+        assert meta["n"] > 1000 and len(meta["formations"]) == 29, meta.get("n")
+        print(f"SELFTEST OK: {meta['n']} cards, {len(meta['formations'])} formations, ui from {UI}")
+    finally:
+        srv.shutdown()
+
+
+def run_app(url, smoke=False):
+    """Show the app in its own desktop window (pywebview: Edge WebView2 on Windows). Returns False if
+    pywebview isn't available, so the caller can fall back to the browser."""
+    try:
+        import webview
+    except ImportError:
+        print("pywebview is not installed (pip install pywebview==6.2.1) - opening in the browser instead.")
+        return False
+    os.makedirs(DATA_DIR, exist_ok=True)
+    win = webview.create_window("Chem Builder - EA FC 27", url + "?app=1", width=1500, height=950,
+                                min_size=(1000, 700), background_color="#0e1420")
+    if smoke:  # build check: wait for the page to render the pitch, report, close
+        def check():
+            ok = False
+            for _ in range(60):
+                time.sleep(0.5)
+                try:
+                    if win.evaluate_js("document.querySelectorAll('.slot').length") == 11:
+                        ok = True
+                        break
+                except Exception:  # noqa: BLE001
+                    pass
+            print("SMOKE OK: the window shows the pitch" if ok else "SMOKE FAIL: pitch not shown in the window", flush=True)
+            with open(os.path.join(DATA_DIR, "smoke.txt"), "w") as f:
+                f.write("ok" if ok else "fail")
+            win.destroy()
+        webview.start(check, private_mode=False, storage_path=os.path.join(DATA_DIR, "webview"))
+    else:
+        webview.start(private_mode=False, storage_path=os.path.join(DATA_DIR, "webview"))
+    return True
+
+
 def main():
-    if windowless():  # pythonw: keep a log instead of printing into nothing
+    if windowless():  # pythonw / ChemBuilder.exe: keep a log instead of printing into nothing
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
         sys.stdout = sys.stderr = open(LOG, "w", encoding="utf-8", buffering=1)
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="test cards.json and the FUT.GG connection, then exit")
@@ -759,7 +914,14 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--stay", action="store_true", help="keep running after the last app tab is closed")
+    ap.add_argument("--app", action="store_true", help="open in its own desktop window (default for the .exe)")
+    ap.add_argument("--browser", action="store_true", help="open in the web browser even from the .exe")
+    ap.add_argument("--selftest", action="store_true", help="start, check the page and data, exit (build check)")
+    ap.add_argument("--smoke", action="store_true", help="open the window, check it renders, close (build check)")
     a = ap.parse_args()
+    ensure_cards()
+    if a.selftest:
+        return selftest(a.port)
     if a.check:
         load_cache()
         for st_ in diagnose():
@@ -778,9 +940,12 @@ def main():
             fatal("Card data sync failed and there is no cards.json. Run: python chem_builder.py --check")
         if a.sync_only:
             return
+    app = (a.app or a.smoke or FROZEN) and not a.browser
     url = f"http://127.0.0.1:{a.port}/"
-    if already_running(a.port):  # second double-click: just show the app that is already running
-        print(f"Chem Builder is already running - opening {url}")
+    if already_running(a.port):  # second start: just show the app that is already running
+        print(f"Chem Builder is already running at {url}")
+        if app and run_app(url, a.smoke):
+            return
         if not a.no_browser:
             webbrowser.open(url)
         return
@@ -791,17 +956,25 @@ def main():
         srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
     except OSError as e:
         fatal(f"Port {a.port} is in use by another program ({e}). Close it or start with --port 8766.")
-    LIFE.server, LIFE.enabled = srv, not (a.stay or a.no_browser)
+    LIFE.server = srv
+    print(f"{len(STATE['cards'])} cards loaded (synced {STATE['meta'].get('synced_at', '?')}). {url}")
+    serving = threading.Thread(target=srv.serve_forever, daemon=True)
+    serving.start()
+    if app and run_app(url, a.smoke):   # desktop window: blocks until it is closed, then the app quits
+        srv.shutdown()
+        return
+    # browser mode (or no pywebview): the server stops ~30 s after the last tab closes
+    LIFE.enabled = not (a.stay or a.no_browser)
     threading.Thread(target=LIFE.watch, daemon=True).start()
-    print(f"{len(STATE['cards'])} cards loaded (synced {STATE['meta'].get('synced_at', '?')}). Open {url}  (Ctrl+C to stop)")
     if LIFE.enabled:
         print("The app stops by itself about 30 s after its last browser tab is closed.")
     if not a.no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     try:
-        srv.serve_forever()
+        while serving.is_alive():
+            serving.join(0.5)
     except KeyboardInterrupt:
-        pass
+        srv.shutdown()
 
 
 if __name__ == "__main__":
