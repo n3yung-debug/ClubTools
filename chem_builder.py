@@ -117,7 +117,21 @@ def normalize_card(r):
         "xn": int(r.get("extraNationChemistry") or 0),
         "xsl": bool(r.get("extraSquadLeagueChemistry")), "xsn": bool(r.get("extraSquadNationChemistry")),
         "fs": face_stats(r),
+        "ps": [int(x) for x in r.get("playStyleEaIds") or []],      # PlayStyles (ids, see PLAYSTYLES)
+        "pp": [int(x) for x in r.get("playStylePlusEaIds") or []],  # PlayStyle+ (ids)
     }
+
+
+# PlayStyle ids used by FUT.GG's feed -> FC 27 display names (from FUT.GG's site code, Oct 2026;
+# "Rush Out" is shown in FC 27 as "1v1 Close Down").
+PLAYSTYLES = {0: "Finesse Shot", 1: "Chip Shot", 2: "Power Shot", 3: "Dead Ball", 4: "Power Header", 5: "Incisive Pass",
+              6: "Pinged Pass", 7: "Long Ball", 8: "Tiki Taka", 9: "Whipped Pass", 10: "Jockey", 11: "Block",
+              12: "Intercept", 13: "Anticipate", 14: "Slide Tackle", 15: "Bruiser", 16: "Technical", 17: "Rapid",
+              18: "Flair", 19: "First Touch", 20: "Trickster", 21: "Press Proven", 22: "Quick Step", 23: "Relentless",
+              24: "Trivela", 25: "Acrobatic", 26: "Long Throw", 27: "Aerial", 28: "Far Throw", 29: "Footwork",
+              30: "Cross Claimer", 31: "1v1 Close Down", 32: "Far Reach", 33: "Deflector", 34: "Low Driven Shot",
+              35: "Aerial Fortress", 36: "Enforcer", 37: "Gamechanger", 38: "Inventive", 39: "Precision Header"}
+GK_PLAYSTYLES = {28, 29, 30, 31, 32, 33}
 
 
 OUTFIELD_FACE = ("facePace", "faceShooting", "facePassing", "faceDribbling", "faceDefending", "facePhysicality")
@@ -188,14 +202,6 @@ def diagnose():
                       "detail": f"{len(d.get('data', []))} cards in {time.time() - t:.1f}s (feed total {d.get('total')})"})
     except Exception as e:  # noqa: BLE001
         steps.append({"step": "FUT.GG player feed", "ok": False, "detail": str(e)})
-    try:
-        p, known = extract_price(fetch_json(PRICE_API.format(ea="37576"), tries=1))
-        steps.append({"step": "FUT.GG price lookup (budget filter)", "ok": known,
-                      "detail": f"works ({p if p is not None else 'no listing'})" if known else
-                      "responded but format not recognised - budget will use your pasted prices only"})
-    except Exception as e:  # noqa: BLE001
-        steps.append({"step": "FUT.GG price lookup (budget filter)", "ok": False,
-                      "detail": str(e) + " -> budget will use your pasted prices only"})
     return steps
 
 
@@ -341,155 +347,6 @@ def find_cards(name, rating=None):
         exact = [c for c in hits if c["ov"] == rating]
         hits = exact or hits
     return hits
-
-
-# ------------------------------------------------------------------ prices (budget filter)
-# FUT.GG's card feed has no prices. Live lookup uses FUT.GG's per-player price endpoint (the path matches FUT.GG's
-# own site code, Oct 2026). Since FC 27 FUT.GG serves it behind a Cloudflare browser challenge (403 with
-# cf-mitigated: challenge, confirmed from a user's PC and from the build sandbox on 8 Oct 2026), so the live
-# lookup normally fails and the budget runs on pasted prices. The lookup stays in case FUT.GG opens it again;
-# Budget stops after the first failure, so a blocked endpoint costs one request per run.
-# Manual prices ("name price" lines) always work and take priority over live lookups.
-PRICE_API = "https://www.fut.gg/api/fut/player-prices/27/{ea}/"
-PRICE_TTL = 3600
-LIVE_LOOKUP_CAP = 80          # max live lookups per optimize run
-LIVE_PRICES = {}              # eaId -> (price|None, fetched_at)
-
-
-def card_ea_id(card):
-    return card["s"].split("-", 1)[-1]
-
-
-def to_coins(tok):
-    m = re.fullmatch(r"(\d[\d,]*(?:\.\d+)?)([kKmM]?)", tok.strip())
-    if not m:
-        return None
-    num = float(m.group(1).replace(",", ""))
-    mult = {"": 1, "k": 1_000, "m": 1_000_000}[m.group(2).lower()]
-    if not m.group(2) and "." in m.group(1):
-        return None  # "12.5" without a suffix is not a coin amount
-    return int(round(num * mult))
-
-
-def parse_price_line(line):
-    """'Mbappe 91 12,500' / 'Cafu 85 8.5k' / 'ST Rodri  90  1200' -> {name, rating, pos, price} or None."""
-    s = re.sub(r"^\s*(?:[-*\u2022]|\d{1,2}[.)])\s+", "", line.strip())
-    toks = [t for t in re.split(r"\t|\s{2,}|\||\s", s) if t]
-    price, idx = None, None
-    for i in range(len(toks) - 1, -1, -1):
-        v = to_coins(toks[i])
-        if v is None or toks[i].upper() in POS_TOKENS:
-            continue
-        has_suffix = toks[i][-1] in "kKmM" or "," in toks[i]
-        other_rating = any(t.isdigit() and 40 <= int(t) <= 99 for j, t in enumerate(toks) if j != i)
-        if has_suffix or v >= 100 or other_rating:
-            price, idx = v, i
-            break
-    if price is None:
-        return None
-    rest = " ".join(t for j, t in enumerate(toks) if j != idx)
-    p = parse_line(rest)
-    if not p:
-        return None
-    return {"name": p["name"], "rating": p["rating"], "pos": p["pos"], "price": price}
-
-
-def manual_prices(text):
-    """Returns ({slug: price}, [unmatched lines])."""
-    out, bad = {}, []
-    for ln in [x for x in (text or "").splitlines() if x.strip()]:
-        p = parse_price_line(ln)
-        if not p:
-            bad.append(ln.strip())
-            continue
-        hits = find_cards(p["name"], p["rating"])
-        if not hits:
-            bad.append(ln.strip())
-        for c in hits:
-            out[c["s"]] = p["price"]
-    return out, bad
-
-
-def extract_price(d):
-    """Pull a coin price out of the price endpoint response. Returns (price|None, recognised_shape)."""
-    data = d.get("data", d) if isinstance(d, dict) else None
-    if not isinstance(data, dict):
-        return None, False
-    cp = data.get("currentPrice")
-    if isinstance(cp, dict):
-        if cp.get("isExtinct") or cp.get("price") in (None, 0):
-            return None, True
-        return int(cp["price"]), True
-    if isinstance(data.get("price"), (int, float)):
-        return int(data["price"]), True
-    return None, False
-
-
-class Budget:
-    def __init__(self, cap, manual, include_unknown=False, live=True):
-        self.cap, self.manual, self.include_unknown, self.live = cap, manual, include_unknown, live
-        self.seen = {}          # slug -> price|None
-        self.lookups = 0
-        self.live_error = None
-        self.blocked = False
-        self.capped = False
-        self.over = set()
-        self.unknown = set()
-        self._last = 0.0
-
-    def price(self, card):
-        s = card["s"]
-        if s in self.seen:
-            return self.seen[s]
-        p = self.manual.get(s)
-        if p is None and self.live and not self.blocked:
-            p = self._live(card)
-        self.seen[s] = p
-        return p
-
-    def _live(self, card):
-        ea = card_ea_id(card)
-        hit = LIVE_PRICES.get(ea)
-        if hit and time.time() - hit[1] < PRICE_TTL:
-            return hit[0]
-        if self.lookups >= LIVE_LOOKUP_CAP:
-            self.capped = True
-            return None
-        wait = 0.25 - (time.time() - self._last)
-        if wait > 0:
-            time.sleep(wait)
-        self._last = time.time()
-        self.lookups += 1
-        try:
-            d = fetch_json(PRICE_API.format(ea=ea), tries=1)
-            p, known = extract_price(d)
-            if not known:
-                raise RuntimeError("price response not recognised (top-level keys: %s)" %
-                                   ", ".join(list(d)[:6] if isinstance(d, dict) else [type(d).__name__]))
-        except Exception as e:  # noqa: BLE001
-            self.live_error = str(e)
-            self.blocked = True  # stop hammering a blocked / changed endpoint for the rest of this run
-            return None
-        LIVE_PRICES[ea] = (p, time.time())
-        return p
-
-    def ok(self, card):
-        p = self.price(card)
-        if p is None:
-            if self.include_unknown:
-                return True
-            self.unknown.add(card["s"])
-            return False
-        if p > self.cap:
-            self.over.add(card["s"])
-            return False
-        return True
-
-    def report(self):
-        return {"cap": self.cap, "lookups": self.lookups, "over": len(self.over), "unknown": len(self.unknown),
-                "live_error": self.live_error, "capped": self.capped,
-                "prices": {k: v for k, v in self.seen.items() if v is not None}}
-
 
 
 def build_pool(opts):
@@ -723,6 +580,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, f.read(), "text/html")
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
+                                    "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values())})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
@@ -772,14 +630,16 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def optimize(b):
-        slots, squad, locks, mgr, o, by_pos, ok, budget, bad_prices, pool, unmatched = _search_setup(b)
+        slots, squad, locks, mgr, o, by_pos, pool, unmatched = _search_setup(b)
+        ok = None
         max_drop, min_rating = int(o.get("max_drop", 3)), int(o.get("min_rating", 0))
         fixed, free = _mgr_modes(mgr)
+        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
         base = eng.total_only(slots, squad, fixed)          # what the squad has right now
         base_free, li_now = eng.total_only(slots, squad, free), eng._manager_rows(slots, squad, free)[1]
-        _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok)
+        _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok, val=val)
         chain, chain_total, final = eng.plan_chain(slots, squad, locks, free, by_pos, max_drop, min_rating,
-                                                   max_steps=int(o.get("max_steps", 5)), ok=ok)
+                                                   max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
         cur = list(squad)
         for st in chain:  # which manager league each step assumes (League Modifier)
             for w in st["swaps"]:
@@ -787,12 +647,11 @@ class Handler(BaseHTTPRequestHandler):
             st["li"] = eng._manager_rows(slots, cur, free)[1]
         k_max = max(1, min(5, int(o.get("max_steps", 5))))
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
-        combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base)
-        combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True)
+        combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, val=val)
+        combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True, val=val)
         upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, k_max=k_max,
-                                      max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base)
-        return {"budget": budget.report() if budget else None, "bad_prices": bad_prices,
-                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
+                                      max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base, val=val)
+        return {                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
                 "singles": singles, "chain": chain, "chain_total": chain_total,
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
@@ -812,13 +671,7 @@ def _search_setup(b):
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
     by_pos = eng.index_pool(pool)
-    budget, bad_prices, ok = None, [], None
-    cap = int(o.get("max_price") or 0)
-    if cap > 0 and not (o.get("club_list") or "").strip():   # cards you own cost nothing -> no budget then
-        manual, bad_prices = manual_prices(o.get("price_list"))
-        budget = Budget(cap, manual, bool(o.get("include_unknown")), live=o.get("live_prices", True))
-        ok = budget.ok
-    return slots, squad, locks, mgr, o, by_pos, ok, budget, bad_prices, pool, unmatched
+    return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 
 class Life:

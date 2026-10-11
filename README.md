@@ -11,7 +11,7 @@ If something goes wrong, run **start_console.bat** instead (it shows the message
 1. Install Python 3.9+ (standard library only, nothing else to install).
 2. Or in this folder: `python chem_builder.py`  (opens http://127.0.0.1:8765; `--stay` keeps it running after the tab closes)
 3. Card data refresh: click **Update card data** in the app, or `python chem_builder.py --sync`
-   (default: all cards rated 75+; `--min-rating 70` for more). cards.json here is a snapshot from 2026-10-08 (includes face stats; older cards.json files need "Update card data" to show them).
+   (default: all cards rated 75+; `--min-rating 70` for more). cards.json here is a snapshot from 2026-10-11 (includes face stats and PlayStyles; older cards.json files need "Update card data" to show them).
 
 ## Use
 - Pick a formation (all 29 FC 27 Ultimate Team formations, taken from FUT.GG's squad builder), or edit any slot's position dropdown.
@@ -36,11 +36,14 @@ If something goes wrong, run **start_console.bat** instead (it shows the message
 - "Only use cards I own": paste card names (one per line, optional rating: `Alisson 87`) to restrict the pool.
   Without it, the search covers every card in the database (ICONs included — tick "exclude ICONs" if you don't have any).
 
-## Budget (max price per incoming card)
-- Enter a limit in "Budget: max price per incoming card". It applies only to the card being swapped in, never to the squad total, and it is ignored when "Only use cards I own" is filled in.
-- Prices: paste them under "Prices I know" (`Mbappé 91 12,500`, `Cafu 85 8.5k`). FUT.GG serves prices behind a Cloudflare browser check (403 `cf-mitigated: challenge`, confirmed 8 Oct 2026 from a user PC), so the live lookup normally fails; the app tries it once per run in case FUT.GG opens it again. Pasted prices always win.
-- Cards with no price are hidden unless you tick "also show cards with no price data". Results still rank by chemistry gained, then highest overall.
-- Prices are not platform-specific in the app; paste the ones for your platform if the live lookup is blocked.
+## PlayStyles
+- Suggested cards show their PlayStyles and PlayStyles+ (PS+ outlined); the ones you prefer for that position are starred ★.
+- "Preferred PlayStyles" (results settings) sets what you want per position group. Defaults: goalkeepers 1v1 Close Down (FC 27's name for Rush Out), defenders Intercept, attackers (CAM, LW, RW, ST) Low Driven Shot and Technical; midfielders none.
+- Each wanted PlayStyle+ counts as +3 rating points and a plain one +1 (both adjustable). Chemistry still ranks first; among equal chemistry, the better card by overall + PlayStyles comes first. In rating upgrades, an equal-overall card that adds a wanted PlayStyle counts as an upgrade.
+- PlayStyle ids/names come from FUT.GG's feed and site code (Oct 2026).
+
+## Prices
+- Prices can't be read automatically (FUT.GG and FUTBIN keep them behind a Cloudflare browser check), so there is no budget filter. Every suggested card links to its FUT.GG page, where the price is one click away.
 
 ## Rules implemented (checked 8 Oct 2026 against community guides; no EA primary source found)
 - 0–3 chem per starter, max 33. Counts include the player. Club 2/4/7, league 3/5/8, nation 2/5/8; types add, capped at 3.
@@ -57,6 +60,6 @@ If something goes wrong, run **start_console.bat** instead (it shows the message
 - `python test_engine.py` runs the rule tests.
 
 ## Troubleshooting "failed to fetch players"
-1. Click **Test connection** in the app (or run `python chem_builder.py --check`). It checks cards.json, DNS, and the FUT.GG feed, and names the cause (blocked/403, rate limited/429, certificate error from a firewall doing HTTPS inspection, DNS filter, timeout).
+1. Click **Test connection** in the app (or run `python chem_builder.py --check`). It checks cards.json, DNS, and the FUT.GG card feed, and names the cause (blocked/403, rate limited/429, certificate error from a firewall doing HTTPS inspection, DNS filter, timeout).
 2. Normal searching never touches the internet: it reads cards.json next to chem_builder.py. Keep all files from the zip in one folder, and start the app with `python chem_builder.py` from that folder.
 3. The feed is undocumented; a 404 means FUT.GG changed it and the sync code needs updating.

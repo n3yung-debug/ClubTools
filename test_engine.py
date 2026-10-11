@@ -230,6 +230,29 @@ def test_upgrades_raise_rating_within_chem_budget():
     assert {w["in"]["s"] for w in two["swaps"]} == {"t200", "t201"} and two["dr"] == 23 and two["total"] >= 30
 
 
+def test_playstyle_preferences_rank_and_upgrade():
+    val = eng.make_value({"GK": [31], "ATT": [34, 16]}, w_plus=3, w_ps=1)
+    gk_plus = card(300, "GK", ov=86, pp=[31])          # 1v1 Close Down+ -> 89
+    gk_plain = card(301, "GK", ov=87, ps=[28])         # no wanted PlayStyle -> 87
+    st = card(302, "ST", ov=85, ps=[34, 16], pp=[])    # Low Driven + Technical -> 87
+    assert val(gk_plus, "GK") == 89 and val(gk_plain, "GK") == 87 and val(st, "ST") == 87
+    assert val(st, "CB") == 85 and eng.plain_value(gk_plus, "GK") == 86  # no preference for defenders here
+    # same chemistry gain for both keepers: the 1v1 Close Down+ one is suggested first
+    sq = squad_of(ni=[1] * 10 + [2], li=[1] * 10 + [2], ck=[None] * 11, ov=85)
+    for c in (gk_plus, gk_plain):
+        c.update(ni=1, li=1)
+    _, top, _ = eng.top_singles(SLOTS, sq, [False] * 11, None, eng.index_pool([gk_plain, gk_plus]), 5, 0, val=val)
+    assert top[0]["in"]["s"] == "t300"
+    _, top, _ = eng.top_singles(SLOTS, sq, [False] * 11, None, eng.index_pool([gk_plain, gk_plus]), 5, 0)
+    assert top[0]["in"]["s"] == "t301"  # without preferences: higher overall first
+    # upgrades: an equal-rated keeper that adds 1v1 Close Down+ counts as an upgrade
+    full = squad_of(ni=[1] * 11, li=[1] * 11, ck=["A"] * 11, ov=80)
+    same = card(303, "GK", ni=1, li=1, ck="A", ov=80, pp=[31])
+    up = eng.upgrade_combos(SLOTS, full, [False] * 11, None, eng.index_pool([same]), k_max=1, max_loss=0, val=val)
+    assert up["by_k"][1][0]["swaps"][0]["in"]["s"] == "t303" and up["by_k"][1][0]["dr"] == 0 and up["by_k"][1][0]["dv"] == 3
+    assert eng.upgrade_combos(SLOTS, full, [False] * 11, None, eng.index_pool([same]), k_max=1)["by_k"][1] == []
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")
@@ -310,47 +333,6 @@ def _opt_body(**opts):
         c["_k"] = ""
     return {"slots": SLOTS, "squad": squad, "locks": [False] * 11, "mgr": None,
             "opts": dict({"max_drop": 4, "pairs": False, "max_steps": 3}, **opts)}
-
-
-def test_budget_hides_expensive_incoming_cards():
-    real = cb.fetch_json
-    def fake(url, tries=1):  # price = 1000 for even ea ids, 50000 for odd
-        ea = int(url.rstrip("/").split("/")[-1])
-        return {"data": {"currentPrice": {"price": 1000 if ea % 2 == 0 else 50000}}}
-    cb.fetch_json = fake
-    try:
-        r = cb.Handler.optimize(_opt_body(max_price=5000))
-    finally:
-        cb.fetch_json = real
-    assert r["budget"]["over"] > 0 and r["singles"], r["budget"]
-    for s in r["singles"]:
-        assert r["budget"]["prices"][s["in"]["s"]] <= 5000
-    for st in r["chain"]:
-        for w in st["swaps"]:
-            assert r["budget"]["prices"][w["in"]["s"]] <= 5000
-
-
-def test_budget_blocked_endpoint_and_manual_fallback():
-    real = cb.fetch_json
-    def blocked(url, tries=1):
-        raise RuntimeError("HTTP 403 Forbidden - blocked")
-    cb.fetch_json = blocked
-    try:
-        r = cb.Handler.optimize(_opt_body(max_price=5000))
-        assert r["singles"] == [] and "403" in r["budget"]["live_error"] and r["budget"]["lookups"] == 1
-        r2 = cb.Handler.optimize(_opt_body(max_price=5000, include_unknown=True))
-        assert r2["singles"]  # unknown-price cards allowed
-        top = r2["singles"][0]["in"]
-        manual = f"{top['n']} {top['ov']} 900000"
-        r3 = cb.Handler.optimize(_opt_body(max_price=5000, include_unknown=True, price_list=manual))
-        assert all(s["in"]["s"] != top["s"] for s in r3["singles"])  # manual price puts it over budget
-    finally:
-        cb.fetch_json = real
-
-
-def test_budget_ignored_when_owned_list_used():
-    r = cb.Handler.optimize(_opt_body(max_price=5000, club_list="Mbappe\nHaaland\nRodri"))
-    assert r["budget"] is None
 
 
 if __name__ == "__main__":

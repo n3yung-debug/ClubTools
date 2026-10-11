@@ -246,6 +246,37 @@ def manager_suggestions(slots, squad, mgr, top=6):
 
 # --------------------------------------------------------------------------- search
 
+POS_GROUP = {"GK": "GK", "CB": "DEF", "LB": "DEF", "RB": "DEF", "CDM": "MID", "CM": "MID", "LM": "MID", "RM": "MID",
+             "CAM": "ATT", "LW": "ATT", "RW": "ATT", "ST": "ATT"}
+
+
+def plain_value(c, pos):
+    return c["ov"]
+
+
+def make_value(prefs=None, w_plus=3, w_ps=1):
+    """Card value used for ranking: overall + a bonus for the PlayStyles you want in that position.
+    prefs = {"GK": [ids], "DEF": [...], "MID": [...], "ATT": [...]}; a wanted PlayStyle+ is worth w_plus
+    rating points, a plain wanted PlayStyle w_ps."""
+    want = {g: frozenset(ids) for g, ids in (prefs or {}).items() if ids}
+    if not want or (not w_plus and not w_ps):
+        return plain_value
+    cache = {}
+
+    def value(c, pos):
+        g = POS_GROUP.get(pos)
+        w = want.get(g)
+        if not w:
+            return c["ov"]
+        key = (c["s"], g)
+        v = cache.get(key)
+        if v is None:
+            pp, ps = c.get("pp") or (), c.get("ps") or ()
+            v = cache[key] = c["ov"] + sum(w_plus if x in pp else w_ps if x in ps else 0 for x in w)
+        return v
+    return value
+
+
 def index_pool(pool):
     by_pos = {}
     for c in pool:
@@ -264,7 +295,7 @@ def _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating):
         yield cand
 
 
-def single_swaps(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0):
+def single_swaps(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, val=plain_value):
     mgr = mgr or {}
     mni, mli, free = mgr.get("ni"), mgr.get("li"), mgr.get("li_free")
     ts = [_t(c) for c in squad]
@@ -278,19 +309,20 @@ def single_swaps(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0):
             ts[i] = _t(cand)
             t = _ttotal(slots, ts, mni, mli, free)
             out.append({"slot": i, "out": cur, "in": cand, "total": t, "d": t - base,
-                        "dr": cand["ov"] - cur["ov"]})
+                        "dr": cand["ov"] - cur["ov"], "v": val(cand, slots[i])})
         ts[i] = keep
     return base, out
 
 
 def _rank_key(r):
-    return (-r["d"], -r["in"]["ov"], -r["dr"])  # most chem first, then highest overall
+    return (-r["d"], -r.get("v", r["in"]["ov"]), -r["dr"])  # most chem first, then best card (overall + PlayStyles)
 
 
-def top_singles(slots, squad, locks, mgr, by_pos, max_drop, min_rating, n=30, only_positive=True, ok=None):
+def top_singles(slots, squad, locks, mgr, by_pos, max_drop, min_rating, n=30, only_positive=True, ok=None,
+                val=plain_value):
     """ok(card) -> bool is an optional affordability check on the INCOMING card only. It is called lazily,
     walking down the ranked list, so price lookups happen only for cards that would otherwise be shown."""
-    base, allr = single_swaps(slots, squad, locks, mgr, by_pos, max_drop, min_rating)
+    base, allr = single_swaps(slots, squad, locks, mgr, by_pos, max_drop, min_rating, val)
     res = [r for r in allr if (r["d"] > 0 or not only_positive)]
     res.sort(key=_rank_key)
     if ok is not None:
@@ -371,12 +403,12 @@ def synergy_pairs(slots, squad, locks, mgr, by_pos, allsingles, base, max_drop, 
     return out[:n]
 
 
-def plan_chain(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, max_steps=5, ok=None):
+def plan_chain(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, max_steps=5, ok=None, val=plain_value):
     """Greedy path: repeatedly apply the best swap (or best synergy pair)."""
     steps, cur, locks = [], list(squad), list(locks)
     total = total_only(slots, cur, mgr)
     for _ in range(max_steps):
-        base, top, allr = top_singles(slots, cur, locks, mgr, by_pos, max_drop, min_rating, n=1, ok=ok)
+        base, top, allr = top_singles(slots, cur, locks, mgr, by_pos, max_drop, min_rating, n=1, ok=ok, val=val)
         if top:
             best = top[0]
             cur[best["slot"]] = best["in"]
@@ -397,7 +429,8 @@ def plan_chain(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, max_s
     return steps, total, cur
 
 
-def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingles, per_slot, ok=None):
+def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingles, per_slot, ok=None,
+               val=plain_value):
     """Per unlocked slot: the best single swaps plus the cards with the most link potential
     (same club/league/nation as the rest of the squad, manager, ICONs)."""
     single_d = {(r["slot"], r["in"]["s"]): r["d"] for r in allsingles}
@@ -415,8 +448,9 @@ def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingle
             return (leagues[c["li"]] + nations[c["ni"]] + 2 * clubs.get(c.get("ck"), 0)
                     + (0 if mg.get("li_free") else (1 if c["li"] == mg.get("li") else 0))
                     + (1 if c["ni"] == mg.get("ni") else 0) + (3 if c.get("ty") == "icon" else 0))
-        by_pot = sorted(cands, key=lambda c: (potential(c), c["ov"]), reverse=True)
-        by_single = sorted(cands, key=lambda c: (single_d.get((i, c["s"]), -99), c["ov"]), reverse=True)
+        pos = slots[i]
+        by_pot = sorted(cands, key=lambda c: (potential(c), val(c, pos)), reverse=True)
+        by_single = sorted(cands, key=lambda c: (single_d.get((i, c["s"]), -99), val(c, pos)), reverse=True)
         seen, merged = set(), []
         for c in by_single[:per_slot] + by_pot[:per_slot]:
             if c["s"] not in seen and (ok is None or ok(c)):
@@ -427,7 +461,7 @@ def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingle
 
 
 def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_max=3, n=25,
-                  beam=24, per_slot=15, ok=None, mgr_change=False, base=None, time_limit=8.0):
+                  beam=24, per_slot=15, ok=None, mgr_change=False, base=None, time_limit=8.0, val=plain_value):
     """Best squads reachable with exactly 1..k_max player swaps (beam search over a per-slot shortlist).
     The manager league is always free (League Modifier); each result says which league it uses.
     mgr_change=True also lets the search switch the manager's nation (a new manager card): every candidate
@@ -440,8 +474,8 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
     cur_li = mgr.get("li")
     if base is None:
         base = total_only(slots, squad, dict(mgr, li_free=False))
-    _, allr = single_swaps(slots, squad, locks, mgr, by_pos, max_drop, min_rating)
-    sl = _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allr, per_slot, ok)
+    _, allr = single_swaps(slots, squad, locks, mgr, by_pos, max_drop, min_rating, val)
+    sl = _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allr, per_slot, ok, val)
     configs = [mgr]
     if mgr_change:
         seen_n = Counter(c["ni"] for c in squad if c)
@@ -482,7 +516,7 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
                     nts = list(ts)
                     nts[i] = tc[c["s"]]
                     nxt[(key, ci)] = (_ttotal(slots, nts, mni, mli, True), sq, nts, i, c)
-        ranked = sorted(nxt.items(), key=lambda kv: (-kv[1][0], kv[0][1] != 0, -kv[1][4]["ov"]))
+        ranked = sorted(nxt.items(), key=lambda kv: (-kv[1][0], kv[0][1] != 0, -val(kv[1][4], slots[kv[1][3]])))
         materialise = {}
 
         def squad_of(entry):
@@ -505,7 +539,8 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
                 break
         frontier = keep
     out = {k: [] for k in range(1, k_max + 1)}
-    order = sorted(best.items(), key=lambda kv: (kv[0][0], -kv[1][0], kv[0][2] != 0, -sum(c["ov"] for c in kv[1][1] if c)))
+    order = sorted(best.items(), key=lambda kv: (kv[0][0], -kv[1][0], kv[0][2] != 0,
+                                                 -sum(val(kv[1][1][s], slots[s]) for s, _ in kv[0][1])))
     seen = set()
     for (k, key, ci), (t, sq, ts) in order:
         if len(out[k]) >= n:
@@ -528,13 +563,14 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
         swaps = [{"slot": s, "out": squad[s], "in": sq[s]} for s, _ in key]
         out[k].append({"swaps": swaps, "total": t, "d": t - base,
                        "dr": sum(w["in"]["ov"] - w["out"]["ov"] for w in swaps),
+                       "dv": sum(val(w["in"], slots[w["slot"]]) - val(w["out"], slots[w["slot"]]) for w in swaps),
                        "li": li, "league": li != cur_li,
                        "mgr": None if ci == 0 else {"ni": m["ni"], "nn": nations.get(m["ni"]), "nation": True}})
     return {"by_k": out, "timed_out": timed_out}
 
 
 def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_loss=3, n=25,
-                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0):
+                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0, val=plain_value):
     """Rating upgrades: swap in HIGHER-rated cards for the same positions while squad chemistry stays at or
     above base - max_loss (base = the squad as it is, with the current manager). Ranked by overall
     gained, then chemistry. The manager league is free (League Modifier); results say which league they use.
@@ -555,13 +591,15 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         others = {c["bp"] for j, c in enumerate(squad) if c and j != i}
         scored = []
         ts = list(t0)
-        for c in by_pos.get(slots[i], ()):
-            if c["ov"] <= cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
+        pos, cur_v = slots[i], val(cur, slots[i])
+        for c in by_pos.get(pos, ()):
+            # an upgrade = a better card for this position: higher overall, or wanted PlayStyles worth more
+            if val(c, pos) <= cur_v or c["ov"] < cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
                 continue
             tc[c["s"]] = ts[i] = _t(c)
             scored.append((_ttotal(slots, ts, mni, mli, True), c))
-        by_chem = sorted(scored, key=lambda x: (-x[0], -x[1]["ov"]))
-        by_ov = sorted((x for x in scored if x[0] >= floor), key=lambda x: (-x[1]["ov"], -x[0]))
+        by_chem = sorted(scored, key=lambda x: (-x[0], -val(x[1], pos)))
+        by_ov = sorted((x for x in scored if x[0] >= floor), key=lambda x: (-val(x[1], pos), -x[0]))
         seen, merged = set(), []
         for _, c in by_chem[:per_slot] + by_ov[:per_slot]:
             if c["s"] not in seen and (ok is None or ok(c)):
@@ -591,7 +629,8 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
                         continue
                     nts = list(ts)
                     nts[i] = tc[c["s"]]
-                    nxt[key] = (_ttotal(slots, nts, mni, mli, True), g + c["ov"] - squad[i]["ov"], sq, nts, i, c)
+                    nxt[key] = (_ttotal(slots, nts, mni, mli, True), g + val(c, slots[i]) - val(squad[i], slots[i]),
+                                sq, nts, i, c)
         ok_states = sorted((kv for kv in nxt.items() if kv[1][0] >= floor), key=lambda kv: (-kv[1][1], -kv[1][0]))
         low = sorted((kv for kv in nxt.items() if kv[1][0] < floor), key=lambda kv: (-kv[1][0], -kv[1][1]))
         keep = []
@@ -613,5 +652,6 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         seen.add(players)
         _, li = _manager_rows(slots, sq, mgr)
         swaps = [{"slot": s, "out": squad[s], "in": sq[s]} for s, _ in key]
-        out[k].append({"swaps": swaps, "total": t, "d": t - base, "dr": g, "li": li, "league": li != cur_li})
+        out[k].append({"swaps": swaps, "total": t, "d": t - base, "dv": g, "li": li, "league": li != cur_li,
+                       "dr": sum(w["in"]["ov"] - w["out"]["ov"] for w in swaps)})
     return {"by_k": out, "floor": floor, "timed_out": timed_out}
