@@ -176,7 +176,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 </head>
 <body>
 <header>
-  <div class="brand"><span class="crest"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg></span><span class="word">Club<span>Tools</span></span><span class="badge">FC 27</span></div>
+  <div class="brand"><span class="crest"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg></span><span class="word">Club<span>Tools</span></span><span class="badge" title="Works with EA SPORTS FC™ 27 Ultimate Team. Not affiliated with EA.">for FC 27</span></div>
   <div class="hgroup"><span class="lbl">Formation</span><select id="formation"></select></div>
   <div class="hgroup">
     <button id="impBtn" class="primary sm">⇪ Import squad</button>
@@ -205,6 +205,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
       <hr>
       <button id="diag" class="sm">Test connection</button>
       <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
+      <button id="aboutBtn" class="sm">ⓘ About &amp; legal</button>
       <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
     </div>
   </div>
@@ -324,7 +325,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
     <div id="results"></div>
   </section>
 </main>
-<footer><span class="fb"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg2)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg>ClubTools</span><span>Squad chemistry, upgrades and fills for EA FC 27 Ultimate Team</span><span id="footVer"></span><span style="margin-left:auto">Card data: FUT.GG · Not affiliated with EA SPORTS</span></footer>
+<footer><span class="fb"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg2)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg>ClubTools</span><span>Squad chemistry, upgrades and fills for EA FC 27 Ultimate Team</span><span id="footVer"></span><span style="margin-left:auto">Card data: FUT.GG · Not affiliated with EA, FUT.GG or FUTBIN · <a href="#" id="footAbout" style="color:inherit">About &amp; legal</a></span></footer>
 
 <dialog id="impDlg" style="width:min(760px,96vw)">
   <div style="display:flex;gap:8px;align-items:center">
@@ -357,6 +358,27 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
   </div>
   <div class="small mut" id="impMsg" style="margin-top:6px"></div>
   <div id="impOut"></div>
+</dialog>
+
+<dialog id="aboutDlg" style="width:min(820px,96vw)">
+  <div style="display:flex;gap:8px;align-items:center">
+    <strong style="flex:1">About ClubTools</strong>
+    <button id="aboutClose" class="sm">Close</button>
+  </div>
+  <div class="tabs">
+    <button class="sm on" data-legal="about">About</button>
+    <button class="sm" data-legal="eula">License agreement</button>
+    <button class="sm" data-legal="privacy">Privacy</button>
+    <button class="sm" data-legal="notices">Third-party licenses</button>
+  </div>
+  <div id="legalAbout">
+    <div style="display:flex;gap:12px;align-items:center;margin:6px 0 10px"><span class="crest" style="width:44px;height:44px;display:block" id="aboutCrest"></span>
+      <div><div style="font-weight:800;font-size:17px">ClubTools</div><div class="small mut" id="aboutVer"></div><div class="small mut">© 2026 ClubTools. All rights reserved.</div></div></div>
+    <div class="note"><b>Independent product.</b> ClubTools is not affiliated with, endorsed by or sponsored by Electronic Arts Inc., EA SPORTS, FIFPRO, any league, club or player, FUT.GG (Stormstrike Inc.) or FUTBIN. EA SPORTS FC™, FC and Ultimate Team™ are trademarks of Electronic Arts Inc.; all other trademarks belong to their owners and are used only to describe compatibility.</div>
+    <div class="note"><b>Data.</b> Player and card information comes from FUT.GG's public data and may be incomplete or out of date. Always check in the game before you spend coins or points. Links open FUTBIN and FUT.GG in your browser.</div>
+    <div class="note"><b>Privacy.</b> Everything stays on this computer (<code>%APPDATA%\ClubTools</code>). There are no accounts, analytics or tracking. ClubTools only contacts FUT.GG for card data and squad imports, and GitHub to check for and download updates. Details are under Privacy.</div>
+  </div>
+  <pre id="legalText" hidden style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.5;max-height:60vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;margin:0"></pre>
 </dialog>
 
 <dialog id="cmpDlg" style="width:min(980px,96vw)">
@@ -1454,6 +1476,25 @@ $("updBar").addEventListener("click", async e => {
 });
 $("updCheck").onclick = async () => { updManual = true; await api("/api/update", {action:"check"}); setTimeout(pollUpdate, 300); };
 $("updAuto").onchange = e => { DB.set(KEY_AUTO, e.target.checked ? "1" : "0"); };
+
+/* ---------- about & legal ---------- */
+async function openAbout(tab="about"){
+  $("aboutCrest").innerHTML = document.querySelector(".brand .crest").innerHTML.replace(/ctg/g, "ctg4");
+  try{ const m = await api("/api/meta"); $("aboutVer").textContent = "Version " + (m.version || "dev"); }catch(e){}
+  showLegal(tab); if(!$("aboutDlg").open) $("aboutDlg").showModal();
+}
+async function showLegal(tab){
+  document.querySelectorAll("#aboutDlg [data-legal]").forEach(b => b.classList.toggle("on", b.dataset.legal === tab));
+  $("legalAbout").hidden = tab !== "about"; $("legalText").hidden = tab === "about";
+  if(tab === "about") return;
+  $("legalText").textContent = "Loading…";
+  try{ const d = await api("/api/legal?doc=" + tab); $("legalText").textContent = d.text; }
+  catch(e){ $("legalText").textContent = e.message; }
+}
+$("aboutBtn").onclick = () => openAbout();
+$("footAbout").onclick = e => { e.preventDefault(); openAbout(); };
+$("aboutClose").onclick = () => $("aboutDlg").close();
+document.querySelectorAll("#aboutDlg [data-legal]").forEach(b => b.onclick = () => showLegal(b.dataset.legal));
 
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {

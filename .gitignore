@@ -5,3 +5,4 @@ build/
 dist/
 *.spec
 version.txt
+THIRD_PARTY_NOTICES.txt

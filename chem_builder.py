@@ -704,6 +704,17 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
+        if u.path == "/api/legal":
+            name = LEGAL_DOCS.get((qs.get("doc") or [""])[0])
+            if not name:
+                return self._send(404, {"error": "unknown document"})
+            for base in (BUNDLE, HERE):
+                try:
+                    with open(os.path.join(base, name), encoding="utf-8") as f:
+                        return self._send(200, {"name": name, "text": f.read()})
+                except OSError:
+                    pass
+            return self._send(200, {"name": name, "text": f"{name} is not included in this build."})
         if u.path == "/api/update":
             return self._send(200, dict(UPDATE, current=current_version(), can_install=can_self_update(), auto=auto_update_on()))
         if u.path == "/api/diag":
@@ -914,6 +925,7 @@ SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to ClubTools</ti
 # The app asks GitHub for the latest published release on start. Installing downloads ClubTools.exe from
 # that release, checks it against the SHA-256 GitHub records for the file, swaps it in next to the running
 # exe (Windows lets a running exe be renamed, not deleted) and restarts. Nothing runs without a matching hash.
+LEGAL_DOCS = {"eula": "EULA.md", "privacy": "PRIVACY.md", "notices": "THIRD_PARTY_NOTICES.txt", "license": "LICENSE"}
 UPDATE_REPO = "n3yung-debug/FifaChemPlus"   # public; GitHub redirects API calls if the repo is renamed
 UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
 UPDATE_HOSTS = {"github.com", "api.github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
@@ -1134,6 +1146,10 @@ def selftest(port):
         with urllib.request.urlopen(base + "/api/meta", timeout=10) as r:
             meta = json.load(r)
         assert meta["n"] > 1000 and len(meta["formations"]) == 29, meta.get("n")
+        if FROZEN:   # the legal documents must be inside the exe
+            for doc, must in (("notices", "pywebview"), ("eula", "License Agreement"), ("privacy", "privacy"), ("license", "proprietary")):
+                with urllib.request.urlopen(base + "/api/legal?doc=" + doc, timeout=10) as r:
+                    assert must in json.load(r)["text"], f"{doc} missing from the build"
         print(f"SELFTEST OK: {meta['n']} cards, {len(meta['formations'])} formations, version {meta['version']}, ui from {UI}")
     finally:
         srv.shutdown()
@@ -1148,7 +1164,7 @@ def run_app(url, smoke=False):
         print("pywebview is not installed (pip install pywebview==6.2.1) - opening in the browser instead.")
         return False
     os.makedirs(DATA_DIR, exist_ok=True)
-    win = WINDOW["win"] = webview.create_window("ClubTools - EA FC 27", url + "?app=1", width=1500, height=950,
+    win = WINDOW["win"] = webview.create_window("ClubTools", url + "?app=1", width=1500, height=950,
                                 min_size=(1000, 700), background_color="#0e1420")
     if smoke:  # build check: wait for the page to render the pitch, report, close
         def check():

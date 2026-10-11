@@ -1,0 +1,19 @@
+ClubTools - proprietary software
+
+Copyright (c) 2026 [OWNER - your legal name or company]. All rights reserved.
+
+This repository, its source code, the ClubTools name and logo, and the ClubTools program built from it
+are proprietary. Seeing this code on GitHub does not grant any licence. Without the owner's prior
+written permission you may not copy, modify, merge, publish, distribute, sublicense, sell, or create
+derivative works of any part of it.
+
+People who obtain ClubTools from the owner may use it under the End User License Agreement (EULA.md)
+that comes with it.
+
+Third-party components included in ClubTools are licensed under their own terms, listed in
+THIRD_PARTY_NOTICES.txt (generated at build time by tools/gen_notices.py). Nothing in this file limits
+the rights those licences give you for those components.
+
+EA SPORTS FC, FC, Ultimate Team and related marks are trademarks of Electronic Arts Inc. FUT.GG and
+FUTBIN are trademarks of their owners. ClubTools is not affiliated with, endorsed by or sponsored by
+any of them.

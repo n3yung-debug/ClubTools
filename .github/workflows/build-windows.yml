@@ -27,10 +27,13 @@ jobs:
       - name: Stamp version
         run: python -c "import datetime, os; open('version.txt', 'w').write(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + os.environ['GITHUB_SHA'][:7] + ')')"
 
+      - name: Third-party license notices (fails if a shipped component has no license text)
+        run: python tools/gen_notices.py
+
       - name: Build ClubTools.exe
         run: >
           pyinstaller --noconfirm --onefile --windowed --name ClubTools --icon icon.ico
-          --add-data "ui.html;." --add-data "cards.json;." --add-data "version.txt;." --collect-all webview chem_builder.py
+          --add-data "ui.html;." --add-data "cards.json;." --add-data "version.txt;." --add-data "EULA.md;." --add-data "PRIVACY.md;." --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --collect-all webview chem_builder.py
 
       - name: Self-test the exe (server, page, card data)
         shell: pwsh
