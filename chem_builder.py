@@ -424,9 +424,12 @@ def find_cards(name, rating=None):
 def build_pool(opts):
     gender = int(opts.get("gender") or 0)
     excl = set(opts.get("exclude_types") or [])
-    banned = {str(x) for x in opts.get("blacklist") or []}  # base player ids: every version of the player
-    pool = [c for c in STATE["cards"] if (not gender or c["g"] == gender) and c["ty"] not in excl
-            and str(c["bp"]) not in banned]
+    banned = {str(x) for x in opts.get("blacklist") or []}        # base player ids: every version (older lists)
+    banned_cards = set(opts.get("blacklist_cards") or [])          # card ids: just that version
+
+    def allowed(c):
+        return str(c["bp"]) not in banned and c["s"] not in banned_cards
+    pool = [c for c in STATE["cards"] if (not gender or c["g"] == gender) and c["ty"] not in excl and allowed(c)]
     unmatched = []
     lines = [ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()]
     if lines:
@@ -443,7 +446,7 @@ def build_pool(opts):
             for c in found:
                 chosen[c["s"]] = c
         pool = [c for c in chosen.values() if (not gender or c["g"] == gender) and c["ty"] not in excl
-                and str(c["bp"]) not in banned]
+                and allowed(c)]
     return pool, unmatched
 
 

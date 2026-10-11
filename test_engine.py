@@ -321,6 +321,16 @@ def test_best_manager_finds_nation_and_league():
     assert not same["nation"] and not same["league"] and same["total"] == same["current"]
 
 
+def test_blacklist_single_card_keeps_other_versions():
+    cb.load_cache()
+    versions = [c for c in cb.STATE["cards"] if c["bp"] == 231747]   # Mbappé: several versions
+    assert len(versions) > 1
+    banned = versions[0]["s"]
+    pool, _ = cb.build_pool({"blacklist_cards": [banned]})
+    left = [c for c in pool if c["bp"] == 231747]
+    assert banned not in {c["s"] for c in left} and len(left) == len(versions) - 1
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")

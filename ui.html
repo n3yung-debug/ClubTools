@@ -166,7 +166,7 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
           <button class="sm" id="psReset" style="margin-top:6px">Reset to defaults</button>
         </details>
         <details style="margin-top:8px" id="blDet"><summary class="small mut" id="blSum">Blacklisted players (0)</summary>
-          <div class="small mut" style="margin-top:4px">Never suggested, in any card version. Add one with the 🚫 next to a suggestion or a search result. Players already in your squad stay where they are.</div>
+          <div class="small mut" style="margin-top:4px">Never suggested. 🚫 next to a suggestion or a search result blocks that exact card only, so cheaper versions of the same player can still be suggested. Players already in your squad stay where they are.</div>
           <div id="blList" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px"></div>
         </details>
         <details style="margin-top:8px"><summary class="small mut">Only use cards I own (optional)</summary>
@@ -326,16 +326,17 @@ function psHtml(c, pos){
   const plus = (c.pp||[]).map(id => one(id, true)), base = (c.ps||[]).filter(id => !(c.pp||[]).includes(id)).map(id => one(id, false));
   return plus.length || base.length ? `<div class="small pss">${plus.concat(base).join(" ")}</div>` : "";
 }
-let BL = [];   // [{bp, n}] players never to suggest (every version)
+let BL = [];   // [{s, n, ov, rt}] cards never to suggest (that version only); older entries {bp, n} block every version
 function loadBL(){ try{ BL = JSON.parse(DB.get(KEY_BL) || "[]") || []; }catch(e){ BL = []; } }
 function saveBL(){ DB.set(KEY_BL, JSON.stringify(BL)); renderBL(); }
 function renderBL(){
-  $("blSum").textContent = `Blacklisted players (${BL.length})`;
-  $("blList").innerHTML = BL.length ? BL.map(x => `<span class="tag" style="font-size:12px;padding:2px 6px">${esc(x.n)} <button class="sm" data-unban="${esc(x.bp)}" title="Allow this player again" style="padding:0 5px">✕</button></span>`).join("")
+  $("blSum").textContent = `Blacklisted cards (${BL.length})`;
+  $("blList").innerHTML = BL.length ? BL.map(x => `<span class="tag" style="font-size:12px;padding:2px 6px">${x.s ? `${x.ov} ${esc(x.n)} <span class="mut">· ${esc(x.rt||"")}</span>` : `${esc(x.n)} <span class="mut">· all versions</span>`} <button class="sm" data-unban="${esc(blKey(x))}" title="Allow this again" style="padding:0 5px">✕</button></span>`).join("")
                                     : `<span class="small mut">Nobody yet.</span>`;
 }
-const isBanned = c => BL.some(x => String(x.bp) === String(c.bp));
-function ban(bp, n){ if(!BL.some(x => String(x.bp) === String(bp))){ BL.push({bp, n}); saveBL(); } }
+const blKey = x => x.s ? x.s : "bp:" + x.bp;
+const isBanned = c => BL.some(x => x.s ? x.s === c.s : String(x.bp) === String(c.bp));
+function ban(d){ if(!BL.some(x => x.s === d.s)){ BL.push({s:d.s, n:d.name, ov:+d.ov, rt:d.rt}); saveBL(); } }
 let FORMATIONS = {};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -436,7 +437,7 @@ function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
     max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
-    blacklist:BL.map(x => x.bp), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
+    blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
@@ -593,7 +594,7 @@ $("pitch").addEventListener("dragend", () => { dragFrom = -1; document.querySele
 
 /* ---------- optimizer ---------- */
 const banBtn = c => c.bp == null || String(c.s).startsWith("custom:") ? "" :
-  ` <button class="sm ban" data-ban="${esc(c.bp)}" data-name="${esc(c.n)}" title="Blacklist: never suggest this player (any version)">🚫</button>`;
+  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)">🚫</button>`;
 function swapHtml(s){
   const a=s.out, b=s.in;
   return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b)}<div class="small mut">${esc(b.rt)} · ${cardLine(b)}${b.g===2?" · women":""}</div><div class="small">${faceStats(b)}</div>${psHtml(b, S.slots[s.slot])}</div>`;
@@ -1036,7 +1037,7 @@ $("q").addEventListener("keydown", e => {
 $("live").onchange = doSearch;
 $("hits").addEventListener("click", e => {
   const bn = e.target.closest("[data-ban]");
-  if(bn){ ban(bn.dataset.ban, bn.dataset.name); renderHits(); return; }
+  if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt}); renderHits(); return; }
   const h = e.target.closest("[data-hit]"); if(h) setCard(hitCache[+h.dataset.hit]);
 });
 $("psReset").onclick = () => { PSP = JSON.parse(JSON.stringify(PS_DEFAULT)); savePS(); };
@@ -1050,7 +1051,7 @@ $("psGroups").addEventListener("change", e => {
 });
 $("blList").addEventListener("click", e => {
   const b = e.target.closest("[data-unban]"); if(!b) return;
-  BL = BL.filter(x => String(x.bp) !== b.dataset.unban); saveBL();
+  BL = BL.filter(x => blKey(x) !== b.dataset.unban); saveBL();
   if(window.__R) $("goMsg").textContent = "Removed from the blacklist — run “Find suggestions” again to include them.";
 });
 $("cAdd").onclick = () => {
@@ -1086,7 +1087,8 @@ $("results").addEventListener("click", e => {
   }
   const R = window.__R; if(!R) return;
   const bn = e.target.closest("[data-ban]");
-  if(bn){ ban(bn.dataset.ban, bn.dataset.name); $("goMsg").textContent = `${bn.dataset.name} blacklisted — searching again…`; runOptimize(); return; }
+  if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt});
+    $("goMsg").textContent = `${bn.dataset.ov} ${bn.dataset.name} (${bn.dataset.rt}) blacklisted — searching again…`; runOptimize(); return; }
   if(e.target.id==="applyChain"){
     const last = R.chain[R.chain.length-1];
     applySwaps(R.chain.flatMap(s=>s.swaps));
