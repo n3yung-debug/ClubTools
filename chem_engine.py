@@ -256,19 +256,19 @@ def plain_value(c, pos):
 
 def make_value(prefs=None, w_plus=3, w_ps=1):
     """Card value used for ranking: overall + a bonus for the PlayStyles you want in that position.
-    prefs = {"GK": [ids], "DEF": [...], "MID": [...], "ATT": [...]}; a wanted PlayStyle+ is worth w_plus
-    rating points, a plain wanted PlayStyle w_ps."""
+    prefs = {"GK": [ids], "CDM": [...], "ST": [...], ...} per position (group keys DEF/MID/ATT are still
+    understood for positions without their own entry); a wanted PlayStyle+ is worth w_plus rating points,
+    a plain wanted PlayStyle w_ps."""
     want = {g: frozenset(ids) for g, ids in (prefs or {}).items() if ids}
     if not want or (not w_plus and not w_ps):
         return plain_value
     cache = {}
 
     def value(c, pos):
-        g = POS_GROUP.get(pos)
-        w = want.get(g)
+        w = want.get(pos) if pos in (prefs or {}) else want.get(POS_GROUP.get(pos))
         if not w:
             return c["ov"]
-        key = (c["s"], g)
+        key = (c["s"], pos)
         v = cache.get(key)
         if v is None:
             pp, ps = c.get("pp") or (), c.get("ps") or ()

@@ -38,7 +38,7 @@ If something goes wrong, run **start_console.bat** instead (it shows the message
 
 ## PlayStyles
 - Suggested cards show their PlayStyles and PlayStyles+ (PS+ outlined); the ones you prefer for that position are starred ★.
-- "Preferred PlayStyles" (results settings) sets what you want per position group. Defaults: goalkeepers 1v1 Close Down (FC 27's name for Rush Out), defenders Intercept, attackers (CAM, LW, RW, ST) Low Driven Shot and Technical; midfielders none.
+- "Preferred PlayStyles" (results settings) sets what you want per position. Defaults: GK 1v1 Close Down (FC 27's name for Rush Out); CB, LB, RB and CDM Intercept; CM Technical; CAM, LW, RW, ST Low Driven Shot and Technical; LM/RM none. "Reset to defaults" restores these.
 - Each wanted PlayStyle+ counts as +3 rating points and a plain one +1 (both adjustable). Chemistry still ranks first; among equal chemistry, the better card by overall + PlayStyles comes first. In rating upgrades, an equal-overall card that adds a wanted PlayStyle counts as an upgrade.
 - PlayStyle ids/names come from FUT.GG's feed and site code (Oct 2026).
 

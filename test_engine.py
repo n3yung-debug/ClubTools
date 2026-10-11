@@ -237,6 +237,10 @@ def test_playstyle_preferences_rank_and_upgrade():
     st = card(302, "ST", ov=85, ps=[34, 16], pp=[])    # Low Driven + Technical -> 87
     assert val(gk_plus, "GK") == 89 and val(gk_plain, "GK") == 87 and val(st, "ST") == 87
     assert val(st, "CB") == 85 and eng.plain_value(gk_plus, "GK") == 86  # no preference for defenders here
+    per_pos = eng.make_value({"CDM": [12], "CM": [16], "CAM": [16]})
+    mid = card(304, "CM", ov=84, ps=[12, 16])
+    assert per_pos(mid, "CDM") == 85 and per_pos(mid, "CM") == 85 and per_pos(mid, "LM") == 84
+    assert eng.make_value({"CM": []})(mid, "CM") == 84  # an empty list for a position means no preference there
     # same chemistry gain for both keepers: the 1v1 Close Down+ one is suggested first
     sq = squad_of(ni=[1] * 10 + [2], li=[1] * 10 + [2], ck=[None] * 11, ov=85)
     for c in (gk_plus, gk_plain):
