@@ -156,6 +156,8 @@ def normalize_card(r):
         "fs": face_stats(r),
         "ps": [int(x) for x in r.get("playStyleEaIds") or []],      # PlayStyles (ids, see PLAYSTYLES)
         "pp": [int(x) for x in r.get("playStylePlusEaIds") or []],  # PlayStyle+ (ids)
+        "wf": _stars(r.get("weakFoot")), "sm": _stars(r.get("skillMoves")),   # weak foot / skill moves, 1-5
+        "ft": {"Right": "R", "Left": "L"}.get(r.get("foot")),               # preferred foot
     }
 
 
@@ -173,6 +175,10 @@ GK_PLAYSTYLES = {28, 29, 30, 31, 32, 33}
 
 OUTFIELD_FACE = ("facePace", "faceShooting", "facePassing", "faceDribbling", "faceDefending", "facePhysicality")
 GK_FACE = ("gkFaceDiving", "gkFaceHandling", "gkFaceKicking", "gkFaceReflexes", "gkFaceSpeed", "gkFacePositioning")
+
+
+def _stars(v):
+    return int(v) if isinstance(v, (int, float)) and 1 <= v <= 5 else None
 
 
 def face_stats(r):
@@ -456,6 +462,17 @@ def find_cards(name, rating=None):
     return hits
 
 
+def reqs(opts):
+    """Minimum weak foot / skill moves / face stats from the UI, for eng.index_pool."""
+    r = opts.get("reqs") or {}
+    out = {"wf": int(r.get("wf") or 0), "sm": int(r.get("sm") or 0),
+           "fs": [int(x or 0) for x in (r.get("fs") or [])][:6],
+           "pos": {p for p in r.get("pos") or [] if p in eng.POS_GROUP}}
+    if not (out["wf"] or out["sm"] or any(out["fs"])) or not out["pos"]:
+        return None
+    return out
+
+
 def pos_bans(opts):
     """[{bp, pos}, ...] from the UI -> (bp, pos) pairs for eng.index_pool."""
     out = []
@@ -701,7 +718,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values()), "version": app_version(),
-                                    "support_url": support_url()})
+                                    "support_url": support_url(),
+                                    "has_wf": any(c.get("wf") for c in STATE["cards"])})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
@@ -805,7 +823,7 @@ class Handler(BaseHTTPRequestHandler):
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
         val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
-        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o)), int(o.get("min_rating", 0)),
+        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o)), int(o.get("min_rating", 0)),
                              max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         for opt in res["options"]:
             full = list(squad)
@@ -860,7 +878,7 @@ def _search_setup(b):
         raise ValueError("Fill all 11 slots first.")
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
-    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o))
+    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o))
     return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 

@@ -335,6 +335,35 @@ def test_position_ban_reaches_the_search():
         or eng.prefs(victim) == ["CAM"]
 
 
+def test_required_weak_foot_skills_and_stats():
+    r = {"wf": 5, "sm": 4, "fs": [90, 0, 0, 0, 0, 0], "pos": {"ST", "CM"}}
+    good = card(720, "ST", alts=("CM",), wf=5, sm=4, fs=[92, 80, 75, 85, 40, 70])
+    slow = card(721, "ST", wf=5, sm=5, fs=[85, 90, 80, 88, 40, 75])   # PAC 85 < 90
+    weak = card(722, "ST", wf=4, sm=5, fs=[95, 90, 80, 88, 40, 75])   # 4* WF
+    unknown = card(723, "ST", fs=[95, 90, 80, 88, 40, 75])            # no WF/SM data: not met
+    keeper = card(724, "GK", wf=2, sm=1, fs=[85, 84, 80, 86, 50, 84])
+    assert eng.meets(good, "ST", r) and eng.meets(good, "CM", r)
+    assert not eng.meets(slow, "ST", r) and not eng.meets(weak, "ST", r) and not eng.meets(unknown, "ST", r)
+    assert eng.meets(weak, "CB", r) and eng.meets(keeper, "GK", r)   # positions not chosen: no requirement
+    by_pos = eng.index_pool([good, slow, weak, unknown, keeper], reqs=r)
+    assert by_pos["ST"] == [good] and by_pos["GK"] == [keeper]
+    assert cb.reqs({"reqs": {"wf": 5, "pos": ["ST", "XX"]}}) == {"wf": 5, "sm": 0, "fs": [], "pos": {"ST"}}
+    assert cb.reqs({"reqs": {"wf": 0, "sm": 0, "fs": [0] * 6, "pos": ["ST"]}}) is None   # nothing required
+    assert cb.reqs({"reqs": {"wf": 5, "pos": []}}) is None                             # nowhere to apply
+
+
+def test_fill_squad_respects_required_stats():
+    fixed = [card(800 + i, p, ni=100 + i, li=200 + i, wf=3, sm=3) for i, p in enumerate(SLOTS)]
+    squad = list(fixed)
+    squad[0] = None   # an empty ST slot
+    five = card(850, "ST", ni=100, li=200, wf=5, sm=5, ov=80)
+    four = card(851, "ST", ni=101, li=201, wf=4, sm=5, ov=90)   # better rated but only 4* WF
+    by_pos = eng.index_pool([five, four], reqs={"wf": 5, "sm": 0, "fs": [], "pos": {"ST"}})
+    res = eng.fill_squad(SLOTS, squad, None, by_pos)
+    picks = {o["fills"][0]["in"]["s"] for o in res["options"]}
+    assert picks == {five["s"]}
+
+
 def test_best_manager_finds_nation_and_league():
     # 4 from nation 5 and 2 from league 9: the best manager is nation 5 + league 9 (4 + 2 chemistry)
     sq = squad_of(ni=[5] * 4 + list(range(20, 27)), li=[9, 9] + list(range(30, 39)), ck=[None] * 11)

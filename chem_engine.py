@@ -277,10 +277,28 @@ def make_value(prefs=None, w_plus=3, w_ps=1):
     return value
 
 
-def index_pool(pool, no_women=(), pos_bans=()):
+def meets(c, pos, reqs):
+    """Does card c satisfy the user's requirements at position pos?
+    reqs: {"wf": min weak foot, "sm": min skill moves, "fs": [min PAC, SHO, PAS, DRI, DEF, PHY], "pos": positions}.
+    Face-stat minimums are outfield stats, so they never apply to keepers. Unknown values count as not met."""
+    if not reqs or pos not in reqs.get("pos", ()):
+        return True
+    for k in ("wf", "sm"):
+        need = reqs.get(k) or 0
+        if need and (c.get(k) or 0) < need:
+            return False
+    mins = reqs.get("fs") or ()
+    if pos != "GK" and any(mins):
+        fs = c.get("fs")
+        if not fs or c.get("p") == "GK" or any(m and v < m for v, m in zip(fs, mins)):
+            return False
+    return True
+
+
+def index_pool(pool, no_women=(), pos_bans=(), reqs=None):
     """Cards by every position they can play. no_women: positions where women's cards are never suggested
     (they can still play their other positions). pos_bans: (base player id, position) pairs - that player,
-    every version, is never suggested at that position (still fine at the others)."""
+    every version, is never suggested at that position (still fine at the others). reqs: see meets()."""
     no_women = set(no_women or ())
     banned = {(str(bp), pos) for bp, pos in pos_bans or ()}
     by_pos = {}
@@ -289,6 +307,8 @@ def index_pool(pool, no_women=(), pos_bans=()):
             if c.get("g") == 2 and p in no_women:
                 continue
             if banned and (str(c.get("bp")), p) in banned:
+                continue
+            if reqs and not meets(c, p, reqs):
                 continue
             by_pos.setdefault(p, []).append(c)
     return by_pos
