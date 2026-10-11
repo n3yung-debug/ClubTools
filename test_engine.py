@@ -507,6 +507,18 @@ def test_update_swap_keeps_old_until_restart():
     assert open(exe).read() == "new" and open(old).read() == "old" and not os.path.exists(new)
 
 
+def test_support_link_only_known_donation_sites():
+    old = cb.SUPPORT_URL
+    try:
+        for url, ok in [("https://ko-fi.com/clubtools", True), ("https://www.buymeacoffee.com/x", True),
+                        ("https://github.com/sponsors/x", True), ("https://github.com/x/y", False),
+                        ("http://ko-fi.com/x", False), ("https://evil.example/ko-fi.com", False), ("", False)]:
+            cb.SUPPORT_URL = url
+            assert (cb.support_url() == url and url != "") == ok, url
+    finally:
+        cb.SUPPORT_URL = old
+
+
 def _opt_body(**opts):
     cb.load_cache()
     pool = [c for c in cb.STATE["cards"] if c["ov"] >= 80]

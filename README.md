@@ -1,6 +1,6 @@
 # ClubTools — EA FC 27
 
-> **Selling ClubTools?** Read [LEGAL.md](LEGAL.md) first: card-data licensing and EA's content policy must be settled before a paid release. ClubTools is proprietary ([LICENSE](LICENSE)); third-party licences are generated into THIRD_PARTY_NOTICES.txt at build time.
+> **ClubTools is free** (passive ads and voluntary donations, no paywall). Read [LEGAL.md](LEGAL.md) before turning on ads: card-data permission from FUT.GG comes first. ClubTools is proprietary ([LICENSE](LICENSE)); third-party licences are generated into THIRD_PARTY_NOTICES.txt at build time.
 
 Local tool that shows how to raise squad chemistry, with lockable players.
 

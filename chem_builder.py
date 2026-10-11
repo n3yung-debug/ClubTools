@@ -700,7 +700,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
-                                    "formations": list(FORMATIONS.values()), "version": app_version()})
+                                    "formations": list(FORMATIONS.values()), "version": app_version(),
+                                    "support_url": support_url()})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
@@ -769,7 +770,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/open":   # the desktop window asks to open a link in the normal web browser
                 url = str(body.get("url") or "")
                 own = f"http://127.0.0.1:{self.server.server_address[1]}/"
-                if not (url.startswith(("https://www.fut.gg/", "https://www.futbin.com/", "https://github.com/n3yung-debug/")) or url.startswith(own)):
+                if not (url.startswith(("https://www.fut.gg/", "https://www.futbin.com/", "https://github.com/n3yung-debug/"))
+                        or url.startswith(own) or (support_url() and url == support_url())):
                     return self._send(400, {"error": "only FUTBIN, FUT.GG and ClubTools links are opened"})
                 webbrowser.open(url)
                 return self._send(200, {"ok": True})
@@ -925,6 +927,23 @@ SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to ClubTools</ti
 # The app asks GitHub for the latest published release on start. Installing downloads ClubTools.exe from
 # that release, checks it against the SHA-256 GitHub records for the file, swaps it in next to the running
 # exe (Windows lets a running exe be renamed, not deleted) and restarts. Nothing runs without a matching hash.
+# Donation link shown as "Support ClubTools" (voluntary; unlocks nothing - EA's content policy forbids paywalls).
+# Empty = no button. Only these sites are accepted.
+SUPPORT_URL = os.environ.get("CLUBTOOLS_SUPPORT_URL") or ""
+SUPPORT_HOSTS = ("ko-fi.com", "www.ko-fi.com", "buymeacoffee.com", "www.buymeacoffee.com", "paypal.me", "www.paypal.me",
+                 "github.com")
+
+
+def support_url():
+    u = SUPPORT_URL.strip()
+    p = urllib.parse.urlparse(u)
+    if p.scheme != "https" or p.hostname not in SUPPORT_HOSTS:
+        return ""
+    if p.hostname == "github.com" and not p.path.startswith("/sponsors/"):
+        return ""
+    return u
+
+
 LEGAL_DOCS = {"eula": "EULA.md", "privacy": "PRIVACY.md", "notices": "THIRD_PARTY_NOTICES.txt", "license": "LICENSE"}
 UPDATE_REPO = "n3yung-debug/FifaChemPlus"   # public; GitHub redirects API calls if the repo is renamed
 UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
