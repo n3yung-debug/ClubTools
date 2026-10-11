@@ -64,6 +64,7 @@ dialog::backdrop{background:#000a}
 a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ext:hover{text-decoration:underline}
 .pss{margin-top:2px;line-height:1.7} .ps{display:inline-block;padding:0 5px;border-radius:4px;background:#0004;color:var(--mut);font-size:11px;margin-right:2px}
 .ps.ps-plus{color:var(--txt);border:1px solid #6a5a2a} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
+h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
 .hdrgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 </style>
 </head>
@@ -113,21 +114,22 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
         <div class="small" id="mInfo" style="margin-top:4px"></div>
       </div>
       <div class="sec">
+        <h4 class="sh">Chemistry suggestions</h4>
         <div class="grid2">
-          <label class="f">Max rating drop per slot<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
-          <label class="f">Minimum rating (any card)<input id="minRating" type="number" min="0" max="99" value="0"></label>
+          <label class="f">How much lower-rated a swap may be (per player)<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
+          <label class="f">Minimum rating of any suggested card<input id="minRating" type="number" min="0" max="99" value="0"></label>
           <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
           <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
-          <label class="f">Rating upgrades: chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
-          <label class="f">Rating upgrades: max OVR of a suggested card<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
         </div>
-        <details style="margin-top:8px" id="capDet"><summary class="small mut" id="capSum">Rating upgrades: max OVR per position</summary>
-          <div class="small mut" style="margin-top:4px">Overrides the max OVR above for that position (blank = use it). The position is the slot being upgraded.</div>
-          <div id="capGrid" style="margin-top:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
-        </details>
-        <div class="grid2" style="margin-top:8px">
+        <h4 class="sh">Rating upgrades <span class="mut small" style="font-weight:400">— higher-rated players for your positions</span></h4>
+        <div class="grid2">
+          <label class="f">Chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
+          <label class="f">Max OVR of a suggested card (all positions)<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
         </div>
-        <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
+        <div class="small mut" id="capSum" style="margin-top:8px">Max OVR per position (overrides the one above; blank = use it):</div>
+        <div id="capGrid" style="margin-top:4px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+        <h4 class="sh">Filters</h4>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
           <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
           <label class="chk"><input type="checkbox" id="xHero"> exclude Heroes</label>
           <label class="chk"><input type="checkbox" id="xHof"> exclude Hall of FUT</label>
@@ -147,7 +149,7 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
           <textarea id="clubList" rows="5" style="width:100%;margin-top:6px" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card in the database."></textarea>
         </details>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-          <button class="primary" id="go">Find chemistry upgrades</button>
+          <button class="primary" id="go">Find suggestions</button>
           <span class="small mut" id="goMsg"></span>
         </div>
       </div>
@@ -398,7 +400,7 @@ function readCaps(){
 function writeCaps(c){
   $("capGrid").innerHTML = CAP_POS.map(p => `<label class="f" style="font-size:11px">${p}<input type="number" min="40" max="99" data-pos="${p}" value="${c[p]||""}" placeholder="–" style="padding:3px 5px"></label>`).join("");
   const n = Object.keys(c).filter(k => c[k]).length;
-  $("capSum").textContent = `Rating upgrades: max OVR per position${n?` (${n} set)`:""}`;
+  $("capSum").textContent = `Max OVR per position (overrides the one above; blank = use it)${n?` — ${n} set`:""}:`;
 }
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
@@ -886,7 +888,7 @@ async function init(){
   try{
     const m = await api("/api/meta"); META = m;
     FORMATIONS = Object.fromEntries(m.formations.map(f => [f.name, f]));
-    $("dataInfo").textContent = `${m.n.toLocaleString()} cards · synced ${m.meta.synced_at||"?"} · FUT.GG`;
+    $("dataInfo").textContent = `${m.n.toLocaleString()} cards · synced ${m.meta.synced_at||"?"} · FUT.GG · version ${m.version||"dev"}`;
     fillSelect($("mNation"), m.nations, "— none —"); fillSelect($("mLeague"), m.leagues, "— none —");
     fillSelect($("cNat"), m.nations); fillSelect($("cLg"), m.leagues); fillSelect($("cClub"), m.clubs, "— no club —");
   }catch(e){ $("dataInfo").textContent = "card data unavailable: "+e.message; return; }
@@ -958,7 +960,7 @@ $("psGroups").addEventListener("change", e => {
 $("blList").addEventListener("click", e => {
   const b = e.target.closest("[data-unban]"); if(!b) return;
   BL = BL.filter(x => String(x.bp) !== b.dataset.unban); saveBL();
-  if(window.__R) $("goMsg").textContent = "Removed from the blacklist — run “Find chemistry upgrades” again to include them.";
+  if(window.__R) $("goMsg").textContent = "Removed from the blacklist — run “Find suggestions” again to include them.";
 });
 $("cAdd").onclick = () => {
   const nm = $("cName").value.trim(); if(!nm){ return; }

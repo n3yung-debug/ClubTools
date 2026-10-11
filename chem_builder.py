@@ -38,7 +38,16 @@ DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
                         "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")
 CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards.json")   # the .exe keeps updatable card data in AppData
 UI = os.path.join(BUNDLE, "ui.html")
-STATE_FILE = os.path.join(DATA_DIR, "state.json")             # saved squads, blacklist, preferences, settings
+STATE_FILE = os.path.join(DATA_DIR, "state.json")
+
+
+def app_version():
+    """Build stamp written by the GitHub build (date + commit); 'dev' when run from the Python files."""
+    try:
+        with open(os.path.join(BUNDLE, "version.txt"), encoding="utf-8") as f:
+            return f.read().strip() or "dev"
+    except OSError:
+        return "dev"             # saved squads, blacklist, preferences, settings
 API = "https://www.fut.gg/api/fut/players/v2/27/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 LOG = os.path.join(DATA_DIR if FROZEN else HERE, "chem_builder.log")
@@ -644,7 +653,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
-                                    "formations": list(FORMATIONS.values())})
+                                    "formations": list(FORMATIONS.values()), "version": app_version()})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
@@ -866,7 +875,7 @@ def selftest(port):
         with urllib.request.urlopen(base + "/api/meta", timeout=10) as r:
             meta = json.load(r)
         assert meta["n"] > 1000 and len(meta["formations"]) == 29, meta.get("n")
-        print(f"SELFTEST OK: {meta['n']} cards, {len(meta['formations'])} formations, ui from {UI}")
+        print(f"SELFTEST OK: {meta['n']} cards, {len(meta['formations'])} formations, version {meta['version']}, ui from {UI}")
     finally:
         srv.shutdown()
 
