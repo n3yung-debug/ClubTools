@@ -312,6 +312,15 @@ def test_no_women_at_chosen_positions():
     assert eng.index_pool([w, m])["CB"] == [w, m]
 
 
+def test_best_manager_finds_nation_and_league():
+    # 4 from nation 5 and 2 from league 9: the best manager is nation 5 + league 9 (4 + 2 chemistry)
+    sq = squad_of(ni=[5] * 4 + list(range(20, 27)), li=[9, 9] + list(range(30, 39)), ck=[None] * 11)
+    b = eng.best_manager(SLOTS, sq, {"ni": 1, "li": 0})
+    assert (b["ni"], b["li"]) == (5, 9) and b["nation"] and b["league"] and b["total"] - b["current"] == 6
+    same = eng.best_manager(SLOTS, sq, {"ni": 5, "li": 9})
+    assert not same["nation"] and not same["league"] and same["total"] == same["current"]
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")
