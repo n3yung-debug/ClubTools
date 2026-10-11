@@ -211,6 +211,25 @@ def test_blacklist_removes_every_version_of_a_player():
     assert incoming and not incoming & banned
 
 
+def test_upgrades_raise_rating_within_chem_budget():
+    # full-chem squad: everyone nation 1 / league 1 / club A, rated 80
+    sq = squad_of(ni=[1] * 11, li=[1] * 11, ck=["A"] * 11, ov=80)
+    assert eng.total_only(SLOTS, sq, None) == 33
+    pool = [card(200, "ST", ni=1, li=1, ck="A", ov=88),   # same links, better: no chem lost
+            card(201, "ST", ni=9, li=9, ck="Z", ov=95),   # big upgrade, links nothing
+            card(202, "GK", ni=1, li=1, ck="A", ov=79)]   # worse: never an "upgrade"
+    res = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=2, max_loss=3)
+    one = res["by_k"][1]
+    assert res["floor"] == 30 and all(x["total"] >= 30 for k in res["by_k"].values() for x in k)
+    assert one[0]["swaps"][0]["in"]["s"] == "t201" and one[0]["dr"] == 15 and one[0]["total"] == 30
+    assert all(w["in"]["ov"] > w["out"]["ov"] for k in res["by_k"].values() for x in k for w in x["swaps"])
+    strict = eng.upgrade_combos(SLOTS, sq, [False] * 11, None, eng.index_pool(pool), k_max=2, max_loss=0)
+    assert [w["in"]["s"] for w in strict["by_k"][1][0]["swaps"]] == ["t200"] and strict["by_k"][1][0]["total"] == 33
+    assert strict["by_k"][2] == []  # the only other upgrade (t201) costs chemistry
+    two = res["by_k"][2][0]
+    assert {w["in"]["s"] for w in two["swaps"]} == {"t200", "t201"} and two["dr"] == 23 and two["total"] >= 30
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")

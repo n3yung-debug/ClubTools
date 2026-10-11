@@ -531,3 +531,87 @@ def k_swap_combos(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, k_
                        "li": li, "league": li != cur_li,
                        "mgr": None if ci == 0 else {"ni": m["ni"], "nn": nations.get(m["ni"]), "nation": True}})
     return {"by_k": out, "timed_out": timed_out}
+
+
+def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_loss=3, n=25,
+                   beam=30, per_slot=15, ok=None, base=None, time_limit=6.0):
+    """Rating upgrades: swap in HIGHER-rated cards for the same positions while squad chemistry stays at or
+    above base - max_loss (base = the squad as it is, with the current manager). Ranked by overall
+    gained, then chemistry. The manager league is free (League Modifier); results say which league they use.
+    Beam search per number of upgraded players (1..k_max); every swap is a strict rating upgrade.
+    Returns {"by_k": {k: [ {swaps, total, d, dr, li, league} ]}, "floor": int, "timed_out": bool}."""
+    started = time.time()
+    mgr = dict(mgr or {}, li_free=True)
+    mni, mli, cur_li = mgr.get("ni"), mgr.get("li"), mgr.get("li")
+    if base is None:
+        base = total_only(slots, squad, dict(mgr, li_free=False))
+    floor = base - max_loss
+    t0 = [_t(c) for c in squad]
+    # shortlist per slot: upgrades that keep chemistry best on their own, plus the biggest upgrades still in range
+    sl, tc = {}, {}
+    for i, cur in enumerate(squad):
+        if locks[i] or cur is None:
+            continue
+        others = {c["bp"] for j, c in enumerate(squad) if c and j != i}
+        scored = []
+        ts = list(t0)
+        for c in by_pos.get(slots[i], ()):
+            if c["ov"] <= cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
+                continue
+            tc[c["s"]] = ts[i] = _t(c)
+            scored.append((_ttotal(slots, ts, mni, mli, True), c))
+        by_chem = sorted(scored, key=lambda x: (-x[0], -x[1]["ov"]))
+        by_ov = sorted((x for x in scored if x[0] >= floor), key=lambda x: (-x[1]["ov"], -x[0]))
+        seen, merged = set(), []
+        for _, c in by_chem[:per_slot] + by_ov[:per_slot]:
+            if c["s"] not in seen and (ok is None or ok(c)):
+                seen.add(c["s"])
+                merged.append(c)
+        if merged:
+            sl[i] = merged
+    best = {}
+    frontier = [((), list(squad), t0, 0)]
+    timed_out = False
+    for k in range(1, k_max + 1):
+        if time.time() - started > time_limit:
+            timed_out = True
+            break
+        nxt = {}
+        for swaps, sq, ts, g in frontier:
+            used = {s for s, _ in swaps}
+            for i, cands in sl.items():
+                if i in used:
+                    continue
+                bps = {c["bp"] for j, c in enumerate(sq) if c and j != i}
+                for c in cands:
+                    if c["bp"] in bps:
+                        continue
+                    key = tuple(sorted(swaps + ((i, c["s"]),)))
+                    if key in nxt:
+                        continue
+                    nts = list(ts)
+                    nts[i] = tc[c["s"]]
+                    nxt[key] = (_ttotal(slots, nts, mni, mli, True), g + c["ov"] - squad[i]["ov"], sq, nts, i, c)
+        ok_states = sorted((kv for kv in nxt.items() if kv[1][0] >= floor), key=lambda kv: (-kv[1][1], -kv[1][0]))
+        low = sorted((kv for kv in nxt.items() if kv[1][0] < floor), key=lambda kv: (-kv[1][0], -kv[1][1]))
+        keep = []
+        for key, (t, g, sq, nts, i, c) in ok_states[:max(beam, 3 * n)] + low[:10]:
+            new = list(sq)
+            new[i] = c
+            if t >= floor:
+                best[(k, key)] = (t, g, new)
+            keep.append((key, new, nts, g))
+        frontier = keep[:beam] + [x for x in keep[len(ok_states[:max(beam, 3 * n)]):]]
+    out = {k: [] for k in range(1, k_max + 1)}
+    seen = set()
+    for (k, key), (t, g, sq) in sorted(best.items(), key=lambda kv: (kv[0][0], -kv[1][1], -kv[1][0])):
+        if len(out[k]) >= n:
+            continue
+        players = (k, tuple(sorted((s, sq[s]["bp"]) for s, _ in key)))
+        if players in seen:
+            continue
+        seen.add(players)
+        _, li = _manager_rows(slots, sq, mgr)
+        swaps = [{"slot": s, "out": squad[s], "in": sq[s]} for s, _ in key]
+        out[k].append({"swaps": swaps, "total": t, "d": t - base, "dr": g, "li": li, "league": li != cur_li})
+    return {"by_k": out, "floor": floor, "timed_out": timed_out}

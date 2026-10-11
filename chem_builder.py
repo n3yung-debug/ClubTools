@@ -789,10 +789,12 @@ class Handler(BaseHTTPRequestHandler):
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
         combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base)
         combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True)
+        upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, k_max=k_max,
+                                      max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base)
         return {"budget": budget.report() if budget else None, "bad_prices": bad_prices,
                 "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
                 "singles": singles, "chain": chain, "chain_total": chain_total,
-                "combos": combos, "combosMgr": combos_mgr, "pool": len(pool), "unmatched": unmatched,
+                "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
                 "mgr_suggest_after": eng.manager_suggestions(slots, final, fixed)}
 
