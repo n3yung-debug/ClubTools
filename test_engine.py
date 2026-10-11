@@ -257,6 +257,20 @@ def test_playstyle_preferences_rank_and_upgrade():
     assert eng.upgrade_combos(SLOTS, full, [False] * 11, None, eng.index_pool([same]), k_max=1)["by_k"][1] == []
 
 
+def test_alternate_positions_and_playstyles_follow_the_slot():
+    # a CB-main card with CDM as an alternate is suggested for CDM and judged on the CDM preference
+    sq = squad_of(ni=[1] * 11, li=[1] * 11, ck=[None] * 11, ov=80)
+    alt = card(400, "CB", alts=("CDM",), ni=1, li=1, ov=81, ps=[12])            # Intercept
+    plain = card(401, "CDM", ni=1, li=1, ov=81)
+    val = eng.make_value({"CDM": [12], "CB": []})
+    by_pos = eng.index_pool([alt, plain])
+    assert alt in by_pos["CDM"] and alt in by_pos["CB"]
+    locks = [s != "CDM" for s in SLOTS]
+    _, top, _ = eng.top_singles(SLOTS, sq, locks, None, by_pos, 5, 0, only_positive=False, val=val)
+    assert top[0]["in"]["s"] == "t400" and top[0]["v"] == 82  # CDM preference applied though its main position is CB
+    assert val(alt, "CB") == 81                                 # same card in a CB slot: no CB preference set
+
+
 def test_parse_line():
     assert cb.parse_line("1. ST Mbappe 91")["name"] == "Mbappe"
     p = cb.parse_line("Mbappe 91 ST")
