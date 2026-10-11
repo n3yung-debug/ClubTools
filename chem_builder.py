@@ -1175,7 +1175,8 @@ def main():
     migrate_data_dir()   # before anything creates the new folder
     if windowless():  # pythonw / ClubTools.exe: keep a log instead of printing into nothing
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
-        sys.stdout = sys.stderr = open(LOG, "w", encoding="utf-8", buffering=1)
+        mode = "a" if "--after-update" in sys.argv else "w"   # after an update: keep the old version's lines
+        sys.stdout = sys.stderr = open(LOG, mode, encoding="utf-8", buffering=1)
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="test cards.json and the FUT.GG connection, then exit")
     ap.add_argument("--sync", action="store_true")
