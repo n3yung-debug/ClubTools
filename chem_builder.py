@@ -746,7 +746,7 @@ class Handler(BaseHTTPRequestHandler):
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
         combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, val=val)
         combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True, val=val)
-        upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, k_max=k_max,
+        upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, k_max=5,
                                       max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base, val=val,
                                       max_ovr=int(o.get("upgrade_max_ovr") or 0) or None,
                                       pos_caps={k: int(v) for k, v in (o.get("upgrade_pos_caps") or {}).items() if v})

@@ -7,6 +7,7 @@
 <style>
 :root{--bg:#0e1420;--panel:#161e2e;--panel2:#1d2740;--line:#2b3753;--txt:#e8edf7;--mut:#8fa0c0;--acc:#4da3ff;--ok:#3ecf8e;--warn:#f5b84b;--bad:#ef6b6b;--gold:#e8c35a}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 h1{font-size:18px;margin:0}
@@ -65,6 +66,9 @@ a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ex
 .pss{margin-top:2px;line-height:1.7} .ps{display:inline-block;padding:0 5px;border-radius:4px;background:#0004;color:var(--mut);font-size:11px;margin-right:2px}
 .ps.ps-plus{color:var(--txt);border:1px solid #6a5a2a} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
 h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
+.modetabs{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.modetabs .mt{border:0;border-radius:0;padding:9px;font-weight:700;background:var(--panel2);color:var(--mut)}
+.modetabs .mt.on{background:#14315a;color:var(--txt);box-shadow:inset 0 -3px 0 var(--acc)}
 .hdrgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 </style>
 </head>
@@ -114,21 +118,31 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
         <div class="small" id="mInfo" style="margin-top:4px"></div>
       </div>
       <div class="sec">
-        <h4 class="sh">Chemistry suggestions</h4>
-        <div class="grid2">
-          <label class="f">How much lower-rated a swap may be (per player)<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
+        <div class="modetabs">
+          <button class="mt" data-mode="chem">⚗ Chemistry</button>
+          <button class="mt" data-mode="up">▲ Rating upgrades</button>
+        </div>
+        <div data-modepane="chem">
+          <div class="small mut" style="margin:8px 0">Raise squad chemistry: swaps, a step-by-step plan and manager changes.</div>
+          <div class="grid2">
+            <label class="f">How much lower-rated a swap may be (per player)<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
+            <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
+          </div>
+        </div>
+        <div data-modepane="up" hidden>
+          <div class="small mut" style="margin:8px 0">Higher-rated players for your positions, giving up as little chemistry as you allow. Lists go up to 5 players.</div>
+          <div class="grid2">
+            <label class="f">Chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
+            <label class="f">Max OVR of a suggested card (all positions)<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
+          </div>
+          <div class="small mut" id="capSum" style="margin-top:8px">Max OVR per position (overrides the one above; blank = use it):</div>
+          <div id="capGrid" style="margin-top:4px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+        </div>
+        <h4 class="sh">Filters <span class="mut small" style="font-weight:400;text-transform:none;letter-spacing:0">— apply to both</span></h4>
+        <div class="grid2" style="margin-bottom:8px">
           <label class="f">Minimum rating of any suggested card<input id="minRating" type="number" min="0" max="99" value="0"></label>
           <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
-          <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
         </div>
-        <h4 class="sh">Rating upgrades <span class="mut small" style="font-weight:400">— higher-rated players for your positions</span></h4>
-        <div class="grid2">
-          <label class="f">Chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
-          <label class="f">Max OVR of a suggested card (all positions)<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
-        </div>
-        <div class="small mut" id="capSum" style="margin-top:8px">Max OVR per position (overrides the one above; blank = use it):</div>
-        <div id="capGrid" style="margin-top:4px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
-        <h4 class="sh">Filters</h4>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
           <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
           <label class="chk"><input type="checkbox" id="xHero"> exclude Heroes</label>
@@ -149,7 +163,7 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
           <textarea id="clubList" rows="5" style="width:100%;margin-top:6px" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card in the database."></textarea>
         </details>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-          <button class="primary" id="go">Find suggestions</button>
+          <button class="primary" id="go">Find chemistry upgrades</button>
           <span class="small mut" id="goMsg"></span>
         </div>
       </div>
@@ -565,7 +579,17 @@ function swapHtml(s){
   return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b)}<div class="small mut">${esc(b.rt)} · ${cardLine(b)}${b.g===2?" · women":""}</div><div class="small">${faceStats(b)}</div>${psHtml(b, S.slots[s.slot])}</div>`;
 }
 function chip(d){ return `<span class="chip ${d>=0?"pos":"neg"}">${d>=0?"+":""}${d}</span>`; }
-let VIEW = "plan", COMBO_MGR = false;
+let VIEW = "plan", COMBO_MGR = false, MODE = "chem";
+const LAST_VIEW = {chem:"plan", up:"u1"};
+function setMode(m, rerender=true){
+  MODE = m;
+  document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+  document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
+  $("go").textContent = m === "up" ? "Find rating upgrades" : "Find chemistry upgrades";
+  VIEW = LAST_VIEW[m];
+  try{ DB.set("chemBuilder.mode", m); }catch(e){}
+  if(rerender && window.__R) renderResults();
+}
 const mgrText = o => {
   const what = [];
   if(o.nation) what.push(`Manager from <b>${esc(o.nn || nationName(o.ni))}</b> <span class="mut">(new manager card)</span>`);
@@ -575,7 +599,7 @@ const mgrText = o => {
 function resultsBody(r){
   let h = "";
   if(VIEW === "plan"){
-    if(!r.chain.length) return `<div class="mut small">${r.base>=33?"Already 33/33 — pick a <b>Rating upgrades</b> option in the Show menu for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
+    if(!r.chain.length) return `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>▲ Rating upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
     let run = r.base, li = r.li_cur;
     r.chain.forEach((st,k)=>{
       const d = st.total-run; run = st.total;
@@ -629,20 +653,23 @@ function upgradeWhy(U, k){
 function viewOptions(r){
   const best = list => list && list.length ? ` (best +${list[0].d})` : "";
   const C = COMBO_MGR ? r.combosMgr : r.combos;
+  if(MODE === "up"){
+    let o = "";
+    for(const [k, list] of Object.entries((r.upgrades||{}).by_k||{}))
+      o += `<option value="u${k}">Upgrade ${k} player${k==="1"?"":"s"}${list.length?` (best +${list[0].dr} OVR${list[0].dv>list[0].dr?" ★":""})`:" (none)"}</option>`;
+    return o;
+  }
   let o = `<option value="plan">Best step-by-step plan${r.chain.length?` (+${r.chain_total-r.base})`:""}</option>`;
   o += `<option value="mgr">Manager change only${best(r.mgr_suggest)}</option>`;
   if(C) for(const k of Object.keys(C.by_k)) o += `<option value="k${k}">${k}-player swap${k==="1"?"":"s"}${COMBO_MGR?" + new manager":""}${best(C.by_k[k])}</option>`;
-  if(r.upgrades){
-    o += `<optgroup label="Rating upgrades (chemistry ≥ ${r.upgrades.floor})">`;
-    for(const [k, list] of Object.entries(r.upgrades.by_k))
-      o += `<option value="u${k}">Upgrade ${k} player${k==="1"?"":"s"}${list.length?` (best +${list[0].dr} OVR${list[0].dv>list[0].dr?" ★":""})`:""}</option>`;
-    o += `</optgroup>`;
-  }
   return o;
 }
 function renderResults(r){
   if(r) window.__R = r; r = window.__R;
-  let h = `<div class="panel" style="margin-top:14px"><div class="small mut">Searched ${r.pool.toLocaleString()} candidate cards. Current ${r.base}/33.</div>`;
+  if(MODE === "up" ? !VIEW.startsWith("u") : VIEW.startsWith("u")) VIEW = LAST_VIEW[MODE];
+  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+    <strong>${MODE === "up" ? "▲ Rating upgrades" : "⚗ Chemistry upgrades"}</strong>
+    <span class="small mut">Searched ${r.pool.toLocaleString()} candidate cards. Current ${r.base}/33.</span></div>`;
   if(r.unmatched && r.unmatched.length) h += `<div class="note warn">Not found in the database: ${r.unmatched.map(esc).join(", ")}</div>`;
   h += `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 6px">
     <label class="f" style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--txt)">Show <select id="resView">${viewOptions(r)}</select></label>
@@ -658,7 +685,7 @@ async function runOptimize(){
   try{
     const r = await api("/api/optimize", {slots:S.slots, squad:S.squad, locks:S.locks, mgr:S.mgr, opts:readOpts()});
     $("goMsg").textContent = "";
-    if(r.base >= 33 && !VIEW.startsWith("u")) VIEW = "u1";   // full chemistry: nothing to gain, show rating upgrades
+    if(r.base >= 33 && MODE === "chem" && !r.chain.length) setMode("up", false);   // full chemistry: show rating upgrades
     renderResults(r);
   }catch(e){ $("goMsg").textContent = e.message; }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
@@ -900,6 +927,7 @@ async function init(){
   $("cPos").innerHTML = POS.map(p=>`<option>${p}</option>`).join("");
   $("bmLink").href = bookmarklet();
   if(!$("capGrid").children.length) writeCaps({});
+  setMode(DB.get("chemBuilder.mode") === "up" ? "up" : "chem", false);
   renderSaved(); renderBL(); renderPS(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
@@ -977,6 +1005,7 @@ $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
 $("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); });
+document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
@@ -1014,7 +1043,7 @@ function applyMgr(o){
 }
 $("results").addEventListener("change", async e => {
   const R = window.__R; if(!R) return;
-  if(e.target.id === "resView"){ VIEW = e.target.value; return renderResults(); }
+  if(e.target.id === "resView"){ VIEW = LAST_VIEW[MODE] = e.target.value; return renderResults(); }
   if(e.target.id === "comboMgr"){ COMBO_MGR = e.target.checked; renderResults(); }
 });
 $("diag").onclick = async () => {
