@@ -37,6 +37,7 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 - Every suggested card shows its face stats (PAC SHO PAS DRI DEF PHY, or the GK six) and a link to its exact FUT.GG page, where you can check the live price in your browser. The picker shows the same.
 - Type the squad chemistry your game shows into "game shows" — the tool tells you if its rules agree.
 - 🚫 next to any suggested card (or picker result) blacklists that exact card only, so cheaper versions of the same player can still be suggested; the search re-runs without it. "Blacklisted cards" lists them (rating and version) with ✕ to allow one again. Entries made before this change block every version of the player and are labelled "all versions". Players already in your squad are not touched.
+- **Block a player at one position**: "not at CAM" (etc.) next to a suggestion or picker result means that player, every version, is never suggested at that position again, while his other positions stay open (e.g. Bellingham not at CAM, still suggested at CM). The Blacklist section lists these blocks with ✕ to remove one, and lets you add one by name + position. Applies to chemistry swaps, rating upgrades and Fill squad; players already in your squad are not moved.
 - "Only use cards I own": paste card names (one per line, optional rating: `Alisson 87`) to restrict the pool.
   Without it, the search covers every card in the database (ICONs included — tick "exclude ICONs" if you don't have any).
 

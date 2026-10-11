@@ -452,6 +452,15 @@ def find_cards(name, rating=None):
     return hits
 
 
+def pos_bans(opts):
+    """[{bp, pos}, ...] from the UI -> (bp, pos) pairs for eng.index_pool."""
+    out = []
+    for x in opts.get("pos_bans") or []:
+        if isinstance(x, dict) and x.get("bp") is not None and x.get("pos") in eng.POS_GROUP:
+            out.append((str(x["bp"]), x["pos"]))
+    return out
+
+
 def build_pool(opts):
     gender = int(opts.get("gender") or 0)
     excl = set(opts.get("exclude_types") or [])
@@ -769,7 +778,7 @@ class Handler(BaseHTTPRequestHandler):
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
         val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
-        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women")), int(o.get("min_rating", 0)),
+        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o)), int(o.get("min_rating", 0)),
                              max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         for opt in res["options"]:
             full = list(squad)
@@ -824,7 +833,7 @@ def _search_setup(b):
         raise ValueError("Fill all 11 slots first.")
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
-    by_pos = eng.index_pool(pool, o.get("no_women"))
+    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o))
     return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 

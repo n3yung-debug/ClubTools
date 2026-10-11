@@ -277,14 +277,18 @@ def make_value(prefs=None, w_plus=3, w_ps=1):
     return value
 
 
-def index_pool(pool, no_women=()):
+def index_pool(pool, no_women=(), pos_bans=()):
     """Cards by every position they can play. no_women: positions where women's cards are never suggested
-    (they can still play their other positions)."""
+    (they can still play their other positions). pos_bans: (base player id, position) pairs - that player,
+    every version, is never suggested at that position (still fine at the others)."""
     no_women = set(no_women or ())
+    banned = {(str(bp), pos) for bp, pos in pos_bans or ()}
     by_pos = {}
     for c in pool:
         for p in prefs(c):
             if c.get("g") == 2 and p in no_women:
+                continue
+            if banned and (str(c.get("bp")), p) in banned:
                 continue
             by_pos.setdefault(p, []).append(c)
     return by_pos

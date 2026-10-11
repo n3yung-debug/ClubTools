@@ -312,6 +312,28 @@ def test_no_women_at_chosen_positions():
     assert eng.index_pool([w, m])["CB"] == [w, m]
 
 
+def test_player_blocked_at_one_position_only():
+    # e.g. Bellingham (CM, alt CAM): never suggested at CAM, every version, still fine at CM
+    v1, v2 = card(710, "CM", alts=("CAM",)), card(711, "CM", alts=("CAM",))
+    v2["bp"] = v1["bp"]
+    other = card(712, "CAM")
+    by_pos = eng.index_pool([v1, v2, other], pos_bans=[(v1["bp"], "CAM")])
+    assert by_pos["CAM"] == [other] and by_pos["CM"] == [v1, v2]
+    assert cb.pos_bans({"pos_bans": [{"bp": 5, "pos": "CAM"}, {"bp": 6, "pos": "XX"}, {"pos": "CM"}]}) == [("5", "CAM")]
+
+
+def test_position_ban_reaches_the_search():
+    cb.load_cache()
+    b = _opt_body()
+    _, _, _, _, _, by_pos, _, _ = cb._search_setup(b)
+    victim = by_pos["CAM"][0]
+    b = _opt_body(pos_bans=[{"bp": victim["bp"], "pos": "CAM"}])
+    _, _, _, _, _, by_pos, _, _ = cb._search_setup(b)
+    assert all(c["bp"] != victim["bp"] for c in by_pos["CAM"])
+    assert any(c["bp"] == victim["bp"] for p in eng.prefs(victim) if p != "CAM" for c in by_pos.get(p, [])) \
+        or eng.prefs(victim) == ["CAM"]
+
+
 def test_best_manager_finds_nation_and_league():
     # 4 from nation 5 and 2 from league 9: the best manager is nation 5 + league 9 (4 + 2 chemistry)
     sq = squad_of(ni=[5] * 4 + list(range(20, 27)), li=[9, 9] + list(range(30, 39)), ck=[None] * 11)

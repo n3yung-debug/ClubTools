@@ -290,10 +290,20 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
             <button class="sm" id="psReset" style="margin-top:8px">Reset to defaults</button>
           </div>
         </details>
-        <details class="acc" id="blDet"><summary id="blSum">Blacklisted cards (0)</summary>
+        <details class="acc" id="blDet"><summary id="blSum">Blacklist</summary>
           <div class="accb">
+            <div class="sec-h" style="margin:4px 0 4px">Cards</div>
             <div class="small mut">Never suggested. 🚫 next to a suggestion or search result blocks that exact card only, so cheaper versions can still be suggested.</div>
             <div id="blList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+            <div class="sec-h" style="margin:14px 0 4px">Blocked at a position</div>
+            <div class="small mut">The player (every version) is never suggested at that position, but can still be suggested at his other ones — e.g. Bellingham not at CAM. Use “not at …” next to a suggestion, or add one here:</div>
+            <div id="pbList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:6px;margin-top:8px">
+              <input id="pbQ" placeholder="Player name…" autocomplete="off">
+              <select id="pbWho"><option value="">type a name first</option></select>
+              <select id="pbPos"></select>
+              <button class="sm" id="pbAdd">Block</button>
+            </div>
           </div>
         </details>
         <div class="gobar">
@@ -419,7 +429,7 @@ const DB = {data:{}, pending:{}, timer:null,
     return Object.keys(mine).length;
   }
 };
-const KEY = "chemBuilder.v2", KEY_V1 = "chemBuilder.v1", KEY_SAVED = "chemBuilder.saved", KEY_BL = "chemBuilder.blacklist";
+const KEY = "chemBuilder.v2", KEY_V1 = "chemBuilder.v1", KEY_SAVED = "chemBuilder.saved", KEY_BL = "chemBuilder.blacklist", KEY_PB = "chemBuilder.posbans";
 // Preferred PlayStyles per position. 31 = 1v1 Close Down, 12 = Intercept, 16 = Technical, 34 = Low Driven Shot
 const PS_POS = ["GK","CB","LB","RB","CDM","CM","LM","RM","CAM","LW","RW","ST"];
 const KEY_PS = "chemBuilder.psprefs2", KEY_PS_OLD = "chemBuilder.psprefs";
@@ -463,8 +473,18 @@ function psHtml(c, pos){
 let BL = [];   // [{s, n, ov, rt}] cards never to suggest (that version only); older entries {bp, n} block every version
 function loadBL(){ try{ BL = JSON.parse(DB.get(KEY_BL) || "[]") || []; }catch(e){ BL = []; } }
 function saveBL(){ DB.set(KEY_BL, JSON.stringify(BL)); renderBL(); }
+let PB = [];   // [{bp, n, pos}] player (every version) never suggested at that position
+function loadPB(){ try{ PB = JSON.parse(DB.get(KEY_PB) || "[]") || []; }catch(e){ PB = []; } }
+function savePB(){ DB.set(KEY_PB, JSON.stringify(PB)); renderBL(); }
+const isPosBanned = (c, pos) => !!c && PB.some(x => String(x.bp) === String(c.bp) && x.pos === pos);
+function posBan(d){ if(!PB.some(x => String(x.bp) === String(d.bp) && x.pos === d.pos)){ PB.push({bp:d.bp, n:d.name, pos:d.pos}); savePB(); } }
+function renderPB(){
+  $("pbList").innerHTML = PB.length ? PB.map((x,k) => `<span class="tag" style="font-size:12px;padding:2px 6px">${esc(x.n)} <span class="mut">· not at</span> <b>${esc(x.pos)}</b> <button class="sm" data-unpb="${k}" title="Allow this again" style="padding:0 5px">✕</button></span>`).join("")
+                               : `<span class="small mut">None yet. Use “not at …” next to a suggestion, or add one below.</span>`;
+}
 function renderBL(){
-  $("blSum").textContent = `Blacklisted cards (${BL.length})`;
+  $("blSum").textContent = `Blacklist (${BL.length} card${BL.length===1?"":"s"}${PB.length?` · ${PB.length} position block${PB.length===1?"":"s"}`:""})`;
+  renderPB();
   $("blList").innerHTML = BL.length ? BL.map(x => `<span class="tag" style="font-size:12px;padding:2px 6px">${x.s ? `${x.ov} ${esc(x.n)} <span class="mut">· ${esc(x.rt||"")}</span>` : `${esc(x.n)} <span class="mut">· all versions</span>`} <button class="sm" data-unban="${esc(blKey(x))}" title="Allow this again" style="padding:0 5px">✕</button></span>`).join("")
                                     : `<span class="small mut">Nobody yet.</span>`;
 }
@@ -571,7 +591,7 @@ function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
     max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
-    blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
+    blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), pos_bans:PB.map(x => ({bp:x.bp, pos:x.pos})), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
@@ -702,7 +722,7 @@ function highlightSlot(i){
 }
 function hitHtml(c, k){
   const okPos = fits(c, S.slots[pickIdx]);
-  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}<div class="small mut">${esc(c.rt)} · ${cardLine(c)}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c)}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}</div><div class="small">${faceStats(c)}</div>${psHtml(c, S.slots[pickIdx])}</div></div>`;
+  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}<div class="small mut">${esc(c.rt)} · ${cardLine(c)}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c)}</div>${psHtml(c, S.slots[pickIdx])}</div></div>`;
 }
 let hitCache = [], hitQuery = "", liveError = null;
 function renderHits(){
@@ -745,11 +765,12 @@ $("pitch").addEventListener("drop", e => {
 $("pitch").addEventListener("dragend", () => { dragFrom = -1; document.querySelectorAll(".slot.dragover").forEach(x=>x.classList.remove("dragover")); });
 
 /* ---------- optimizer ---------- */
-const banBtn = c => c.bp == null || String(c.s).startsWith("custom:") ? "" :
-  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)">🚫</button>`;
+const banBtn = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "" :
+  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)">🚫</button>`
+  + (pos && !isPosBanned(c, pos) ? ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>` : "");
 function swapHtml(s){
   const a=s.out, b=s.in;
-  return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b)}<div class="small mut">${esc(b.rt)} · ${cardLine(b)}${b.g===2?" · women":""}</div><div class="small">${faceStats(b)}</div>${psHtml(b, S.slots[s.slot])}</div>`;
+  return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b, S.slots[s.slot])}<div class="small mut">${esc(b.rt)} · ${cardLine(b)}${b.g===2?" · women":""}</div><div class="small">${faceStats(b)}</div>${psHtml(b, S.slots[s.slot])}</div>`;
 }
 function chip(d){ return `<span class="chip ${d>=0?"pos":"neg"}">${d>=0?"+":""}${d}</span>`; }
 let VIEW = "plan", COMBO_MGR = false, MODE = "chem";
@@ -1123,7 +1144,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await DB.load(); loadPS(); loadBL();
+  await DB.load(); loadPS(); loadBL(); loadPB();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1192,6 +1213,8 @@ $("live").onchange = doSearch;
 $("hits").addEventListener("click", e => {
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt}); renderHits(); return; }
+  const pb = e.target.closest("[data-posban]");
+  if(pb){ posBan({bp:pb.dataset.posban, name:pb.dataset.name, pos:pb.dataset.pos}); renderHits(); return; }
   const h = e.target.closest("[data-hit]"); if(h) setCard(hitCache[+h.dataset.hit]);
 });
 $("psReset").onclick = () => { PSP = JSON.parse(JSON.stringify(PS_DEFAULT)); savePS(); };
@@ -1203,6 +1226,35 @@ $("psGroups").addEventListener("change", e => {
   const s = e.target.closest("[data-psadd]"); if(!s || s.value==="") return;
   const g = s.dataset.psadd; PSP[g] = (PSP[g]||[]).concat(+s.value); savePS();
 });
+$("pbList").addEventListener("click", e => {
+  const b = e.target.closest("[data-unpb]"); if(!b) return;
+  PB.splice(+b.dataset.unpb, 1); savePB();
+  if(window.__R || window.__F) $("goMsg").textContent = "Position block removed — run the search again to include them.";
+});
+let pbTimer = null, pbHits = [];
+$("pbQ").addEventListener("input", () => {
+  clearTimeout(pbTimer);
+  pbTimer = setTimeout(async () => {
+    const q = $("pbQ").value.trim(); pbHits = [];
+    if(q.length >= 2){ try{ const r = await api(`/api/search?q=${encodeURIComponent(q)}&live=0`); const seen = new Set();
+      for(const c of (r.hits || [])) if(c.bp != null && !seen.has(String(c.bp))){ seen.add(String(c.bp)); pbHits.push(c); } }catch(e){} }
+    $("pbWho").innerHTML = pbHits.length ? pbHits.slice(0, 15).map((c,k) => `<option value="${k}">${esc(c.n)} — ${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""} · ${esc(c.cn||c.ln||"")}</option>`).join("")
+                                         : `<option value="">${q.length>=2?"no player found":"type a name first"}</option>`;
+    pbPosOpts();
+  }, 200);
+});
+function pbPosOpts(){
+  const c = pbHits[+$("pbWho").value];
+  const ps = c ? [c.p, ...(c.a||[])] : CAP_POS;
+  $("pbPos").innerHTML = ps.map(p => `<option>${p}</option>`).join("");
+}
+$("pbWho").addEventListener("change", pbPosOpts);
+pbPosOpts();
+$("pbAdd").onclick = () => {
+  const c = pbHits[+$("pbWho").value]; if(!c || $("pbWho").value==="") return;
+  posBan({bp:c.bp, name:c.n, pos:$("pbPos").value});
+  $("pbQ").value = ""; pbHits = []; $("pbWho").innerHTML = `<option value="">type a name first</option>`; pbPosOpts();
+};
 $("blList").addEventListener("click", e => {
   const b = e.target.closest("[data-unban]"); if(!b) return;
   BL = BL.filter(x => blKey(x) !== b.dataset.unban); saveBL();
@@ -1235,6 +1287,9 @@ $("results").addEventListener("click", e => {
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt});
     $("goMsg").textContent = `${bn.dataset.ov} ${bn.dataset.name} (${bn.dataset.rt}) blacklisted — searching again…`; runOptimize(); return; }
+  const pb = e.target.closest("[data-posban]");
+  if(pb){ posBan({bp:pb.dataset.posban, name:pb.dataset.name, pos:pb.dataset.pos});
+    $("goMsg").textContent = `${pb.dataset.name} won't be suggested at ${pb.dataset.pos} — searching again…`; runOptimize(); return; }
   const af = e.target.closest("[data-fill]");
   if(af && window.__F){
     const o = window.__F.options[+af.dataset.fill];
