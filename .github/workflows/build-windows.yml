@@ -27,16 +27,16 @@ jobs:
       - name: Stamp version
         run: python -c "import datetime, os; open('version.txt', 'w').write(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + os.environ['GITHUB_SHA'][:7] + ')')"
 
-      - name: Build ChemBuilder.exe
+      - name: Build ClubTools.exe
         run: >
-          pyinstaller --noconfirm --onefile --windowed --name ChemBuilder --icon icon.ico
+          pyinstaller --noconfirm --onefile --windowed --name ClubTools --icon icon.ico
           --add-data "ui.html;." --add-data "cards.json;." --add-data "version.txt;." --collect-all webview chem_builder.py
 
       - name: Self-test the exe (server, page, card data)
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath dist\ChemBuilder.exe -ArgumentList "--selftest","--port","8790" -Wait -PassThru
-          $log = Get-Content "$env:APPDATA\ChemBuilder\chem_builder.log" -Raw
+          $p = Start-Process -FilePath dist\ClubTools.exe -ArgumentList "--selftest","--port","8790" -Wait -PassThru
+          $log = Get-Content "$env:APPDATA\ClubTools\clubtools.log" -Raw
           Write-Output $log
           if ($p.ExitCode -ne 0 -or $log -notmatch "SELFTEST OK") { throw "self-test failed (exit $($p.ExitCode))" }
 
@@ -44,14 +44,14 @@ jobs:
         shell: pwsh
         continue-on-error: true   # build machines may lack a desktop/WebView2; the self-test above is the gate
         run: |
-          $p = Start-Process -FilePath dist\ChemBuilder.exe -ArgumentList "--smoke","--port","8791" -PassThru
+          $p = Start-Process -FilePath dist\ClubTools.exe -ArgumentList "--smoke","--port","8791" -PassThru
           if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "window did not close within 90 s" }
-          Get-Content "$env:APPDATA\ChemBuilder\chem_builder.log" -Raw
-          $r = Get-Content "$env:APPDATA\ChemBuilder\smoke.txt" -ErrorAction SilentlyContinue
+          Get-Content "$env:APPDATA\ClubTools\clubtools.log" -Raw
+          $r = Get-Content "$env:APPDATA\ClubTools\smoke.txt" -ErrorAction SilentlyContinue
           if ($r -ne "ok") { throw "smoke test result: $r" }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ChemBuilder-windows
-          path: dist/ChemBuilder.exe
+          name: ClubTools-windows
+          path: dist/ClubTools.exe
           retention-days: 30

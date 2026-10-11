@@ -3,181 +3,299 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chem Builder</title>
+<title>ClubTools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%20aria-hidden%3D%22true%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22ctg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231f8a5e%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230d3326%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M16%202.5%2027.5%206.5V15c0%207.2-5%2012.2-11.5%2014.5C9.5%2027.2%204.5%2022.2%204.5%2015V6.5Z%22%20fill%3D%22%2316603f%22%20stroke%3D%22%2345b886%22%20stroke-width%3D%221.4%22/%3E%3Cpath%20d%3D%22M5%2015.5h22%22%20stroke%3D%22%23cfeedd%22%20stroke-opacity%3D%22.35%22%20stroke-width%3D%221%22/%3E%3Cpath%20d%3D%22M10%2012.8%2012.7%2015.5%2010%2018.2%207.3%2015.5Z%22%20fill%3D%22%235fb4ff%22/%3E%3Cpath%20d%3D%22M16%2011.6%2019.9%2015.5%2016%2019.4%2012.1%2015.5Z%22%20fill%3D%22%239fd2ff%22/%3E%3Cpath%20d%3D%22M22%2012.8%2024.7%2015.5%2022%2018.2%2019.3%2015.5Z%22%20fill%3D%22%235fb4ff%22/%3E%3C/svg%3E">
 <style>
-:root{--bg:#0e1420;--panel:#161e2e;--panel2:#1d2740;--line:#2b3753;--txt:#e8edf7;--mut:#8fa0c0;--acc:#4da3ff;--ok:#3ecf8e;--warn:#f5b84b;--bad:#ef6b6b;--gold:#e8c35a}
+:root{
+  --bg:#0a0f1a;--bg2:#0d1422;--panel:#121a2b;--panel2:#18223a;--panel3:#1f2b47;--line:#26324d;--line2:#33415f;
+  --txt:#e9eef8;--mut:#8d9bb9;--acc:#4da3ff;--acc2:#7cc0ff;--ok:#3ecf8e;--warn:#f5b84b;--bad:#ef6b6b;--gold:#f0cb62;
+  --r:12px;--r2:8px;--sh:0 8px 24px #0006;
+}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
-header{display:flex;gap:16px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-h1{font-size:18px;margin:0}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#14223d 0%,transparent 60%),var(--bg);background-attachment:fixed;color:var(--txt);
+  font:14px/1.45 "Inter","Segoe UI Variable","Segoe UI",system-ui,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 .mut{color:var(--mut)} .small{font-size:12px}
-button,select,input,textarea{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
-button{cursor:pointer} button:hover{border-color:var(--acc)}
-button.primary{background:var(--acc);border-color:var(--acc);color:#04101f;font-weight:600}
-button.sm{padding:2px 7px;font-size:12px}
-main{display:grid;grid-template-columns:minmax(560px,1.35fr) minmax(360px,1fr);gap:16px;padding:16px 18px}
-@media(max-width:1000px){main{grid-template-columns:1fr}}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
-.pitch{background:linear-gradient(#0f3a2a,#0b2c21);border:1px solid #1f5a42;border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;gap:12px}
-.row{display:flex;justify-content:space-around;gap:6px}
-.slot{width:128px;text-align:center}
-.shead{display:flex;justify-content:center;gap:4px;margin-bottom:3px}
-.shead select{padding:1px 2px;font-size:12px;background:#0d2a20;border-color:#1f5a42}
-.lock{padding:1px 6px;font-size:13px;background:#0d2a20;border-color:#1f5a42}
-.lock.on{background:var(--warn);color:#2a1b00;border-color:var(--warn)}
-.card{min-height:84px;border-radius:8px;padding:6px 6px 5px;background:linear-gradient(160deg,#2a2411,#3b3217);border:1px solid #6a5a2a;cursor:pointer;position:relative}
-.card.empty{background:#0d2a20;border:1px dashed #2f7a5c;color:#7fb79f;display:flex;align-items:center;justify-content:center}
-.card.off{border-color:var(--bad)}
-.card .nm{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card .ov{color:var(--gold);font-weight:800}
-.card .ln{font-size:11px;color:#cdbf8c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dia{letter-spacing:2px;font-size:13px;color:var(--acc)} .dia.z{color:var(--bad)}
-.tag{font-size:10px;padding:0 4px;border-radius:4px;background:#0006;margin-left:3px}
-.big{font-size:34px;font-weight:800}
-.big.ok{color:var(--ok)} .big.mid{color:var(--warn)} .big.low{color:var(--bad)}
-label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.sec{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
-.res{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--panel2)}
-.chip{font-weight:700;padding:1px 7px;border-radius:99px;font-size:12px}
-.chip.pos{background:#143d2c;color:var(--ok)} .chip.neg{background:#3f1d1d;color:var(--bad)}
-.arrow{color:var(--mut);padding:0 4px}
-dialog{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:12px;width:min(640px,94vw);padding:14px}
-dialog::backdrop{background:#000a}
-.hit{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer}
-.hit:hover{background:var(--panel2)}
-.list{max-height:46vh;overflow:auto;margin-top:8px}
-.note{padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);margin-top:8px;font-size:12px}
-.note.warn{border-color:var(--warn)} .note.bad{border-color:var(--bad)}
+a{color:var(--acc)}
+/* controls */
+button,select,input,textarea{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:var(--r2);padding:7px 10px;transition:border-color .15s,background .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px #4da3ff22}
+button{cursor:pointer} button:hover{border-color:var(--acc);background:var(--panel3)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:linear-gradient(180deg,#5fb0ff,#3b8fe8);border-color:#3b8fe8;color:#04101f;font-weight:700}
+button.primary:hover{background:linear-gradient(180deg,#78bdff,#4a9cf0)}
+button.ghost{background:transparent;border-color:transparent} button.ghost:hover{background:var(--panel2);border-color:var(--line)}
+button.sm{padding:4px 9px;font-size:12px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
 .chk{display:flex;gap:6px;align-items:center;font-size:13px}
-.slot.dragover .card{outline:2px dashed var(--acc);outline-offset:2px}
+input[type=checkbox]{accent-color:var(--acc);width:15px;height:15px}
+/* header */
+header{position:sticky;top:0;z-index:20;display:flex;gap:10px;align-items:center;padding:10px 18px;background:#0b1220e6;backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;letter-spacing:.2px;margin-right:6px}
+.brand .crest{display:block;width:30px;height:30px;filter:drop-shadow(0 2px 6px #0008)} .brand .crest svg{width:100%;height:100%;display:block}
+.brand .word{font-weight:800;font-size:18px;letter-spacing:-.2px} .brand .word span{color:var(--acc2)}
+.pitch-empty .crest{width:44px;height:44px;margin:0 auto 6px} .pitch-empty .crest svg{width:100%;height:100%}
+footer{max-width:1700px;margin:0 auto;padding:0 18px 22px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11.5px;color:#5f6d8c}
+footer .fb{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--mut)} footer .fb svg{width:16px;height:16px}
+.badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:#1f2b47;color:var(--acc2);border:1px solid var(--line2)}
+.hgroup{display:flex;gap:6px;align-items:center}
+.hgroup .lbl{font-size:12px;color:var(--mut)}
+.spacer{flex:1}
+.menu{position:relative}
+.menu .pop{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:260px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:8px;z-index:30}
+.menu.left .pop{left:0;right:auto}
+.menu.open .pop{display:grid;gap:6px}
+.pop .row2{display:flex;gap:6px}
+.pop hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.pop button{text-align:left}
+/* layout */
+main{display:grid;grid-template-columns:minmax(540px,1.25fr) minmax(380px,1fr);gap:18px;padding:16px 18px 40px;max-width:1700px;margin:0 auto}
+@media(max-width:1050px){main{grid-template-columns:1fr}}
+.panel{background:linear-gradient(180deg,var(--panel),#101727);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:0 1px 0 #ffffff08 inset}
+.sec{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.sec-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* pitch */
+.pitchwrap{position:sticky;top:64px}
+.pitch{position:relative;border-radius:var(--r);padding:14px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;
+  background:repeating-linear-gradient(180deg,#0f3d2b 0 56px,#0d3627 56px 112px);border:1px solid #1f5a42;box-shadow:inset 0 0 80px #0008}
+.pitch::before{content:"";position:absolute;inset:10px;border:2px solid #ffffff14;border-radius:6px;pointer-events:none}
+.pitch::after{content:"";position:absolute;left:50%;top:50%;width:130px;height:130px;margin:-65px 0 0 -65px;border:2px solid #ffffff12;border-radius:50%;pointer-events:none}
+.pitch .halfway{position:absolute;left:10px;right:10px;top:50%;border-top:2px solid #ffffff12;pointer-events:none}
+.pitch .box{position:absolute;left:50%;width:260px;margin-left:-130px;height:70px;border:2px solid #ffffff12;pointer-events:none}
+.pitch .box.top{top:10px;border-top:0} .pitch .box.bot{bottom:10px;border-bottom:0}
+.row{position:relative;z-index:1;display:flex;justify-content:space-evenly;gap:6px}
+.slot{width:118px}
+.pitch-empty{position:absolute;inset:0;z-index:2;display:grid;place-items:center;pointer-events:none}
+.pitch-empty>div{pointer-events:auto;background:#0b1220d9;border:1px solid var(--line2);border-radius:var(--r);padding:16px 18px;text-align:center;max-width:320px;box-shadow:var(--sh)}
+.tips{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12px;color:var(--mut)}
+.tips span b{color:var(--txt)}
+/* FUT-style card */
+.card{position:relative;height:104px;border-radius:10px;padding:6px 7px 5px;cursor:pointer;overflow:hidden;
+  background:linear-gradient(160deg,#3d3418,#2a2410 60%,#221d0c);border:1px solid #8a7433;box-shadow:0 4px 12px #0007;transition:transform .12s,box-shadow .12s}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 18px #000a}
 .card[draggable=true]{cursor:grab}
-.hit.hl{background:var(--panel2);outline:1px solid var(--acc)}
+.card.t-icon{background:linear-gradient(160deg,#f3ead2,#d8c9a0 65%,#bfae80);border-color:#fff3;color:#1d1a12}
+.card.t-hero{background:linear-gradient(160deg,#5b3aa0,#3a2470 65%,#2a1a52);border-color:#9b7be0}
+.card.t-hof{background:linear-gradient(160deg,#1f6f6a,#14504c 65%,#0e3a37);border-color:#4fc3b8}
+.card.t-special{background:linear-gradient(160deg,#21325e,#172446 65%,#111b35);border-color:#5b7fd6}
+.card.off{border-color:var(--bad);box-shadow:0 0 0 2px #ef6b6b55,0 4px 12px #0007}
+.card .ctop{display:flex;align-items:center;gap:4px}
+.card .cov{font-size:20px;font-weight:900;line-height:1;color:var(--gold)}
+.card.t-icon .cov{color:#6b5418} .card.t-hero .cov,.card.t-special .cov{color:#ffe08a} .card.t-hof .cov{color:#b6fff3}
+.card .ctype{font-size:9px;font-weight:800;letter-spacing:.5px;padding:1px 4px;border-radius:4px;background:#0005;color:#fff}
+.card.t-icon .ctype{background:#0002;color:#3a2f10}
+.card .cname{font-weight:800;font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .cl{font-size:10.5px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.card .cchem{position:absolute;left:7px;right:7px;bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.card .offb{font-size:9px;font-weight:800;color:#fff;background:var(--bad);border-radius:4px;padding:0 4px}
+.posSel{margin-left:auto;padding:0 2px;font-size:10px;font-weight:700;height:18px;border-radius:5px;background:#0006;border:1px solid #fff2;color:inherit}
+.card.t-icon .posSel{background:#0001;border-color:#0002}
+.lock{padding:0 4px;height:18px;font-size:10px;line-height:16px;border-radius:5px;background:#0006;border:1px solid #fff2;opacity:.55}
+.lock:hover{opacity:1} .lock.on{opacity:1;background:var(--warn);border-color:var(--warn);color:#2a1b00}
+.card.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#0b2a1f99;border:2px dashed #2f7a5c;color:#8fd4b4;box-shadow:none}
+.card.empty .plus{font-size:24px;line-height:1;font-weight:300}
+.card.empty .ctop{position:absolute;top:5px;left:6px;right:6px}
+.dia{letter-spacing:1px;font-size:12px;color:#5fb4ff} .dia.z{color:var(--bad)}
+.card.t-icon .dia{color:#1f5fa8}
+.slot.dragover .card{outline:2px dashed var(--acc);outline-offset:2px}
+/* chemistry gauge */
+.chemhead{display:flex;align-items:center;gap:16px}
+.gauge{position:relative;width:96px;height:96px;flex:none}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .g-bg{fill:none;stroke:#ffffff12;stroke-width:3.2}
+.gauge .g-arc{fill:none;stroke:var(--mut);stroke-width:3.2;stroke-linecap:round;transition:stroke-dasharray .4s,stroke .4s}
+.gauge .g-arc[stroke-dasharray^="0 "]{stroke:transparent}
+.gauge.ok .g-arc{stroke:var(--ok)} .gauge.mid .g-arc{stroke:var(--warn)} .gauge.low .g-arc{stroke:var(--bad)}
+.gauge .g-val{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1}
+.gauge .g-val b{font-size:30px;font-weight:900} .gauge .g-val small{display:block;font-size:11px;color:var(--mut);margin-top:2px}
+.gauge.ok b{color:var(--ok)} .gauge.mid b{color:var(--warn)} .gauge.low b{color:var(--bad)}
+.chemmeta{flex:1;display:grid;gap:6px}
+.chemmeta .t1{font-size:15px;font-weight:700}
+/* tabs */
+.modetabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
+.modetabs .mt{border:0;border-radius:9px;padding:9px 6px;font-weight:700;background:transparent;color:var(--mut)}
+.modetabs .mt:hover{background:var(--panel2);color:var(--txt)}
+.modetabs .mt.on{background:linear-gradient(180deg,#1d3a66,#16304f);color:var(--txt);box-shadow:inset 0 0 0 1px #4da3ff55}
 .tabs{display:flex;gap:6px;margin:10px 0 6px}
 .tabs button.on{border-color:var(--acc);background:#14315a}
+/* accordions */
+details.acc{border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2);margin-top:8px}
+details.acc>summary{cursor:pointer;list-style:none;padding:9px 12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc>summary::before{content:"▸";color:var(--mut);transition:transform .15s}
+details.acc[open]>summary::before{transform:rotate(90deg)}
+details.acc>.accb{padding:0 12px 12px}
+details.acc details>summary{cursor:pointer;font-size:13px;color:var(--mut);margin:8px 0 4px}
+/* results */
+.res{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);margin:8px 0;background:linear-gradient(180deg,var(--panel2),#151e33);transition:border-color .15s}
+.res:hover{border-color:var(--line2)}
+.res .tag{background:#ffffff10}
+.chip{display:inline-block;font-weight:800;padding:2px 9px;border-radius:99px;font-size:12px}
+.chip.pos{background:#143d2c;color:var(--ok)} .chip.neg{background:#3f1d1d;color:var(--bad)}
+.arrow{color:var(--mut);padding:0 5px}
+.tag{font-size:10px;padding:1px 5px;border-radius:5px;background:#0006;margin-left:4px;font-weight:700}
+.note{padding:9px 11px;border-radius:var(--r2);border:1px solid var(--line);background:var(--panel2);margin-top:8px;font-size:12.5px}
+.note.warn{border-color:#f5b84b88;background:#2a2312} .note.bad{border-color:#ef6b6b88;background:#2a1515}
+.hint{padding:8px 10px;border-radius:var(--r2);background:#13284a;border:1px solid #2b4c80;margin-top:6px}
+/* dialogs */
+dialog{background:var(--panel);color:var(--txt);border:1px solid var(--line2);border-radius:16px;width:min(640px,94vw);padding:16px;box-shadow:0 30px 80px #000c}
+dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
+.hit{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:var(--r2);cursor:pointer}
+.hit:hover{background:var(--panel2)} .hit.hl{background:var(--panel2);outline:1px solid var(--acc)}
+.list{max-height:46vh;overflow:auto;margin-top:8px}
 .pv{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
-.pv td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}
+.pv td{padding:5px 6px;border-top:1px solid var(--line);vertical-align:middle}
 .pv select{width:100%}
 .banner{background:#5a1f1f;color:#fff;padding:10px 14px;font:14px system-ui}
 .bm{display:inline-block;padding:6px 10px;border-radius:6px;background:var(--acc);color:#04101f;font-weight:700;text-decoration:none}
 .fs{color:var(--txt);letter-spacing:.2px} .fs b{color:var(--gold)}
 a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px} a.ext:hover{text-decoration:underline}
-.pss{margin-top:2px;line-height:1.7} .ps{display:inline-block;padding:0 5px;border-radius:4px;background:#0004;color:var(--mut);font-size:11px;margin-right:2px}
-.ps.ps-plus{color:var(--txt);border:1px solid #6a5a2a} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
-h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
-.modetabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.modetabs .mt{border:0;border-radius:0;padding:9px;font-weight:700;background:var(--panel2);color:var(--mut)}
-.modetabs .mt.on{background:#14315a;color:var(--txt);box-shadow:inset 0 -3px 0 var(--acc)}
-.cmp{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;background:var(--panel2)}
+.pss{margin-top:3px;line-height:1.8} .ps{display:inline-block;padding:0 6px;border-radius:5px;background:#ffffff0d;color:var(--mut);font-size:11px;margin-right:3px}
+.ps.ps-plus{color:var(--txt);border:1px solid #8a7433} .ps.ps-want,.tag.ps-want{color:var(--gold);background:#3b3217;font-weight:700}
+h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.cmp{border:1px solid var(--line);border-radius:var(--r);padding:10px;margin:8px 0;background:var(--panel2)}
 .cmp-h{margin-bottom:6px}
 .cmp-grid{display:grid;grid-template-columns:1fr 1fr 190px;gap:12px;align-items:start}
 @media(max-width:760px){.cmp-grid{grid-template-columns:1fr}}
 .cmp-t{border-collapse:collapse;font-size:12px;width:100%} .cmp-t td,.cmp-t th{padding:1px 6px;text-align:right} .cmp-t td:first-child{text-align:left}
-.hdrgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.gobar{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.gobar #go{width:100%;padding:11px;font-size:15px}
+#goMsg{min-height:1em;text-align:center}
+/* toast */
+#syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
+#syncMsg:empty{display:none}
 </style>
 </head>
 <body>
 <header>
-  <h1>Chem Builder <span class="mut small">EA FC 27</span></h1>
-  <label class="f" style="flex-direction:row;align-items:center;gap:6px">Formation
-    <select id="formation"></select></label>
-  <div class="hdrgrp">
-    <button id="impBtn" class="sm primary">Import squad…</button>
-    <button id="undo" class="sm" title="Undo (Ctrl+Z)">↶ Undo</button>
-    <button id="redo" class="sm" title="Redo (Ctrl+Y)">↷ Redo</button>
-    <button id="clear" class="sm">Clear squad</button>
+  <div class="brand"><span class="crest"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg></span><span class="word">Club<span>Tools</span></span><span class="badge">FC 27</span></div>
+  <div class="hgroup"><span class="lbl">Formation</span><select id="formation"></select></div>
+  <div class="hgroup">
+    <button id="impBtn" class="primary sm">⇪ Import squad</button>
+    <button id="undo" class="sm ghost" title="Undo (Ctrl+Z)">↶ Undo</button>
+    <button id="redo" class="sm ghost" title="Redo (Ctrl+Y)">↷ Redo</button>
   </div>
-  <div class="hdrgrp">
-    <select id="savedSel" class="sm" style="padding:2px 6px"><option value="">Saved squads…</option></select>
-    <button id="saveAs" class="sm">Save as…</button>
-    <button id="delSaved" class="sm" title="Delete the selected saved squad">Delete</button>
-    <button id="share" class="sm" title="Copy a link that opens this squad in Chem Builder">Share link</button>
+  <div class="menu left" id="squadsMenu">
+    <button class="sm" data-menu>☰ Squads ▾</button>
+    <div class="pop">
+      <select id="savedSel"><option value="">Saved squads…</option></select>
+      <div class="row2"><button id="saveAs" class="sm" style="flex:1">Save as…</button><button id="delSaved" class="sm" title="Delete the selected saved squad">Delete</button></div>
+      <hr>
+      <button id="share" class="sm" title="Copy a link that opens this squad in ClubTools">🔗 Copy share link</button>
+      <button id="clear" class="sm">✕ Clear squad</button>
+    </div>
   </div>
-  <span class="mut small" id="dataInfo"></span>
-  <button id="sync" class="sm">Update card data</button>
-  <button id="diag" class="sm">Test connection</button>
-  <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
-  <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
-  <span class="small" id="syncMsg"></span>
+  <div class="spacer"></div>
+  <div class="menu" id="appMenu">
+    <button class="sm ghost" data-menu title="Card data and app settings">⚙ ▾</button>
+    <div class="pop">
+      <div class="small mut" id="dataInfo"></div>
+      <hr>
+      <button id="sync" class="sm">⟳ Update card data</button>
+      <button id="diag" class="sm">Test connection</button>
+      <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
+      <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
+    </div>
+  </div>
 </header>
+<div id="syncMsg"></div>
 <main>
   <section>
-    <div class="pitch" id="pitch"></div>
-    <div class="small mut" style="margin-top:8px">Click a card to pick a player; clicking an empty slot starts <b>fill mode</b> (type, Enter, and it moves to the next empty slot). Drag a card onto another slot to swap them. 🔒 locks a slot so it is never swapped by the optimizer (it still counts for everyone else's links). The position dropdown above each slot edits that slot.</div>
+    <div class="pitchwrap">
+      <div class="pitch" id="pitch"></div>
+      <div class="tips"><span><b>Click</b> a card to pick or replace</span><span><b>Empty slot</b> → fill mode (type, Enter)</span><span><b>Drag</b> to swap</span><span><b>🔒</b> keeps a slot fixed</span><span><b>Ctrl+Z</b> undo</span></div>
+    </div>
   </section>
   <section>
     <div class="panel">
-      <div style="display:flex;align-items:baseline;gap:12px">
-        <div class="big" id="total">–</div><div class="mut">/ 33 squad chemistry <span id="filled" class="small"></span></div>
-        <div style="margin-left:auto" class="small mut">game shows
-          <input id="gameTotal" type="number" min="0" max="33" style="width:56px"></div>
+      <div class="chemhead">
+        <div class="gauge" id="gauge">
+          <svg viewBox="0 0 36 36" width="96" height="96"><circle class="g-bg" cx="18" cy="18" r="15.9155"/><circle class="g-arc" id="gArc" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" pathLength="100"/></svg>
+          <div class="g-val"><div><b id="total">–</b><small>of 33</small></div></div>
+        </div>
+        <div class="chemmeta">
+          <div class="t1">Squad chemistry <span id="filled" class="small mut" style="font-weight:400"></span></div>
+          <label class="small mut" style="display:flex;align-items:center;gap:6px">In-game total (optional check)
+            <input id="gameTotal" type="number" min="0" max="33" style="width:64px;padding:4px 6px"></label>
+        </div>
       </div>
       <div id="gameNote"></div>
       <div class="sec">
+        <div class="sec-h">Manager</div>
         <div class="grid2">
-          <label class="f">Your manager's nation<select id="mNation"></select></label>
-          <label class="f">Your manager's league (right now)<select id="mLeague"></select></label>
+          <label class="f">Nation<select id="mNation"></select></label>
+          <label class="f">League (right now)<select id="mLeague"></select></label>
         </div>
-        <div class="small mut" style="margin-top:4px">The manager counts like one more player of their nation and league (no club). Suggestions always consider switching the league with a League Modifier and tell you which one.</div>
+        <div class="small mut" style="margin-top:6px">Counts like one extra player of that nation and league. League Modifier switches are always considered.</div>
         <div class="small" id="mInfo" style="margin-top:4px"></div>
       </div>
       <div class="sec">
         <div class="modetabs">
           <button class="mt" data-mode="chem">⚗ Chemistry</button>
-          <button class="mt" data-mode="up">▲ Rating upgrades</button>
+          <button class="mt" data-mode="up">▲ Upgrades</button>
           <button class="mt" data-mode="fill">✚ Fill squad</button>
         </div>
         <div data-modepane="chem">
-          <div class="small mut" style="margin:8px 0">Raise squad chemistry: swaps, a step-by-step plan and manager changes.</div>
+          <div class="small mut" style="margin:10px 0 8px">Raise squad chemistry with swaps, a step-by-step plan and manager changes.</div>
           <div class="grid2">
-            <label class="f">How much lower-rated a swap may be (per player)<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
-            <label class="f">Max swaps (plan; swap lists go up to 5)<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
+            <label class="f">Max rating drop per swap<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
+            <label class="f">Max swaps in the plan<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
           </div>
         </div>
         <div data-modepane="fill" hidden>
-          <div class="small mut" style="margin:8px 0">Place the players you want, leave the other slots empty (click a player → <b>Remove player</b>), and get complete squads built around them. Your players are never changed.</div>
+          <div class="small mut" style="margin:10px 0 8px">Place the players you want, leave the rest empty (click a player → <b>Remove player</b>) and get complete squads built around them. Your players are never changed.</div>
           <div class="grid2">
-            <label class="f">Max OVR of a filler card (all positions)<input id="fillMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
+            <label class="f">Max OVR of a filler card<input id="fillMaxOvr" type="number" min="40" max="99" placeholder="no limit"></label>
             <div class="small mut" style="align-self:end" id="fillEmpty"></div>
           </div>
         </div>
         <div data-modepane="up" hidden>
-          <div class="small mut" style="margin:8px 0">Higher-rated players for your positions, giving up as little chemistry as you allow. Lists go up to 5 players.</div>
+          <div class="small mut" style="margin:10px 0 8px">Higher-rated players for your positions, giving up as little chemistry as you allow.</div>
           <div class="grid2">
             <label class="f">Chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
-            <label class="f">Max OVR of a suggested card (all positions)<input id="upMaxOvr" type="number" min="40" max="99" placeholder="blank = no limit"></label>
+            <label class="f">Max OVR of a suggested card<input id="upMaxOvr" type="number" min="40" max="99" placeholder="no limit"></label>
           </div>
-          <div class="small mut" id="capSum" style="margin-top:8px">Max OVR per position (overrides the one above; blank = use it):</div>
-          <div id="capGrid" style="margin-top:4px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+          <details class="acc" id="capDet"><summary id="capSum">Max OVR per position</summary>
+            <div class="accb"><div class="small mut">Overrides the limit above for that position; blank = use it.</div>
+            <div id="capGrid" style="margin-top:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div></div>
+          </details>
         </div>
-        <h4 class="sh">Filters <span class="mut small" style="font-weight:400;text-transform:none;letter-spacing:0">— apply to both</span></h4>
-        <div class="grid2" style="margin-bottom:8px">
-          <label class="f">Minimum rating of any suggested card<input id="minRating" type="number" min="0" max="99" value="0"></label>
-          <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
-        </div>
-        <div class="small mut" style="margin-bottom:4px">Don't suggest women at:</div>
-        <div id="noWomen" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px"></div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap">
-          <label class="chk"><input type="checkbox" id="xIcon"> exclude ICONs</label>
-          <label class="chk"><input type="checkbox" id="xHero"> exclude Heroes</label>
-          <label class="chk"><input type="checkbox" id="xHof"> exclude Hall of FUT</label>
-        </div>
-        <details style="margin-top:8px" id="psDet"><summary class="small mut" id="psSum">Preferred PlayStyles</summary>
-          <div class="small mut" style="margin-top:4px">Cards with these PlayStyles are suggested first and count as upgrades. Each wanted PlayStyle<b>+</b> is worth
-            <input id="psWPlus" type="number" min="0" max="10" step="0.5" value="3" style="width:52px"> rating points, a plain PlayStyle
-            <input id="psW" type="number" min="0" max="10" step="0.5" value="1" style="width:52px">.</div>
-          <div id="psGroups" style="margin-top:6px;display:grid;gap:4px"></div>
-          <button class="sm" id="psReset" style="margin-top:6px">Reset to defaults</button>
+        <details class="acc" id="filtDet"><summary>Filters <span class="mut small" id="filtSum" style="font-weight:400"></span></summary>
+          <div class="accb">
+            <div class="grid2">
+              <label class="f">Minimum rating of a suggested card<input id="minRating" type="number" min="0" max="99" value="0"></label>
+              <label class="f">Gender in pool<select id="gender"><option value="0">Men and women</option><option value="1">Men only</option><option value="2">Women only</option></select></label>
+            </div>
+            <div class="small mut" style="margin:10px 0 4px">Don't suggest women at:</div>
+            <div id="noWomen" style="display:flex;flex-wrap:wrap;gap:4px 12px"></div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">
+              <label class="chk"><input type="checkbox" id="xIcon"> No ICONs</label>
+              <label class="chk"><input type="checkbox" id="xHero"> No Heroes</label>
+              <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
+            </div>
+            <details><summary>Only use cards I own (optional)</summary>
+              <textarea id="clubList" rows="5" style="width:100%" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card."></textarea>
+            </details>
+          </div>
         </details>
-        <details style="margin-top:8px" id="blDet"><summary class="small mut" id="blSum">Blacklisted players (0)</summary>
-          <div class="small mut" style="margin-top:4px">Never suggested. 🚫 next to a suggestion or a search result blocks that exact card only, so cheaper versions of the same player can still be suggested. Players already in your squad stay where they are.</div>
-          <div id="blList" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px"></div>
+        <details class="acc" id="psDet"><summary id="psSum">Preferred PlayStyles</summary>
+          <div class="accb">
+            <div class="small mut">Cards with these PlayStyles are suggested first and count as upgrades. Each wanted PlayStyle<b>+</b> is worth
+              <input id="psWPlus" type="number" min="0" max="10" step="0.5" value="3" style="width:56px;padding:3px 5px"> rating points, a plain PlayStyle
+              <input id="psW" type="number" min="0" max="10" step="0.5" value="1" style="width:56px;padding:3px 5px">.</div>
+            <div id="psGroups" style="margin-top:8px;display:grid;gap:4px"></div>
+            <button class="sm" id="psReset" style="margin-top:8px">Reset to defaults</button>
+          </div>
         </details>
-        <details style="margin-top:8px"><summary class="small mut">Only use cards I own (optional)</summary>
-          <textarea id="clubList" rows="5" style="width:100%;margin-top:6px" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card in the database."></textarea>
+        <details class="acc" id="blDet"><summary id="blSum">Blacklisted cards (0)</summary>
+          <div class="accb">
+            <div class="small mut">Never suggested. 🚫 next to a suggestion or search result blocks that exact card only, so cheaper versions can still be suggested.</div>
+            <div id="blList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
         </details>
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <div class="gobar">
           <button class="primary" id="go">Find chemistry upgrades</button>
           <span class="small mut" id="goMsg"></span>
         </div>
@@ -186,6 +304,7 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
     <div id="results"></div>
   </section>
 </main>
+<footer><span class="fb"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg2)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg>ClubTools</span><span>Squad chemistry, upgrades and fills for EA FC 27 Ultimate Team</span><span id="footVer"></span><span style="margin-left:auto">Card data: FUT.GG · Not affiliated with EA SPORTS</span></footer>
 
 <dialog id="impDlg" style="width:min(760px,96vw)">
   <div style="display:flex;gap:8px;align-items:center">
@@ -204,10 +323,10 @@ h4.sh{margin:14px 0 6px;font-size:13px;color:var(--acc);text-transform:uppercase
   <div data-pane="futbin" hidden>
     <div class="small mut">FUTBIN blocks programs from reading its pages, so this works through your browser instead:</div>
     <ol class="small" style="margin:6px 0;padding-left:18px">
-      <li>Drag this button to your bookmarks bar: <a class="bm" id="bmLink" href="#">→ Chem Builder</a>
-        <span class="small mut">— or <button class="sm" id="bmCopy">Copy bookmark</button>, then in your browser add a new bookmark, name it “→ Chem Builder” and paste into its URL field.</span></li>
+      <li>Drag this button to your bookmarks bar: <a class="bm" id="bmLink" href="#">→ ClubTools</a>
+        <span class="small mut">— or <button class="sm" id="bmCopy">Copy bookmark</button>, then in your browser add a new bookmark, name it “→ ClubTools” and paste into its URL field.</span></li>
       <li>On FUTBIN, open your squad (after <b>My Club → Import my club</b>, build or open the squad you play).</li>
-      <li>With Chem Builder running, click the bookmark. This app opens with the squad ready to check.</li>
+      <li>With ClubTools running, click the bookmark. This app opens with the squad ready to check.</li>
     </ol>
     <div class="small mut">The same bookmark works on a FUT.GG squad page. FUTBIN's page layout couldn't be tested from here, so if the bookmark says it found no players, tell me and I'll adjust it.</div>
   </div>
@@ -440,7 +559,7 @@ function readCaps(){
 function writeCaps(c){
   $("capGrid").innerHTML = CAP_POS.map(p => `<label class="f" style="font-size:11px">${p}<input type="number" min="40" max="99" data-pos="${p}" value="${c[p]||""}" placeholder="–" style="padding:3px 5px"></label>`).join("");
   const n = Object.keys(c).filter(k => c[k]).length;
-  $("capSum").textContent = `Max OVR per position (overrides the one above; blank = use it)${n?` — ${n} set`:""}:`;
+  $("capSum").textContent = `Max OVR per position${n?` (${n} set)`:""}`;
 }
 const NW_DEFAULT = ["GK","CB"];
 function writeNoWomen(list){
@@ -482,38 +601,50 @@ function cardLink(c){ const u = cardUrl(c); return u ? ` <a class="ext" href="${
 function typeTag(c){ return c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
 function cardLine(c){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}`; }
 
+const CREST_SVG = document.querySelector(".brand .crest").innerHTML.replace(/ctg/g, "ctg3");
+function cardTier(c){
+  if(c.ty==="icon"||c.ty==="hero"||c.ty==="hof") return "t-"+c.ty;
+  return c.rt && !/^(rare|common|non-rare)/i.test(c.rt) ? "t-special" : "";
+}
 function renderPitch(){
-  const pitch = $("pitch"); pitch.innerHTML = ""; VIS = [];
+  const pitch = $("pitch"); pitch.innerHTML = '<div class="halfway"></div><div class="box top"></div><div class="box bot"></div>'; VIS = [];
   for(const r of rowsLayout()){
     const row = document.createElement("div"); row.className = "row";
     for(const i of r){
       VIS.push(i);
       const c = S.squad[i], ev = lastEval && lastEval.players[i];
       const el = document.createElement("div"); el.className = "slot"; el.dataset.slot = i;
-      const sel = `<select data-i="${i}" class="posSel">${POS.map(p=>`<option ${p===S.slots[i]?"selected":""}>${p}</option>`).join("")}</select>`;
-      let body;
-      if(!c){ body = `<div class="card empty" data-pick="${i}">+ add player</div>`; }
+      const sel = `<select data-i="${i}" class="posSel" title="Position of this slot">${POS.map(p=>`<option ${p===S.slots[i]?"selected":""}>${p}</option>`).join("")}</select>`;
+      const lock = `<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="${S.locks[i]?"Locked: never swapped by suggestions":"Lock this slot"}">${S.locks[i]?"🔒":"🔓"}</button>`;
+      if(!c){ el.innerHTML = `<div class="card empty" data-pick="${i}"><div class="ctop">${sel}${lock}</div><span class="plus">+</span><span class="small">Add player</span></div>`; }
       else{
         const off = ev && !ev.inpos;
         const tip = ev && ev.inpos && !ev.full ? `club ${ev.club[0]} → +${ev.club[1]} · league ${ev.league[0]} → +${ev.league[1]} · nation ${ev.nation[0]} → +${ev.nation[1]} (counts include the manager)` : (ev&&ev.full?"full chemistry card":"");
-        body = `<div class="card ${off?"off":""}" data-pick="${i}" draggable="true" title="${esc(tip)}">
-          <div class="nm"><span class="ov">${c.ov}</span> ${esc(c.n)}<span class="tag">${esc(c.p)}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}</div>
-          <div class="ln">${esc(c.nn)}</div><div class="ln">${esc(c.ln)}</div><div class="ln">${esc(c.cn||"–")}</div>
-          <div>${ev?diamonds(ev.chem):""}${off?`<span class="tag" style="color:var(--bad)">off-position</span>`:""}</div></div>`;
+        const tt = typeTag(c);
+        el.innerHTML = `<div class="card ${cardTier(c)} ${off?"off":""}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""}${tip?"\n"+esc(tip):""}">
+          <div class="ctop"><span class="cov">${c.ov}</span>${sel}${lock}</div>
+          <div class="cname">${esc(c.n)}</div>
+          <div class="cl">${esc(c.nn||"?")} · ${esc(c.cn||"–")}</div><div class="cl">${esc(c.ln||"?")}</div>
+          <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
       }
-      el.innerHTML = `<div class="shead">${sel}<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="Lock this slot">${S.locks[i]?"🔒":"🔓"}</button></div>${body}`;
       row.appendChild(el);
     }
     pitch.appendChild(row);
+  }
+  if(!S.squad.some(Boolean)){
+    const ov = document.createElement("div"); ov.className = "pitch-empty";
+    ov.innerHTML = `<div><div class="crest">${CREST_SVG}</div><div style="font-size:16px;font-weight:800;margin-bottom:4px">Start your squad</div><div class="small mut" style="margin-bottom:10px">Import it from FUT.GG or FUTBIN, or click any slot to add players one by one.</div><button class="primary" data-imp>⇪ Import squad</button></div>`;
+    pitch.appendChild(ov);
   }
 }
 
 function renderTotal(){
   const n = S.squad.filter(Boolean).length, full = n===11;
-  const t = lastEval ? lastEval.total : null, el = $("total");
-  el.textContent = t===null ? "–" : t;
-  el.className = "big " + (t===null || !full ? "" : t>=30?"ok":t>=24?"mid":"low");
-  $("filled").textContent = n && !full ? `(${n} of 11 placed so far)` : "";
+  const t = lastEval ? lastEval.total : null;
+  $("total").textContent = t===null ? "–" : t;
+  $("gauge").className = "gauge " + (t===null || !full ? "" : t>=30?"ok":t>=24?"mid":"low");
+  $("gArc").setAttribute("stroke-dasharray", `${t===null?0:Math.round(t/33*1000)/10} 100`);
+  $("filled").textContent = n && !full ? `· ${n} of 11 placed` : !n ? "· empty squad" : "";
   const g = $("gameTotal").value, note = $("gameNote");
   if(t!==null && g!=="" && full){
     if(+g===t) note.innerHTML = `<div class="note">Matches the game ✔ — the rules in this tool agree with what you see in-game.</div>`;
@@ -855,7 +986,7 @@ $("bmCopy").onclick = async () => {
 };
 $("fggGo").onclick = () => {
   const u = $("fggUrl").value.trim(); if(!u) return;
-  const shared = u.match(/[?#&]squad=([A-Za-z0-9_-]+)/);   // a Chem Builder share link works here too
+  const shared = u.match(/[?#&]squad=([A-Za-z0-9_-]+)/);   // a ClubTools share link works here too
   if(shared){ $("impDlg").close(); return openShared(shared[1]); }
   runPreview({mode:"fgg", url:u});
 };
@@ -868,7 +999,7 @@ function bookmarklet(){
   const code = `(function(){var B=${JSON.stringify(base)};var u=location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);`
     + `if(/fut\\.gg$/.test(location.hostname)&&u){window.open(B+'send?import=fgg:'+u[0]);return}`
     + `var ids=[],seen={};document.querySelectorAll('img').forEach(function(i){[i.currentSrc,i.src,i.getAttribute('data-src'),i.getAttribute('data-original'),i.getAttribute('srcset')].forEach(function(s){var m=s&&String(s).match(/\\/players\\/p?(\\d{3,})\\.(?:png|webp)/);if(m&&!seen[m[1]]){seen[m[1]]=1;ids.push(m[1])}})});`
-    + `if(!ids.length){alert('Chem Builder: no player cards found on this page. Open a squad page and try again.');return}`
+    + `if(!ids.length){alert('ClubTools: no player cards found on this page. Open a squad page and try again.');return}`
     + `window.open(B+'send?import=ids:'+ids.join(','))})()`;
   return "javascript:" + encodeURIComponent(code);
 }
@@ -901,8 +1032,8 @@ $("share").onclick = async () => {
              l:S.locks.flatMap((x,i)=>x?[i]:[]), m:S.mgr};
   if(!f || f.slots.some((p,i)=>p!==S.slots[i])) d.sl = S.slots;
   const url = location.origin + "/send?squad=" + b64e(JSON.stringify(d));
-  try{ await navigator.clipboard.writeText(url); $("syncMsg").textContent = "Share link copied. Whoever opens it needs Chem Builder running on their PC."; }
-  catch(e){ prompt("Copy this link (whoever opens it needs Chem Builder running):", url); }
+  try{ await navigator.clipboard.writeText(url); $("syncMsg").textContent = "Share link copied. Whoever opens it needs ClubTools running on their PC."; }
+  catch(e){ prompt("Copy this link (whoever opens it needs ClubTools running):", url); }
 };
 async function openShared(enc){
   let d; try{ d = JSON.parse(b64d(enc)); }catch(e){ $("syncMsg").textContent = "That share link is damaged."; return; }
@@ -941,7 +1072,7 @@ async function ping(){
     if(downShown){ const b = $("downBanner"); if(b) b.remove(); downShown = false; }
     for(const item of r.inbox || []) handleItem(item);   // sent from the browser (FUTBIN bookmark, share link)
   }
-  catch(e){ if(!downShown){ downShown = true; document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">Chem Builder isn't running. Start it again${APP?"":" with <b>start.bat</b>"} — this page reconnects by itself.</div>`); } }
+  catch(e){ if(!downShown){ downShown = true; document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">ClubTools isn't running. Start it again${APP?"":" with <b>start.bat</b>"} — this page reconnects by itself.</div>`); } }
 }
 addEventListener("pagehide", () => {
   try{ if(Object.keys(DB.pending).length) navigator.sendBeacon("/api/state", JSON.stringify({set:DB.pending})); }catch(e){}
@@ -952,7 +1083,7 @@ async function migratePage(){
   const n = await DB.importBrowser(false);
   await api("/api/ping", {tab:TAB});
   document.body.innerHTML = `<div style="display:grid;place-items:center;height:90vh;font:16px system-ui;text-align:center"><div>
-    <div style="font-size:42px">${n ? "✔" : "ℹ"}</div><p>${n ? "Your squads, blacklist and preferences were copied to the Chem Builder app." : "This browser has no Chem Builder data saved (or it was already copied)."}</p>
+    <div style="font-size:42px">${n ? "✔" : "ℹ"}</div><p>${n ? "Your squads, blacklist and preferences were copied to the ClubTools app." : "This browser has no ClubTools data saved (or it was already copied)."}</p>
     <p class="mut">You can close this tab — the app reloads with the data in a moment.</p></div></div>`;
   try{ await fetch("/send?import=" + encodeURIComponent("reload")); }catch(e){}
 }
@@ -966,10 +1097,10 @@ document.addEventListener("click", e => {
 });
 addEventListener("pageshow", e => { if(e.persisted) ping(); });
 $("quit").onclick = async () => {
-  if(!confirm("Stop Chem Builder? Your squad stays saved in this browser.")) return;
+  if(!confirm("Stop ClubTools? Your squad stays saved in this browser.")) return;
   try{ await api("/api/quit", {}); }catch(e){}
   downShown = true;
-  document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">Chem Builder stopped. Start it again with <b>start.bat</b>.</div>`);
+  document.body.insertAdjacentHTML("afterbegin", `<div class="banner" id="downBanner">ClubTools stopped. Start it again with <b>start.bat</b>.</div>`);
 };
 
 /* ---------- wiring ---------- */
@@ -992,6 +1123,7 @@ async function init(){
     const m = await api("/api/meta"); META = m;
     FORMATIONS = Object.fromEntries(m.formations.map(f => [f.name, f]));
     $("dataInfo").textContent = `${m.n.toLocaleString()} cards · synced ${m.meta.synced_at||"?"} · FUT.GG · version ${m.version||"dev"}`;
+    $("footVer").textContent = `v ${m.version||"dev"} · ${m.n.toLocaleString()} cards`;
     fillSelect($("mNation"), m.nations, "— none —"); fillSelect($("mLeague"), m.leagues, "— none —");
     fillSelect($("cNat"), m.nations); fillSelect($("cLg"), m.leagues); fillSelect($("cClub"), m.clubs, "— no club —");
   }catch(e){ $("dataInfo").textContent = "card data unavailable: "+e.message; return; }
@@ -1026,6 +1158,7 @@ addEventListener("keydown", e => {
   else if(k==="y" || (k==="z" && e.shiftKey)){ e.preventDefault(); redo(); }
 });
 $("pitch").addEventListener("click", e => {
+  if(e.target.closest("[data-imp]")) return $("impBtn").click();
   const lk = e.target.closest("[data-lock]"); if(lk){ commit(); const i=+lk.dataset.lock; S.locks[i]=!S.locks[i]; refresh(); return; }
   if(e.target.closest(".posSel")) return;
   const pk = e.target.closest("[data-pick]"); if(pk) openPicker(+pk.dataset.pick);
@@ -1205,7 +1338,38 @@ $("sync").onclick = async () => {
     if(!s.running){ clearInterval(t); $("sync").disabled=false; if(s.msg.startsWith("done")) init(); }
   }, 1500);
 };
-init();
+/* ---------- header menus, toast ---------- */
+document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {
+  const m = b.closest(".menu"), was = m.classList.contains("open");
+  document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open"));
+  if(!was) m.classList.add("open");
+  e.stopPropagation();
+});
+document.addEventListener("click", e => {
+  if(e.target.closest(".pop select, .pop input")) return;
+  if(!e.target.closest(".pop") || e.target.closest(".pop button")) document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open"));
+});
+document.addEventListener("keydown", e => { if(e.key==="Escape") document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open")); });
+let toastTimer = null;
+new MutationObserver(() => {
+  clearTimeout(toastTimer);
+  const el = $("syncMsg"), txt = el.textContent;
+  if(!txt || $("sync").disabled || txt==="testing…") return;   // keep progress visible
+  toastTimer = setTimeout(() => { el.textContent = ""; }, el.querySelector("div") ? 15000 : 6000);
+}).observe($("syncMsg"), {childList:true, characterData:true, subtree:true});
+$("syncMsg").title = "Click to dismiss"; $("syncMsg").onclick = () => { $("syncMsg").textContent = ""; };
+function updFiltSum(){
+  const o = [];
+  if(+$("minRating").value) o.push(`min ${$("minRating").value}`);
+  if(+$("gender").value) o.push(+$("gender").value===1?"men only":"women only");
+  const x = ["xIcon","xHero","xHof"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
+  if($("clubList").value.trim()) o.push("own cards only");
+  $("filtSum").textContent = o.length ? "· "+o.join(" · ") : "";
+}
+$("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps()).length; $("capSum").textContent = `Max OVR per position${n?` (${n} set)`:""}`; });
+$("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
+
+init().then(updFiltSum);
 </script>
 </body>
 </html>

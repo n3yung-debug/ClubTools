@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chem Builder (EA FC 27) -- local tool. Standard library only.
+"""ClubTools (EA FC 27) -- local tool. Standard library only.
 
   python chem_builder.py --app        open as a desktop app (own window, needs: pip install pywebview==6.2.1)
   python chem_builder.py              start the app in your web browser at http://127.0.0.1:8765
@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import socket
 import sys
 import threading
@@ -32,10 +33,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import chem_engine as eng
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FROZEN = getattr(sys, "frozen", False)                       # running as ChemBuilder.exe (PyInstaller)
+FROZEN = getattr(sys, "frozen", False)                       # running as ClubTools.exe (PyInstaller)
 BUNDLE = getattr(sys, "_MEIPASS", HERE)                       # where ui.html / the shipped cards.json live
-DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"),
-                        "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")
+APP_NAME = "ClubTools"
+_HOME = os.environ.get("APPDATA") or os.path.expanduser("~")
+DATA_DIR = os.path.join(_HOME, "ClubTools" if os.environ.get("APPDATA") else ".clubtools")
+OLD_DATA_DIR = os.path.join(_HOME, "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")   # before the rename
 CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards.json")   # the .exe keeps updatable card data in AppData
 UI = os.path.join(BUNDLE, "ui.html")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
@@ -50,7 +53,22 @@ def app_version():
         return "dev"             # saved squads, blacklist, preferences, settings
 API = "https://www.fut.gg/api/fut/players/v2/27/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-LOG = os.path.join(DATA_DIR if FROZEN else HERE, "chem_builder.log")
+LOG = os.path.join(DATA_DIR if FROZEN else HERE, "clubtools.log")
+
+
+def migrate_data_dir():
+    """The app was called ClubTools: copy its saved squads/settings/card data across once."""
+    if os.path.isdir(DATA_DIR) or not os.path.isdir(OLD_DATA_DIR):
+        return
+    try:
+        shutil.copytree(OLD_DATA_DIR, DATA_DIR, ignore=shutil.ignore_patterns("*.log", "smoke.txt"))
+    except Exception:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        for f in ("state.json", "cards.json"):   # the essentials, even if the webview folder is locked
+            try:
+                shutil.copy2(os.path.join(OLD_DATA_DIR, f), DATA_DIR)
+            except Exception:
+                pass
 PSEUDO_CLUBS = {"ICON", "HERO", "HALL OF FUT"}
 
 STATE = {"cards": [], "meta": {}, "by_slug": {}, "by_bp": {}, "sync": {"running": False, "msg": "", "done": 0, "total": 0}}
@@ -640,7 +658,7 @@ def cards_for_slugs(slugs):
 # ------------------------------------------------------------------ http
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ChemBuilder/1.0"
+    server_version = "ClubTools/1.0"
 
     def log_message(self, *a):  # quiet
         pass
@@ -726,7 +744,7 @@ class Handler(BaseHTTPRequestHandler):
                 url = str(body.get("url") or "")
                 own = f"http://127.0.0.1:{self.server.server_address[1]}/"
                 if not (url.startswith("https://www.fut.gg/") or url.startswith(own)):
-                    return self._send(400, {"error": "only FUT.GG and Chem Builder links are opened"})
+                    return self._send(400, {"error": "only FUT.GG and ClubTools links are opened"})
                 webbrowser.open(url)
                 return self._send(200, {"ok": True})
             if self.path == "/api/bye":
@@ -863,9 +881,9 @@ class Life:
 
 LIFE = Life()
 
-SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to Chem Builder</title>
+SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to ClubTools</title>
 <body style="font:16px system-ui;background:#0e1420;color:#e8edf7;display:grid;place-items:center;height:90vh">
-<div style="text-align:center"><div style="font-size:42px">✔</div><p>Sent to the Chem Builder window.</p>
+<div style="text-align:center"><div style="font-size:42px">✔</div><p>Sent to the ClubTools window.</p>
 <p style="color:#8fa0c0">You can close this tab.</p></div></body>"""
 
 
@@ -879,14 +897,14 @@ def fatal(msg):
     if os.name == "nt" and windowless():
         try:
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, msg + f"\n\nDetails: {LOG}", "Chem Builder", 0x10)
+            ctypes.windll.user32.MessageBoxW(None, msg + f"\n\nDetails: {LOG}", "ClubTools", 0x10)
         except Exception:  # noqa: BLE001
             pass
     sys.exit(1)
 
 
 def already_running(port):
-    """Is a Chem Builder already answering on this port?"""
+    """Is a ClubTools already answering on this port?"""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/meta", timeout=3) as r:
             return "formations" in json.load(r)
@@ -908,7 +926,7 @@ def selftest(port):
     try:
         base = f"http://127.0.0.1:{port}"
         with urllib.request.urlopen(base + "/", timeout=10) as r:
-            assert b"Chem Builder" in r.read()
+            assert b"ClubTools" in r.read()
         with urllib.request.urlopen(base + "/api/meta", timeout=10) as r:
             meta = json.load(r)
         assert meta["n"] > 1000 and len(meta["formations"]) == 29, meta.get("n")
@@ -926,7 +944,7 @@ def run_app(url, smoke=False):
         print("pywebview is not installed (pip install pywebview==6.2.1) - opening in the browser instead.")
         return False
     os.makedirs(DATA_DIR, exist_ok=True)
-    win = webview.create_window("Chem Builder - EA FC 27", url + "?app=1", width=1500, height=950,
+    win = webview.create_window("ClubTools - EA FC 27", url + "?app=1", width=1500, height=950,
                                 min_size=(1000, 700), background_color="#0e1420")
     if smoke:  # build check: wait for the page to render the pitch, report, close
         def check():
@@ -950,7 +968,8 @@ def run_app(url, smoke=False):
 
 
 def main():
-    if windowless():  # pythonw / ChemBuilder.exe: keep a log instead of printing into nothing
+    migrate_data_dir()   # before anything creates the new folder
+    if windowless():  # pythonw / ClubTools.exe: keep a log instead of printing into nothing
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
         sys.stdout = sys.stderr = open(LOG, "w", encoding="utf-8", buffering=1)
     ap = argparse.ArgumentParser()
@@ -990,7 +1009,7 @@ def main():
     app = (a.app or a.smoke or FROZEN) and not a.browser
     url = f"http://127.0.0.1:{a.port}/"
     if already_running(a.port):  # second start: just show the app that is already running
-        print(f"Chem Builder is already running at {url}")
+        print(f"ClubTools is already running at {url}")
         if app and run_app(url, a.smoke):
             return
         if not a.no_browser:

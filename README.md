@@ -1,13 +1,14 @@
-# Chem Builder — EA FC 27
+# ClubTools — EA FC 27
 
 Local tool that shows how to raise squad chemistry, with lockable players.
 
 ## Run
-**Desktop app (recommended):** run **ChemBuilder.exe**. It opens in its own window (no browser) and quits when you close the window.
-- Get it from GitHub: the repo's **Actions** tab → latest "Build Windows app" run → **ChemBuilder-windows** artifact (a zip containing ChemBuilder.exe).
+**Desktop app (recommended):** run **ClubTools.exe**. It opens in its own window (no browser) and quits when you close the window.
+- Get it from GitHub: the repo's **Actions** tab → latest "Build Windows app" run → **ClubTools-windows** artifact (a zip containing ClubTools.exe).
 - It's not code-signed, so Windows SmartScreen may say "Windows protected your PC" the first time: click **More info → Run anyway**.
 - It uses Microsoft Edge WebView2, which is built into Windows 10 and 11.
-- Saved squads, blacklist, PlayStyle preferences and settings live in `%APPDATA%\ChemBuilder` (`state.json`), together with the card data and `chem_builder.log`.
+- ClubTools was previously called Chem Builder. On first start it copies everything from the old `%APPDATA%\ChemBuilder` folder, so squads and settings carry over.
+- Saved squads, blacklist, PlayStyle preferences and settings live in `%APPDATA%\ClubTools` (`state.json`), together with the card data and `clubtools.log`.
 - Coming from the browser version? Click **Bring over browser data** once in the app: it opens a page in your browser that copies what the browser had saved into the app.
 - The FUTBIN bookmark and share links open in your browser; while the app is open they are handed straight to the app window.
 
@@ -18,11 +19,11 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 - Click an empty slot to start **fill mode**: type a name, press Enter, and the picker moves to the next empty slot (↑↓ to choose, Esc to stop). Chemistry updates live as you add players.
 - Drag a card onto another slot to swap them. **Undo / Redo** (Ctrl+Z / Ctrl+Y) cover every change.
 - Changing formation re-seats your players into the best-fitting slots instead of dropping them.
-- **Saved squads** keeps several squads in this browser. **Share link** copies a link that opens the squad in Chem Builder (the person opening it needs the app running).
+- **Saved squads** keeps several squads in this browser. **Share link** copies a link that opens the squad in ClubTools (the person opening it needs the app running).
 - Enter your manager's nation and current league. The chemistry total is your squad exactly as it is; every suggestion also considers switching the league with a League Modifier and says which league to apply (the hint under the manager also offers it, with "Use it").
 - **Import squad…** shows a preview (slot by slot, with a dropdown to pick a different version) before anything changes:
   - **FUT.GG link**: link your EA account on FUT.GG, load your squad in its Squad Builder, press Share, paste the link. Formation and manager come across too. (Reads FUT.GG's public squad endpoint; checked against FUT.GG's site code, Oct 2026.)
-  - **FUTBIN**: drag the "→ Chem Builder" bookmark to your bookmarks bar, open your squad on FUTBIN, click it. FUTBIN blocks programs (Cloudflare), so the bookmark reads the card ids from the page in your own browser. PENDING VALIDATION: FUTBIN's squad page couldn't be loaded from the build machine; the bookmark was tested on a page using FUTBIN's card-image naming.
+  - **FUTBIN**: drag the "→ ClubTools" bookmark to your bookmarks bar, open your squad on FUTBIN, click it. FUTBIN blocks programs (Cloudflare), so the bookmark reads the card ids from the page in your own browser. PENDING VALIDATION: FUTBIN's squad page couldn't be loaded from the build machine; the bookmark was tested on a page using FUTBIN's card-image naming.
   - **Paste text**: one player per line, e.g. `ST Mbappe 91`.
 - EA's FC Community API (the official club import used by FUTBIN, FUT.GG and FUTWIZ) is only open to those approved sites, so this tool goes through them and never logs in to EA.
 - 🔒 locks a slot: it is never swapped, but still counts for everyone else's links.
