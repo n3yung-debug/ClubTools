@@ -974,7 +974,7 @@ def support_url():
 
 
 LEGAL_DOCS = {"eula": "EULA.md", "privacy": "PRIVACY.md", "notices": "THIRD_PARTY_NOTICES.txt", "license": "LICENSE"}
-UPDATE_REPO = "n3yung-debug/FifaChemPlus"   # public; GitHub redirects API calls if the repo is renamed
+UPDATE_REPO = "n3yung-debug/ClubTools"   # public (renamed from FifaChemPlus; GitHub redirects the old name)
 UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
 UPDATE_HOSTS = {"github.com", "api.github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
 UPDATE = {"state": "idle", "latest": None, "error": "", "done": 0, "total": 0, "updated": False}
