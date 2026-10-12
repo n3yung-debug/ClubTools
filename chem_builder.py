@@ -158,6 +158,8 @@ def normalize_card(r):
         "pp": [int(x) for x in r.get("playStylePlusEaIds") or []],  # PlayStyle+ (ids)
         "wf": _stars(r.get("weakFoot")), "sm": _stars(r.get("skillMoves")),   # weak foot / skill moves, 1-5
         "ft": {"Right": "R", "Left": "L"}.get(r.get("foot")),               # preferred foot
+        "ht": int(r["height"]) if isinstance(r.get("height"), (int, float)) and r.get("height") > 100 else None,
+        "ar": str(r.get("accelerateType") or "").replace("_", " ").title() or None,   # AcceleRATE
     }
 
 
@@ -462,26 +464,37 @@ def find_cards(name, rating=None):
     return hits
 
 
-def reqs(opts):
-    """Per-position minimum weak foot / skill moves / face stats from the UI, for eng.index_pool.
-    New shape: {"by_pos": {"ST": {"wf": 0, "sm": 5, "fs": [0]*6}, ...}}; the older single set
-    {"wf", "sm", "fs", "pos": [...]} is still understood. Returns {pos: {...}} or None."""
+def _req_rows(opts):
+    """Per-position stat requirements from the UI -> {pos: {wf, sm, ft, ht, ar, fs}} (only rows with something set).
+    New shape {"by_pos": {...}, "mode": "require"|"prefer", "w": n}; the older single set is still understood."""
     r = opts.get("reqs") or {}
-    if "by_pos" in r:
-        raw = r.get("by_pos") or {}
-    else:   # older settings: one requirement for a list of positions
-        raw = {p: r for p in r.get("pos") or []}
+    raw = (r.get("by_pos") or {}) if "by_pos" in r else {p: r for p in r.get("pos") or []}
     out = {}
     for p, x in raw.items():
         if p not in eng.POS_GROUP or not isinstance(x, dict):
             continue
-        one = {"wf": int(x.get("wf") or 0), "sm": int(x.get("sm") or 0),
+        one = {"wf": int(x.get("wf") or 0), "sm": int(x.get("sm") or 0), "ht": int(x.get("ht") or 0),
+               "ft": x.get("ft") if x.get("ft") in ("L", "R") else "",
+               "ar": str(x.get("ar") or "")[:20],
                "fs": [int(v or 0) for v in (x.get("fs") or [])][:6]}
         if p == "GK":
             one["fs"] = []   # keeper face stats are different numbers
-        if one["wf"] or one["sm"] or any(one["fs"]):
+        if one["wf"] or one["sm"] or one["ht"] or one["ft"] or one["ar"] or any(one["fs"]):
             out[p] = one
     return out or None
+
+
+def reqs(opts):
+    """Hard requirements (filter the pool) - None when the user chose 'prefer'."""
+    return None if (opts.get("reqs") or {}).get("mode") == "prefer" else _req_rows(opts)
+
+
+def soft_reqs(opts):
+    """Preferred stats and their weight (rating points per criterion met) - (None, 0) unless 'prefer' is chosen."""
+    r = opts.get("reqs") or {}
+    if r.get("mode") != "prefer":
+        return None, 0
+    return _req_rows(opts), float(r.get("w", 3) or 0)
 
 
 def pos_bans(opts):
@@ -730,7 +743,9 @@ class Handler(BaseHTTPRequestHandler):
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values()), "version": app_version(),
                                     "support_url": support_url(),
-                                    "has_wf": any(c.get("wf") for c in STATE["cards"])})
+                                    "has_wf": any(c.get("wf") for c in STATE["cards"]),
+                                    "has_ar": any(c.get("ar") for c in STATE["cards"]),
+                                    "accel_types": sorted({c["ar"] for c in STATE["cards"] if c.get("ar")})})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
@@ -807,6 +822,18 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/bye":
                 LIFE.bye(body.get("tab"))
                 return self._send(200, {"ok": True})
+            if self.path == "/api/req_counts":   # how many cards still qualify per position with the stat requirements
+                o = body.get("opts") or {}
+                pool, _ = build_pool(o)
+                floor = int(o.get("min_rating", 0) or 0)
+                by_pos = eng.index_pool([c for c in pool if c["ov"] >= floor], o.get("no_women"), pos_bans(o))
+                rows = _req_rows(o) or {}
+                out = {}
+                for p in body.get("positions") or []:
+                    if p in rows:
+                        cards = by_pos.get(p, [])
+                        out[p] = {"match": sum(1 for c in cards if eng.meets(c, p, rows)), "total": len(cards)}
+                return self._send(200, {"counts": out})
             if self.path == "/api/update":
                 act = body.get("action")
                 busy = UPDATE["state"] in ("checking", "downloading", "installing", "restarting")
@@ -833,7 +860,8 @@ class Handler(BaseHTTPRequestHandler):
         slots, squad, mgr, o = b["slots"], b["squad"], b.get("mgr"), b.get("opts", {})
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
-        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
+        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0),
+                             *soft_reqs(o))
         res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o)), int(o.get("min_rating", 0)),
                              max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         for opt in res["options"]:
@@ -850,7 +878,8 @@ class Handler(BaseHTTPRequestHandler):
         ok = None
         max_drop, min_rating = int(o.get("max_drop", 3)), int(o.get("min_rating", 0))
         fixed, free = _mgr_modes(mgr)
-        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0))
+        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0),
+                             *soft_reqs(o))
         base = eng.total_only(slots, squad, fixed)          # what the squad has right now
         base_free, li_now = eng.total_only(slots, squad, free), eng._manager_rows(slots, squad, free)[1]
         _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok, val=val)

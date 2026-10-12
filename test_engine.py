@@ -353,14 +353,32 @@ def test_required_weak_foot_skills_and_stats():
     assert by_pos["ST"] == [good] and by_pos["GK"] == [keeper] and by_pos["CB"] == [fast_cb]
     # server side: new per-position shape, older single-set shape, and nothing set
     z = [0] * 6
+    row = lambda **k: dict({"wf": 0, "sm": 0, "ht": 0, "ft": "", "ar": "", "fs": z}, **k)  # noqa: E731
     assert cb.reqs({"reqs": {"by_pos": {"ST": {"sm": 5, "fs": z}, "CB": {"fs": [80, 0, 0, 0, 0, 0]},
                                         "XX": {"sm": 5}, "LW": {"wf": 0, "sm": 0, "fs": z},
                                         "GK": {"wf": 3, "fs": [90, 0, 0, 0, 0, 0]}}}}) == {
-        "ST": {"wf": 0, "sm": 5, "fs": z}, "CB": {"wf": 0, "sm": 0, "fs": [80, 0, 0, 0, 0, 0]},
-        "GK": {"wf": 3, "sm": 0, "fs": []}}
-    assert cb.reqs({"reqs": {"wf": 5, "pos": ["ST", "XX"]}}) == {"ST": {"wf": 5, "sm": 0, "fs": []}}
+        "ST": row(sm=5), "CB": row(fs=[80, 0, 0, 0, 0, 0]), "GK": row(wf=3, fs=[])}
+    assert cb.reqs({"reqs": {"wf": 5, "pos": ["ST", "XX"]}}) == {"ST": row(wf=5, fs=[])}
     assert cb.reqs({"reqs": {"by_pos": {"ST": {"wf": 0, "sm": 0, "fs": z}}}}) is None
     assert cb.reqs({"reqs": {"wf": 5, "pos": []}}) is None
+
+
+def test_foot_height_accelerate_and_prefer_mode():
+    r = {"LB": {"ft": "L"}, "CB": {"ht": 188}, "ST": {"ar": "Explosive", "sm": 5}}
+    lefty = card(730, "LB", ft="L"); righty = card(731, "LB", ft="R")
+    tall = card(732, "CB", ht=191); short = card(733, "CB", ht=180); unknown = card(734, "CB")
+    quick = card(735, "ST", ar="Explosive", sm=5); lengthy = card(736, "ST", ar="Lengthy", sm=5)
+    assert eng.meets(lefty, "LB", r) and not eng.meets(righty, "LB", r)
+    assert eng.meets(tall, "CB", r) and not eng.meets(short, "CB", r) and not eng.meets(unknown, "CB", r)
+    assert eng.meets(quick, "ST", r) and not eng.meets(lengthy, "ST", r)
+    assert eng.pref_points(lengthy, "ST", r) == 1 and eng.pref_points(quick, "ST", r) == 2
+    # prefer: nothing is filtered out, but meeting criteria adds w_soft rating points each
+    val = eng.make_value(None, 3, 1, r, 4)
+    assert val(quick, "ST") == quick["ov"] + 8 and val(lengthy, "ST") == lengthy["ov"] + 4 and val(righty, "LB") == righty["ov"]
+    o = {"reqs": {"mode": "prefer", "w": 4, "by_pos": {"ST": {"sm": 5}}}}
+    assert cb.reqs(o) is None and cb.soft_reqs(o)[0]["ST"]["sm"] == 5 and cb.soft_reqs(o)[1] == 4
+    assert cb.soft_reqs({"reqs": {"by_pos": {"ST": {"sm": 5}}}}) == (None, 0)   # default is require
+    assert cb.reqs({"reqs": {"by_pos": {"LB": {"ft": "X", "ht": 0}}}}) is None    # invalid foot ignored
 
 
 def test_fill_squad_respects_required_stats():

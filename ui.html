@@ -158,13 +158,18 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .rqt input,.rqt select{width:100%;padding:3px 2px;font-size:12px;text-align:center;border-radius:6px}
 .rqt select{padding:3px 0}
 .rqt tr.on td:first-child{color:var(--gold);font-weight:800}
-.rqt tr.on input:not(:placeholder-shown),.rqt tr.on select:not([value=""]){border-color:#8a7433}
+.rqt tr.on input:not(:placeholder-shown),.rqt tr.on select:not(:has(option[value=""]:checked)){border-color:#8a7433}
 .rqt tr.all td{border-bottom:1px solid var(--line);padding-bottom:5px}
 .rqt tr.all td:first-child{color:var(--acc2);font-weight:700}
 .rqt .na{color:var(--line2);text-align:center}
 .rqt th:last-child,.rqt td:last-child{width:30px}
 .rqt .cp{width:100%;padding:3px 0;font-size:13px;line-height:1;background:transparent;border-color:transparent;color:var(--mut)}
 .rqt .cp:hover{color:var(--acc2);border-color:var(--line2);background:var(--panel2)}
+.rqmode{display:grid;gap:6px;font-size:12.5px}
+.rqmode .chk{align-items:flex-start}
+.rqn{display:inline-block;margin-left:4px;padding:0 4px;border-radius:5px;font-size:10px;font-weight:700;background:#3ecf8e22;color:var(--ok)}
+.rqn.few{background:#f5b84b22;color:var(--warn)} .rqn.zero{background:#ef6b6b22;color:var(--bad)}
+.rqt th:first-child,.rqt td:first-child{width:62px}
 .rqt tr.src td{background:#4da3ff14} .rqt tr.src td:first-child{color:var(--acc2)}
 .rqt tr.tgt td{background:#f0cb6210}
 .rqcopy{margin-top:8px;padding:10px;border:1px solid #2b4c80;border-radius:var(--r2);background:#13284a}
@@ -318,13 +323,18 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
         </details>
         <details class="acc" id="rqDet"><summary>Required stats <span class="mut small" id="rqSum" style="font-weight:400">· none</span></summary>
           <div class="accb">
-            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
-              <span class="small mut" style="flex:1">Suggested cards must have at least these, per position.</span>
+            <div id="rqMode" class="rqmode">
+              <label class="chk"><input type="radio" name="rqmode" value="require" checked> <span><b>Require</b> <span class="mut">only suggest cards that meet these</span></span></label>
+              <label class="chk"><input type="radio" name="rqmode" value="prefer"> <span><b>Prefer</b> <span class="mut">suggest everyone, rank cards that meet these higher: each stat met is worth</span>
+                <input id="rqW" type="number" min="0" max="20" step="0.5" value="3" style="width:52px;padding:2px 4px"> <span class="mut">rating points</span></span></label>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px">
+              <div class="tabs" id="rqTabs" style="margin:0"><button class="sm on" data-rqtab="body">Stars &amp; body</button><button class="sm" data-rqtab="face">Face stats</button></div>
+              <span style="flex:1"></span>
               <button class="sm ghost" id="rqClear" title="Remove all required stats">Clear all</button>
             </div>
-            <div class="small mut" style="margin-bottom:6px">Pick stars or type a minimum. ⧉ copies a row to other positions; the <b>All</b> row fills every position shown. Blank = no requirement. Keepers only take WF/SM.</div>
-            <table class="rqt"><thead><tr><th>Pos</th><th title="Weak foot">WF</th><th title="Skill moves">SM</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th></th></tr></thead>
-              <tbody id="rqBody"></tbody></table>
+            <div class="small mut" style="margin-bottom:6px">Blank = anything. The number next to a position is how many cards still qualify there. ⧉ copies a row (both tabs) to other positions; the <b>All</b> row fills every position shown.</div>
+            <table class="rqt"><thead id="rqHead"></thead><tbody id="rqBody"></tbody></table>
             <div id="rqCopy" class="rqcopy" hidden></div>
             <label class="chk small" style="margin-top:6px"><input type="checkbox" id="rqAllPos"> Show all positions (not just this formation's)</label>
           </div>
@@ -656,23 +666,29 @@ const NW_DEFAULT = ["GK","CB"];
 function writeNoWomen(list){
   $("noWomen").innerHTML = CAP_POS.map(p => `<label class="chk" style="font-size:12px"><input type="checkbox" data-nw="${p}" ${list.includes(p)?"checked":""}> ${p}</label>`).join("");
 }
-// Required stats per position: RQ = {ST: {wf, sm, fs:[6]}, CB: {...}}. Blank/0 = no requirement.
-let RQ = {}, rqShownKey = "";
-const rqEmpty = () => ({wf:0, sm:0, fs:[0,0,0,0,0,0]});
-const rqOn = r => !!r && (r.wf || r.sm || (r.fs||[]).some(Boolean));
+// Required stats per position: RQ = {ST: {wf, sm, ft, ht, ar, fs:[6]}, ...}. Blank/0 = nothing set.
+// RQMODE "require" filters the suggestions; "prefer" only ranks cards that meet them higher (RQW points per stat met).
+let RQ = {}, rqShownKey = "", RQMODE = "require", RQW = 3, RQTAB = "body", RQCOUNTS = {};
+const rqEmpty = () => ({wf:0, sm:0, ft:"", ht:0, ar:"", fs:[0,0,0,0,0,0]});
+const rqOn = r => !!r && !!(r.wf || r.sm || r.ft || r.ht || r.ar || (r.fs||[]).some(Boolean));
+const rqClean = x => ({wf:+x.wf||0, sm:+x.sm||0, ft:["L","R"].includes(x.ft) ? x.ft : "", ht:+x.ht||0, ar:String(x.ar||""), fs:[0,1,2,3,4,5].map(k => +(x.fs||[])[k]||0)});
 function writeReqs(r){
   RQ = {};
   r = r || {};
-  if(r.by_pos) for(const [p,x] of Object.entries(r.by_pos)) RQ[p] = {wf:+x.wf||0, sm:+x.sm||0, fs:[0,1,2,3,4,5].map(k => +(x.fs||[])[k]||0)};
-  else if(r.pos && rqOn(r)) for(const p of r.pos) RQ[p] = {wf:+r.wf||0, sm:+r.sm||0, fs:[0,1,2,3,4,5].map(k => +(r.fs||[])[k]||0)};   // older single set
+  if(r.by_pos) for(const [p,x] of Object.entries(r.by_pos)) RQ[p] = rqClean(x);
+  else if(r.pos && rqOn(r)) for(const p of r.pos) RQ[p] = rqClean(r);   // older single set
+  RQMODE = r.mode === "prefer" ? "prefer" : "require";
+  RQW = r.w != null ? +r.w : 3;
+  if($("rqMode")){ document.querySelectorAll('#rqMode input').forEach(i => i.checked = i.value === RQMODE); $("rqW").value = RQW; }
   rqShownKey = ""; renderRq();
 }
 function readReqs(){
   const by_pos = {};
-  for(const [p,x] of Object.entries(RQ)) if(rqOn(x)) by_pos[p] = {wf:x.wf, sm:x.sm, fs:p === "GK" ? [0,0,0,0,0,0] : x.fs.slice()};
-  return {by_pos};
+  for(const [p,x] of Object.entries(RQ)) if(rqOn(x)) by_pos[p] = Object.assign(rqClean(x), p === "GK" ? {fs:[0,0,0,0,0,0]} : {});
+  return {by_pos, mode:RQMODE, w:RQW};
 }
-const reqAt = pos => rqOn(RQ[pos]) ? RQ[pos] : null;
+const reqAt = pos => rqOn(RQ[pos]) ? RQ[pos] : null;            // set (require or prefer): used for gold highlights
+const reqHard = pos => RQMODE === "require" ? reqAt(pos) : null;  // only when it filters: used to explain empty results
 const reqsActive = () => Object.values(RQ).some(rqOn);
 function rqPositions(){
   const inForm = new Set(S.slots || []), withReq = new Set(Object.keys(RQ).filter(p => rqOn(RQ[p])));
@@ -680,16 +696,39 @@ function rqPositions(){
 }
 function renderRq(force){
   if(!$("rqBody")) return;
-  const rows = rqPositions(), key = rows.join(",") + "|" + $("rqAllPos").checked;
+  const rows = rqPositions(), key = rows.join(",") + "|" + $("rqAllPos").checked + "|" + RQTAB;
   if(!force && key === rqShownKey) return;
+  const posChanged = !force && rqShownKey !== "";
   rqShownKey = key;
-  const star = (p, k, v) => `<select data-p="${p}" data-k="${k}" value="${v||""}">${[["","–"],["3","3★"],["4","4★"],["5","5★"]].map(([o,l]) => `<option value="${o}" ${String(v||"")===o?"selected":""}>${l}</option>`).join("")}</select>`;
-  const num = (p, k, v) => `<input type="number" min="1" max="99" data-p="${p}" data-k="fs${k}" value="${v||""}" placeholder="–">`;
-  const row = (p, x, cls) => `<tr class="${cls}" data-row="${p}"><td>${p === "*" ? "All" : p}</td><td>${star(p,"wf",x.wf)}</td><td>${star(p,"sm",x.sm)}</td>${
-      p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,k,x.fs[k])}</td>`).join("")}<td>${
-      p === "*" ? "" : `<button class="sm cp" data-copy="${p}" title="Copy ${p}'s requirements to other positions">⧉</button>`}</td></tr>`;
+  if(posChanged) setTimeout(rqRefreshCounts, 0);   // formation changed: other positions to count
+  document.querySelectorAll("#rqTabs [data-rqtab]").forEach(b => b.classList.toggle("on", b.dataset.rqtab === RQTAB));
+  const sel = (p, k, v, opts) => `<select data-p="${p}" data-k="${k}">${opts.map(([o,l]) => `<option value="${o}" ${String(v||"")===String(o)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const STARS = [["","–"],["3","3★"],["4","4★"],["5","5★"]], FOOT = [["","–"],["L","Left"],["R","Right"]];
+  const AR = [["","–"], ...(META.accel_types || []).map(t => [t, t])];
+  const num = (p, k, v, ph, min, max) => `<input type="number" min="${min}" max="${max}" data-p="${p}" data-k="${k}" value="${v||""}" placeholder="${ph}">`;
+  const head = RQTAB === "body"
+    ? `<th>Pos</th><th title="Weak foot">WF</th><th title="Skill moves">SM</th><th title="Preferred foot">Foot</th><th title="Minimum height in cm">Height ≥</th><th title="AcceleRATE">AcceleRATE</th><th></th>`
+    : `<th>Pos</th>${FACE.map(l => `<th>${l}</th>`).join("")}<th></th>`;
+  $("rqHead").innerHTML = `<tr>${head}</tr>`;
+  const cnt = p => { const c = RQCOUNTS[p]; if(!c || !reqAt(p)) return ""; const cls = c.match === 0 ? "zero" : c.match < 10 ? "few" : "";
+    return `<span class="rqn ${cls}" title="${c.match} of ${c.total} cards for ${p} meet this${RQMODE === "prefer" ? " (prefer mode: the others are still suggested, just ranked lower)" : ""}">${c.match}</span>`; };
+  const cells = (p, x) => RQTAB === "body"
+    ? `<td>${sel(p,"wf",x.wf,STARS)}</td><td>${sel(p,"sm",x.sm,STARS)}</td><td>${sel(p,"ft",x.ft,FOOT)}</td><td>${num(p,"ht",x.ht,"cm",150,210)}</td><td>${sel(p,"ar",x.ar,AR)}</td>`
+    : p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,"fs"+k,x.fs[k],"–",1,99)}</td>`).join("");
+  const row = (p, x, cls) => `<tr class="${cls}" data-row="${p}"><td>${p === "*" ? "All" : p}${p === "*" ? "" : cnt(p)}</td>${cells(p, x)}<td>${
+      p === "*" ? "" : `<button class="sm cp" data-copy="${p}" title="Copy ${p}'s requirements (both tabs) to other positions">⧉</button>`}</td></tr>`;
   $("rqBody").innerHTML = row("*", rqEmpty(), "all") + rows.map(p => row(p, RQ[p] || rqEmpty(), rqOn(RQ[p]) ? "on" : "")).join("");
   if(RQCOPY) renderRqCopy();
+}
+// live "how many cards still qualify" per row (#1)
+let rqCountTimer = null;
+function rqRefreshCounts(){
+  clearTimeout(rqCountTimer);
+  if(!reqsActive()){ RQCOUNTS = {}; renderRq(true); return; }
+  rqCountTimer = setTimeout(async () => {
+    try{ RQCOUNTS = (await api("/api/req_counts", {opts:readOpts(), positions:rqPositions()})).counts || {}; }catch(e){ RQCOUNTS = {}; }
+    renderRq(true);
+  }, 250);
 }
 // copy one row's requirements to other positions
 let RQCOPY = null;   // {from: "CM", to: Set}
@@ -707,32 +746,43 @@ function renderRqCopy(){
     <div class="chips">${targets.map(p => `<button class="sm chip-btn ${RQCOPY.to.has(p) ? "on" : ""}" data-to="${p}">${p}</button>`).join("")}</div>
     <div class="quick"><span class="small mut">Select:</span>${groups.map(([g]) => `<button class="sm ghost" data-grp="${g}">${g}</button>`).join("")}<button class="sm ghost" data-grp="*">All</button><button class="sm ghost" data-grp="">None</button>
       <span style="flex:1"></span><button class="sm" id="rqCopyCancel">Cancel</button><button class="sm primary" id="rqCopyGo" ${n ? "" : "disabled"}>Copy to ${n} position${n === 1 ? "" : "s"}</button></div>
-    ${RQCOPY.from === "GK" || RQCOPY.to.has("GK") ? `<div class="small mut" style="margin-top:6px">Keepers only take WF/SM, so face stats aren't copied to or from GK.</div>` : ""}`;
+    ${RQCOPY.from === "GK" || RQCOPY.to.has("GK") ? `<div class="small mut" style="margin-top:6px">Keepers don't take face stats, so those aren't copied to or from GK.</div>` : ""}`;
 }
 function rqCopyApply(){
   const src = RQ[RQCOPY.from] || rqEmpty();
   for(const p of RQCOPY.to){
-    if(p === "GK" || RQCOPY.from === "GK"){ rqSet(p, "wf", src.wf); rqSet(p, "sm", src.sm); }   // keep the other side's face stats
-    else { RQ[p] = {wf:src.wf, sm:src.sm, fs:src.fs.slice()}; if(!rqOn(RQ[p])) delete RQ[p]; }
+    const keepFs = p === "GK" || RQCOPY.from === "GK";   // keep the other side's face stats
+    const old = RQ[p] || rqEmpty();
+    RQ[p] = Object.assign(rqClean(src), keepFs ? {fs: old.fs.slice()} : {});
+    if(!rqOn(RQ[p])) delete RQ[p];
   }
   const done = [...RQCOPY.to];
-  RQCOPY = null; renderRq(true); renderRqCopy(); save(); updFiltSum();
+  RQCOPY = null; renderRq(true); renderRqCopy(); rqChanged();
   document.querySelectorAll("#rqBody tr").forEach(tr => { if(done.includes(tr.dataset.row)){ tr.classList.add("tgt"); setTimeout(() => tr.classList.remove("tgt"), 900); } });
 }
 function rqSet(p, k, v){
   const x = RQ[p] = RQ[p] || rqEmpty();
-  if(k.startsWith("fs")) x.fs[+k.slice(2)] = v; else x[k] = v;
+  if(k.startsWith("fs")) x.fs[+k.slice(2)] = +v || 0;
+  else if(k === "ft" || k === "ar") x[k] = String(v || "");
+  else x[k] = +v || 0;
   if(!rqOn(x)) delete RQ[p];
 }
+function rqChanged(){ save(); updFiltSum(); rqRefreshCounts(); }
 function updRqSum(){
   const groups = {};   // same requirement at several positions -> one entry
   for(const p of CAP_POS) if(reqAt(p)){ const d = rqDescribe(RQ[p]); (groups[d] = groups[d] || []).push(p); }
   const parts = Object.entries(groups).map(([d, ps]) => `${d} at ${ps.join(", ")}`);
-  if($("rqSum")){ $("rqSum").textContent = parts.length ? "· " + parts.join(" · ") : "· none"; $("rqSum").classList.toggle("rq-hit", !!parts.length); }
+  if($("rqSum")){
+    $("rqSum").textContent = parts.length ? `· ${RQMODE === "prefer" ? "prefer " : ""}${parts.join(" · ")}` : "· none";
+    $("rqSum").classList.toggle("rq-hit", !!parts.length);
+  }
 }
 function rqDescribe(x){
   const t = [];
   if(x.wf) t.push(`${x.wf}★ WF`); if(x.sm) t.push(`${x.sm}★ SM`);
+  if(x.ft) t.push(x.ft === "L" ? "left foot" : "right foot");
+  if(x.ht) t.push(`${x.ht}cm+`);
+  if(x.ar) t.push(x.ar);
   (x.fs||[]).forEach((v,k) => { if(v) t.push(`${FACE[k]} ${v}+`); });
   return t.join(" + ");
 }
@@ -781,7 +831,11 @@ function cardLine(c, pos){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?
 function wfsm(c, pos){
   if(!c || (c.wf == null && c.sm == null)) return "";
   const R = pos ? reqAt(pos) : null, hit = (k) => R && R[k] && c[k] >= R[k] ? ' class="rq-hit"' : "";
-  return ` · <span${hit("wf")} title="Weak foot">${c.wf ?? "?"}★ WF</span> · <span${hit("sm")} title="Skill moves">${c.sm ?? "?"}★ SM</span>${c.ft ? ` · <span title="Preferred foot">${c.ft === "L" ? "Left" : "Right"}</span>` : ""}`;
+  const ok = (k, f) => R && R[k] && f() ? ' class="rq-hit"' : "";
+  return ` · <span${hit("wf")} title="Weak foot">${c.wf ?? "?"}★ WF</span> · <span${hit("sm")} title="Skill moves">${c.sm ?? "?"}★ SM</span>`
+    + (c.ft ? ` · <span${ok("ft", () => c.ft === R.ft)} title="Preferred foot">${c.ft === "L" ? "Left" : "Right"}</span>` : "")
+    + (c.ht ? ` · <span${ok("ht", () => c.ht >= R.ht)} title="Height">${c.ht}cm</span>` : "")
+    + (c.ar ? ` · <span${ok("ar", () => c.ar === R.ar)} title="AcceleRATE">${esc(c.ar)}</span>` : "");
 }
 
 const CREST_SVG = document.querySelector(".brand .crest").innerHTML.replace(/ctg/g, "ctg3");
@@ -1003,7 +1057,7 @@ function resultsBody(r){
 function upgradeWhy(U, k){
   const rows = (U.slots || []).map(w => {
     const where = `<span class="tag">${esc(w.pos)}</span> now ${w.cur}`;
-    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (${reqAt(w.pos) ? `<b>required stats (${esc(rqDescribe(reqAt(w.pos)))})</b>, ` : ""}blacklist, position blocks, minimum rating).</li>`;
+    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (${reqHard(w.pos) ? `<b>required stats (${esc(rqDescribe(reqHard(w.pos)))})</b>, ` : ""}blacklist, position blocks, minimum rating).</li>`;
     if(!w.in_cap) return `<li>${where}: max OVR ${w.cap} — all ${w.higher} better cards are rated above it, and an upgrade has to be rated higher than ${w.cur}. Raise the cap above ${w.cur} for ${esc(w.pos)}.</li>`;
     if(!w.keep_chem) return `<li>${where}: ${w.in_cap} better card${w.in_cap===1?"":"s"} within the cap, but each drops chemistry below ${U.floor}. Allow more chemistry loss to see them.</li>`;
     return `<li>${where}: ${w.keep_chem} upgrade${w.keep_chem===1?"":"s"} possible on its own.</li>`;
@@ -1059,7 +1113,7 @@ function renderFill(){
   const F = window.__F; if(!F) return;
   let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
     <strong>✚ Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
-  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqAt(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqAt(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqAt(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
+  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
   else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
       ${o.league && o.li != null ? `<div class="small" style="margin-bottom:3px">League Modifier → <b>${esc(leagueName(o.li))}</b></div>` : ""}
@@ -1069,8 +1123,8 @@ function renderFill(){
   $("results").innerHTML = h + `</div>`;
 }
 function reqsDataWarning(){
-  if(reqsActive() && !META.has_wf){
-    $("goMsg").textContent = "Your card data has no weak foot / skill moves yet: ⚙ → Update card data first, then search again.";
+  if(reqsActive() && (!META.has_wf || (!META.has_ar && Object.values(RQ).some(x => x.ht || x.ar)))){
+    $("goMsg").textContent = "Your card data doesn't have these stats yet (weak foot, skill moves, height, AcceleRATE): ⚙ → Update card data first, then search again.";
     return true;
   }
   return false;
@@ -1447,12 +1501,19 @@ $("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); }
 $("noWomen").addEventListener("change", save);
 $("rqBody").addEventListener("change", e => {
   const el = e.target.closest("[data-p]"); if(!el) return;
-  const v = Math.max(0, Math.min(99, +el.value || 0)), p = el.dataset.p, k = el.dataset.k;
+  const p = el.dataset.p, k = el.dataset.k;
+  const v = (k === "ft" || k === "ar") ? el.value : Math.max(0, Math.min(k === "ht" ? 230 : 99, +el.value || 0));
   if(p === "*"){ for(const q of rqPositions()) if(!(q === "GK" && k.startsWith("fs"))) rqSet(q, k, v); }
   else rqSet(p, k, v);
-  renderRq(true); save(); updFiltSum();
+  renderRq(true); rqChanged();
 });
-$("rqAllPos").addEventListener("change", () => renderRq());
+document.querySelectorAll("#rqTabs [data-rqtab]").forEach(b => b.onclick = () => { RQTAB = b.dataset.rqtab; renderRq(true); });
+$("rqMode").addEventListener("change", e => {
+  if(e.target.name === "rqmode") RQMODE = e.target.value;
+  if(e.target.id === "rqW") RQW = Math.max(0, +e.target.value || 0);
+  rqChanged(); renderRq(true);
+});
+$("rqAllPos").addEventListener("change", () => { renderRq(); rqRefreshCounts(); });
 $("rqBody").addEventListener("click", e => {
   const b = e.target.closest("[data-copy]"); if(!b) return;
   const p = b.dataset.copy;
@@ -1472,7 +1533,7 @@ $("rqCopy").addEventListener("click", e => {
   renderRqCopy();
 });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && RQCOPY){ RQCOPY = null; renderRqCopy(); } });
-$("rqClear").onclick = () => { RQ = {}; RQCOPY = null; renderRq(true); renderRqCopy(); save(); updFiltSum(); };
+$("rqClear").onclick = () => { RQ = {}; RQCOPY = null; renderRq(true); renderRqCopy(); rqChanged(); };
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
@@ -1693,8 +1754,9 @@ function updFiltSum(){
 }
 $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps()).length; $("capSum").textContent = `Max OVR per position${n?` (${n} set)`:""}`; });
 $("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
+$("filtDet").addEventListener("change", () => rqRefreshCounts());
 
-init().then(() => { updFiltSum(); pollUpdate(); setTimeout(pollUpdate, 4000); });
+init().then(() => { updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); });
 </script>
 </body>
 </html>

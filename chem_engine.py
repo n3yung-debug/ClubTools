@@ -254,46 +254,68 @@ def plain_value(c, pos):
     return c["ov"]
 
 
-def make_value(prefs=None, w_plus=3, w_ps=1):
+def make_value(prefs=None, w_plus=3, w_ps=1, soft=None, w_soft=0):
     """Card value used for ranking: overall + a bonus for the PlayStyles you want in that position.
     prefs = {"GK": [ids], "CDM": [...], "ST": [...], ...} per position (group keys DEF/MID/ATT are still
     understood for positions without their own entry); a wanted PlayStyle+ is worth w_plus rating points,
-    a plain wanted PlayStyle w_ps."""
+    a plain wanted PlayStyle w_ps. soft: preferred stats per position (see _checks), each criterion met is
+    worth w_soft rating points."""
     want = {g: frozenset(ids) for g, ids in (prefs or {}).items() if ids}
     if not want or (not w_plus and not w_ps):
+        want = {}
+    soft = soft if soft and w_soft else None   # preferred stats: w_soft rating points per criterion met
+    if not want and not soft:
         return plain_value
     cache = {}
 
     def value(c, pos):
-        w = want.get(pos) if pos in (prefs or {}) else want.get(POS_GROUP.get(pos))
-        if not w:
-            return c["ov"]
         key = (c["s"], pos)
         v = cache.get(key)
         if v is None:
-            pp, ps = c.get("pp") or (), c.get("ps") or ()
-            v = cache[key] = c["ov"] + sum(w_plus if x in pp else w_ps if x in ps else 0 for x in w)
+            v = c["ov"]
+            w = want.get(pos) if pos in (prefs or {}) else want.get(POS_GROUP.get(pos))
+            if w:
+                pp, ps = c.get("pp") or (), c.get("ps") or ()
+                v += sum(w_plus if x in pp else w_ps if x in ps else 0 for x in w)
+            if soft:
+                v += w_soft * pref_points(c, pos, soft)
+            cache[key] = v
         return v
     return value
 
 
-def meets(c, pos, reqs):
-    """Does card c satisfy the user's requirements at position pos?
-    reqs: {position: {"wf": min weak foot, "sm": min skill moves, "fs": [min PAC, SHO, PAS, DRI, DEF, PHY]}}.
-    Face-stat minimums are outfield stats, so they never apply to keepers. Unknown values count as not met."""
-    r = reqs.get(pos) if reqs else None
-    if not r:
-        return True
-    for k in ("wf", "sm"):
+def _checks(c, pos, r):
+    """One True/False per criterion set in requirement r for card c at position pos.
+    r: {"wf", "sm": min stars, "ft": "L"/"R", "ht": min height cm, "ar": AcceleRATE name,
+        "fs": [min PAC, SHO, PAS, DRI, DEF, PHY]}. Face stats never apply to keepers; unknown values fail."""
+    out = []
+    for k in ("wf", "sm", "ht"):
         need = r.get(k) or 0
-        if need and (c.get(k) or 0) < need:
-            return False
+        if need:
+            out.append((c.get(k) or 0) >= need)
+    if r.get("ft"):
+        out.append(c.get("ft") == r["ft"])
+    if r.get("ar"):
+        out.append(c.get("ar") == r["ar"])
     mins = r.get("fs") or ()
-    if pos != "GK" and any(mins):
-        fs = c.get("fs")
-        if not fs or c.get("p") == "GK" or any(m and v < m for v, m in zip(fs, mins)):
-            return False
-    return True
+    if pos != "GK":
+        fs = c.get("fs") if c.get("p") != "GK" else None
+        for k, m in enumerate(mins):
+            if m:
+                out.append(bool(fs) and fs[k] >= m)
+    return out
+
+
+def meets(c, pos, reqs):
+    """Does card c satisfy every requirement for position pos? reqs: {position: requirement, see _checks}."""
+    r = reqs.get(pos) if reqs else None
+    return not r or all(_checks(c, pos, r))
+
+
+def pref_points(c, pos, reqs):
+    """How many of the preferred criteria for pos card c meets (used when requirements are 'prefer', not 'require')."""
+    r = reqs.get(pos) if reqs else None
+    return sum(_checks(c, pos, r)) if r else 0
 
 
 def index_pool(pool, no_women=(), pos_bans=(), reqs=None):
