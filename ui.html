@@ -162,6 +162,16 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .rqt tr.all td{border-bottom:1px solid var(--line);padding-bottom:5px}
 .rqt tr.all td:first-child{color:var(--acc2);font-weight:700}
 .rqt .na{color:var(--line2);text-align:center}
+.rqt th:last-child,.rqt td:last-child{width:30px}
+.rqt .cp{width:100%;padding:3px 0;font-size:13px;line-height:1;background:transparent;border-color:transparent;color:var(--mut)}
+.rqt .cp:hover{color:var(--acc2);border-color:var(--line2);background:var(--panel2)}
+.rqt tr.src td{background:#4da3ff14} .rqt tr.src td:first-child{color:var(--acc2)}
+.rqt tr.tgt td{background:#f0cb6210}
+.rqcopy{margin-top:8px;padding:10px;border:1px solid #2b4c80;border-radius:var(--r2);background:#13284a}
+.rqcopy .chips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.rqcopy .chip-btn{padding:4px 10px;font-size:12px;font-weight:700;border-radius:99px}
+.rqcopy .chip-btn.on{background:var(--gold);border-color:var(--gold);color:#241c05}
+.rqcopy .quick{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .fs{color:var(--txt);letter-spacing:.2px} .fs b{color:var(--gold)}
 a.ext{color:var(--acc);font-size:12px;text-decoration:none;margin-left:6px;font-weight:600} a.ext:hover{text-decoration:underline}
 a.ext.sub{color:var(--mut);font-weight:400;font-size:11px;margin-left:4px}
@@ -312,9 +322,10 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
               <span class="small mut" style="flex:1">Suggested cards must have at least these, per position.</span>
               <button class="sm ghost" id="rqClear" title="Remove all required stats">Clear all</button>
             </div>
-            <div class="small mut" style="margin-bottom:6px">Pick stars or type a minimum. The <b>All</b> row fills every position shown. Blank = no requirement. Keepers only take WF/SM.</div>
-            <table class="rqt"><thead><tr><th>Pos</th><th title="Weak foot">WF</th><th title="Skill moves">SM</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th></tr></thead>
+            <div class="small mut" style="margin-bottom:6px">Pick stars or type a minimum. ⧉ copies a row to other positions; the <b>All</b> row fills every position shown. Blank = no requirement. Keepers only take WF/SM.</div>
+            <table class="rqt"><thead><tr><th>Pos</th><th title="Weak foot">WF</th><th title="Skill moves">SM</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th></th></tr></thead>
               <tbody id="rqBody"></tbody></table>
+            <div id="rqCopy" class="rqcopy" hidden></div>
             <label class="chk small" style="margin-top:6px"><input type="checkbox" id="rqAllPos"> Show all positions (not just this formation's)</label>
           </div>
         </details>
@@ -675,8 +686,38 @@ function renderRq(force){
   const star = (p, k, v) => `<select data-p="${p}" data-k="${k}" value="${v||""}">${[["","–"],["3","3★"],["4","4★"],["5","5★"]].map(([o,l]) => `<option value="${o}" ${String(v||"")===o?"selected":""}>${l}</option>`).join("")}</select>`;
   const num = (p, k, v) => `<input type="number" min="1" max="99" data-p="${p}" data-k="fs${k}" value="${v||""}" placeholder="–">`;
   const row = (p, x, cls) => `<tr class="${cls}" data-row="${p}"><td>${p === "*" ? "All" : p}</td><td>${star(p,"wf",x.wf)}</td><td>${star(p,"sm",x.sm)}</td>${
-      p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,k,x.fs[k])}</td>`).join("")}</tr>`;
+      p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,k,x.fs[k])}</td>`).join("")}<td>${
+      p === "*" ? "" : `<button class="sm cp" data-copy="${p}" title="Copy ${p}'s requirements to other positions">⧉</button>`}</td></tr>`;
   $("rqBody").innerHTML = row("*", rqEmpty(), "all") + rows.map(p => row(p, RQ[p] || rqEmpty(), rqOn(RQ[p]) ? "on" : "")).join("");
+  if(RQCOPY) renderRqCopy();
+}
+// copy one row's requirements to other positions
+let RQCOPY = null;   // {from: "CM", to: Set}
+const RQ_GROUPS = {Attack:["CAM","LW","RW","ST"], Midfield:["CDM","CM","LM","RM","CAM"], Defence:["CB","LB","RB"]};
+function renderRqCopy(){
+  const box = $("rqCopy");
+  document.querySelectorAll("#rqBody tr").forEach(tr => { tr.classList.toggle("src", !!RQCOPY && tr.dataset.row === RQCOPY.from); tr.classList.toggle("tgt", !!RQCOPY && RQCOPY.to.has(tr.dataset.row)); });
+  if(!RQCOPY){ box.hidden = true; box.innerHTML = ""; return; }
+  const src = RQ[RQCOPY.from], what = src ? rqDescribe(src) : "no requirements";
+  const targets = rqPositions().filter(p => p !== RQCOPY.from);
+  const groups = Object.entries(RQ_GROUPS).filter(([,ps]) => ps.some(p => targets.includes(p)));
+  const n = RQCOPY.to.size;
+  box.hidden = false;
+  box.innerHTML = `<div class="small">Copy <b>${esc(RQCOPY.from)}</b> <span class="mut">(${esc(what)})</span> to:</div>
+    <div class="chips">${targets.map(p => `<button class="sm chip-btn ${RQCOPY.to.has(p) ? "on" : ""}" data-to="${p}">${p}</button>`).join("")}</div>
+    <div class="quick"><span class="small mut">Select:</span>${groups.map(([g]) => `<button class="sm ghost" data-grp="${g}">${g}</button>`).join("")}<button class="sm ghost" data-grp="*">All</button><button class="sm ghost" data-grp="">None</button>
+      <span style="flex:1"></span><button class="sm" id="rqCopyCancel">Cancel</button><button class="sm primary" id="rqCopyGo" ${n ? "" : "disabled"}>Copy to ${n} position${n === 1 ? "" : "s"}</button></div>
+    ${RQCOPY.from === "GK" || RQCOPY.to.has("GK") ? `<div class="small mut" style="margin-top:6px">Keepers only take WF/SM, so face stats aren't copied to or from GK.</div>` : ""}`;
+}
+function rqCopyApply(){
+  const src = RQ[RQCOPY.from] || rqEmpty();
+  for(const p of RQCOPY.to){
+    if(p === "GK" || RQCOPY.from === "GK"){ rqSet(p, "wf", src.wf); rqSet(p, "sm", src.sm); }   // keep the other side's face stats
+    else { RQ[p] = {wf:src.wf, sm:src.sm, fs:src.fs.slice()}; if(!rqOn(RQ[p])) delete RQ[p]; }
+  }
+  const done = [...RQCOPY.to];
+  RQCOPY = null; renderRq(true); renderRqCopy(); save(); updFiltSum();
+  document.querySelectorAll("#rqBody tr").forEach(tr => { if(done.includes(tr.dataset.row)){ tr.classList.add("tgt"); setTimeout(() => tr.classList.remove("tgt"), 900); } });
 }
 function rqSet(p, k, v){
   const x = RQ[p] = RQ[p] || rqEmpty();
@@ -1412,7 +1453,26 @@ $("rqBody").addEventListener("change", e => {
   renderRq(true); save(); updFiltSum();
 });
 $("rqAllPos").addEventListener("change", () => renderRq());
-$("rqClear").onclick = () => { RQ = {}; renderRq(true); save(); updFiltSum(); };
+$("rqBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-copy]"); if(!b) return;
+  const p = b.dataset.copy;
+  RQCOPY = RQCOPY && RQCOPY.from === p ? null : {from: p, to: new Set()};
+  renderRqCopy();
+});
+$("rqCopy").addEventListener("click", e => {
+  if(!RQCOPY) return;
+  const t = e.target.closest("[data-to]"), g = e.target.closest("[data-grp]");
+  const targets = rqPositions().filter(p => p !== RQCOPY.from);
+  if(t){ RQCOPY.to.has(t.dataset.to) ? RQCOPY.to.delete(t.dataset.to) : RQCOPY.to.add(t.dataset.to); }
+  else if(g){ const want = g.dataset.grp === "*" ? targets : g.dataset.grp === "" ? [] : RQ_GROUPS[g.dataset.grp].filter(p => targets.includes(p));
+    if(g.dataset.grp === "" ) RQCOPY.to.clear(); else want.forEach(p => RQCOPY.to.add(p)); }
+  else if(e.target.id === "rqCopyCancel") RQCOPY = null;
+  else if(e.target.id === "rqCopyGo") return rqCopyApply();
+  else return;
+  renderRqCopy();
+});
+document.addEventListener("keydown", e => { if(e.key === "Escape" && RQCOPY){ RQCOPY = null; renderRqCopy(); } });
+$("rqClear").onclick = () => { RQ = {}; RQCOPY = null; renderRq(true); renderRqCopy(); save(); updFiltSum(); };
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
