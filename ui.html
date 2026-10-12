@@ -233,6 +233,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
       <div class="row2"><button id="saveAs" class="sm" style="flex:1">Save as…</button><button id="delSaved" class="sm" title="Delete the selected saved squad">Delete</button></div>
       <hr>
       <button id="share" class="sm" title="Copy a link that opens this squad in ClubTools">🔗 Copy share link</button>
+      <button id="shareImg" class="sm" title="A picture of your squad to post on Discord, Reddit, etc.">🖼 Share as image</button>
       <button id="clear" class="sm">✕ Clear squad</button>
     </div>
   </div>
@@ -450,6 +451,17 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
     <div class="note"><b>Privacy.</b> Everything stays on this computer (<code>%APPDATA%\ClubTools</code>). There are no accounts, analytics or tracking. ClubTools only contacts FUT.GG for card data and squad imports, and GitHub to check for and download updates. Details are under Privacy.</div>
   </div>
   <pre id="legalText" hidden style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.5;max-height:60vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;margin:0"></pre>
+</dialog>
+
+<dialog id="imgDlg" style="width:min(720px,96vw)">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <strong style="flex:1">Share as image</strong>
+    <button class="sm" id="imgCopy">Copy image</button>
+    <button class="sm primary" id="imgSave">Save PNG</button>
+    <button class="sm" id="imgClose">Close</button>
+  </div>
+  <img id="imgPrev" alt="Squad image" style="width:100%;border-radius:10px;border:1px solid var(--line)">
+  <div class="small mut" id="imgMsg" style="margin-top:6px"></div>
 </dialog>
 
 <dialog id="clubDlg" style="width:min(520px,94vw)">
@@ -1978,6 +1990,86 @@ $("clubAdd").onclick = () => clubImport(false);
 $("clubReplace").onclick = () => clubImport(true);
 $("clubSquad").onclick = () => { $("clubDlg").close(); openImport("futbin"); runPreview({mode:"ids", ids:CLUB_IDS}); };
 $("clubCancel").onclick = () => $("clubDlg").close();
+
+/* ---------- share squad as an image (#11) ---------- */
+let IMG_URL = "";
+function rr(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function fitText(ctx, t, max){ t = String(t); if(ctx.measureText(t).width <= max) return t; while(t.length > 1 && ctx.measureText(t + "…").width > max) t = t.slice(0, -1); return t + "…"; }
+async function squadImage(){
+  const W = 1200, H = 1400, pad = 40, top = 150, foot = 70;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d"), font = '"Segoe UI", Inter, system-ui, sans-serif';
+  // background + header
+  const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0d1626"); bg.addColorStop(1, "#090e18");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  try{
+    const svg = document.querySelector(".brand .crest svg").outerHTML.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" ');
+    const img = new Image(); img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    await img.decode(); ctx.drawImage(img, pad, 38, 64, 64);
+  }catch(e){}
+  ctx.fillStyle = "#e9eef8"; ctx.font = `800 40px ${font}`; ctx.fillText(S.formation || "Squad", pad + 80, 82);
+  const t = lastEval ? lastEval.total : null, full = S.squad.every(Boolean);
+  const chemCol = t == null || !full ? "#8d9bb9" : t >= 30 ? "#3ecf8e" : t >= 24 ? "#f5b84b" : "#ef6b6b";
+  ctx.textAlign = "right"; ctx.fillStyle = "#8d9bb9"; ctx.font = `600 22px ${font}`; ctx.fillText("/ 33 chem", W - pad, 92);
+  const lw = ctx.measureText("/ 33 chem").width;
+  ctx.fillStyle = chemCol; ctx.font = `900 56px ${font}`; ctx.fillText(t == null ? "–" : String(t), W - pad - lw - 10, 92);
+  const mgr = [S.mgr.ni != null ? nationName(S.mgr.ni) : null, S.mgr.li != null ? leagueName(S.mgr.li) : null].filter(Boolean).join(" · ");
+  ctx.textAlign = "left"; ctx.font = `500 20px ${font}`; ctx.fillStyle = "#8d9bb9"; ctx.fillText(mgr ? "Manager: " + mgr : "", pad + 80, 116);
+  // pitch
+  const px = pad, py = top, pw = W - 2*pad, ph = H - top - foot - 20;
+  for(let k = 0; k < 10; k++){ ctx.fillStyle = k % 2 ? "#0d3627" : "#0f3d2b"; ctx.fillRect(px, py + k*ph/10, pw, ph/10 + 1); }
+  ctx.strokeStyle = "rgba(255,255,255,.10)"; ctx.lineWidth = 3;
+  rr(ctx, px + 12, py + 12, pw - 24, ph - 24, 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px + 12, py + ph/2); ctx.lineTo(px + pw - 12, py + ph/2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(px + pw/2, py + ph/2, 90, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeRect(px + pw/2 - 180, py + 12, 360, 110); ctx.strokeRect(px + pw/2 - 180, py + ph - 122, 360, 110);
+  // cards
+  const rows = rowsLayout(), cw = 170, ch = 150, gapY = (ph - 40 - rows.length*ch) / Math.max(1, rows.length - 1);
+  const tiers = {"t-icon":["#f3ead2","#bfae80","#6b5418","#1d1a12"], "t-hero":["#5b3aa0","#2a1a52","#ffe08a","#fff"], "t-hof":["#1f6f6a","#0e3a37","#b6fff3","#fff"],
+                 "t-special":["#21325e","#111b35","#ffe08a","#fff"], "":["#3d3418","#221d0c","#f0cb62","#fff"]};
+  rows.forEach((r, ri) => {
+    const y = py + 20 + ri * (ch + gapY);
+    r.forEach((i, k) => {
+      const x = px + pw * (k + 1) / (r.length + 1) - cw/2, c = S.squad[i], ev = lastEval && lastEval.players[i];
+      if(!c){ ctx.setLineDash([8,6]); ctx.strokeStyle = "#2f7a5c"; rr(ctx, x, y, cw, ch, 12); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = "#8fd4b4"; ctx.font = `700 22px ${font}`; ctx.textAlign = "center"; ctx.fillText(S.slots[i], x + cw/2, y + ch/2 + 8); ctx.textAlign = "left"; return; }
+      const [c1, c2, ovc, txt] = tiers[cardTier(c)] || tiers[""];
+      const g = ctx.createLinearGradient(x, y, x + cw, y + ch); g.addColorStop(0, c1); g.addColorStop(1, c2);
+      ctx.fillStyle = g; rr(ctx, x, y, cw, ch, 12); ctx.fill();
+      ctx.strokeStyle = ev && !ev.inpos ? "#ef6b6b" : "rgba(255,255,255,.25)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = ovc; ctx.font = `900 40px ${font}`; ctx.fillText(String(c.ov), x + 12, y + 44);
+      ctx.fillStyle = txt; ctx.globalAlpha = .85; ctx.font = `800 18px ${font}`; ctx.textAlign = "right"; ctx.fillText(S.slots[i], x + cw - 12, y + 30);
+      const tt = typeTag(c); if(tt){ ctx.font = `800 13px ${font}`; ctx.fillText(tt, x + cw - 12, y + 48); }
+      ctx.textAlign = "left"; ctx.globalAlpha = 1;
+      ctx.font = `800 21px ${font}`; ctx.fillText(fitText(ctx, c.n, cw - 24), x + 12, y + 82);
+      ctx.globalAlpha = .8; ctx.font = `500 15px ${font}`; ctx.fillText(fitText(ctx, `${c.nn || ""} · ${c.cn || c.ln || ""}`, cw - 24), x + 12, y + 104); ctx.globalAlpha = 1;
+      const n = ev ? ev.chem : null;
+      for(let d = 0; d < 3; d++){ const dx = x + 20 + d*24, dy = y + ch - 22;
+        ctx.beginPath(); ctx.moveTo(dx, dy - 9); ctx.lineTo(dx + 9, dy); ctx.lineTo(dx, dy + 9); ctx.lineTo(dx - 9, dy); ctx.closePath();
+        if(n != null && d < n){ ctx.fillStyle = cardTier(c) === "t-icon" ? "#1f5fa8" : "#5fb4ff"; ctx.fill(); }
+        else { ctx.strokeStyle = n === 0 ? "#ef6b6b" : "rgba(255,255,255,.45)"; ctx.lineWidth = 2; ctx.stroke(); } }
+    });
+  });
+  // footer
+  ctx.fillStyle = "#5f6d8c"; ctx.font = `600 18px ${font}`; ctx.fillText("Made with ClubTools", pad, H - 32);
+  ctx.textAlign = "right"; ctx.font = `500 15px ${font}`; ctx.fillText("Not affiliated with EA SPORTS · card data: FUT.GG", W - pad, H - 32); ctx.textAlign = "left";
+  return cv.toDataURL("image/png");
+}
+$("shareImg").onclick = async () => {
+  $("imgMsg").textContent = ""; IMG_URL = await squadImage(); $("imgPrev").src = IMG_URL; $("imgDlg").showModal();
+};
+$("imgClose").onclick = () => $("imgDlg").close();
+$("imgCopy").onclick = async () => {
+  try{ const blob = await (await fetch(IMG_URL)).blob(); await navigator.clipboard.write([new ClipboardItem({"image/png": blob})]);
+       $("imgMsg").textContent = "Copied - paste it into Discord, Reddit, WhatsApp…"; }
+  catch(e){ $("imgMsg").textContent = "Couldn't copy the image here (" + e.message + "). Use Save PNG instead."; }
+};
+$("imgSave").onclick = async () => {
+  try{ const r = await api("/api/save_png", {data: IMG_URL});
+       $("imgMsg").innerHTML = `Saved to <b>${esc(r.path)}</b>${r.can_show ? ` <button class="sm" id="imgShow">Show in folder</button>` : ""}`;
+       if(r.can_show) $("imgShow").onclick = () => api("/api/show_file", {path: r.path}); }
+  catch(e){ $("imgMsg").textContent = "Couldn't save: " + e.message; }
+};
 
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {

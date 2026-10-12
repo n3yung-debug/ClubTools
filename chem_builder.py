@@ -536,6 +536,27 @@ def pos_bans(opts):
 CARD_ID_LINE = re.compile(r"^27-\d+$")
 
 
+def downloads_dir():
+    d = os.path.join(os.path.expanduser("~"), "Downloads")
+    return d if os.path.isdir(d) else DATA_DIR
+
+
+def save_png(data_url):
+    """A data:image/png;base64 URL from the share-as-image dialog -> file in Downloads."""
+    import base64
+    prefix = "data:image/png;base64,"
+    if not data_url.startswith(prefix) or len(data_url) > 15_000_000:
+        raise ValueError("not a PNG image")
+    raw = base64.b64decode(data_url[len(prefix):], validate=True)
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("not a PNG image")
+    os.makedirs(downloads_dir(), exist_ok=True)
+    path = os.path.join(downloads_dir(), time.strftime("ClubTools-squad-%Y%m%d-%H%M%S.png"))
+    with open(path, "wb") as f:
+        f.write(raw)
+    return {"path": path, "can_show": os.name == "nt"}
+
+
 def club_ids(ids):
     """Card ids collected by the bookmark on a club page -> known cards (no live lookups: a club can be
     hundreds of cards, and the card database only holds rating 75+)."""
@@ -868,6 +889,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"ok": True})
             if self.path == "/api/bye":
                 LIFE.bye(body.get("tab"))
+                return self._send(200, {"ok": True})
+            if self.path == "/api/save_png":   # squad image -> Downloads (name chosen here, PNG only)
+                return self._send(200, save_png(str(body.get("data") or "")))
+            if self.path == "/api/show_file":
+                f = str(body.get("path") or "")
+                if os.path.dirname(f) == downloads_dir() and f.lower().endswith(".png") and os.path.exists(f) and os.name == "nt":
+                    subprocess.Popen(["explorer", "/select,", f])
                 return self._send(200, {"ok": True})
             if self.path == "/api/club_ids":
                 return self._send(200, club_ids(body.get("ids") or []))
