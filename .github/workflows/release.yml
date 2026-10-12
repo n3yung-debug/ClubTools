@@ -116,6 +116,14 @@ jobs:
         env:
           VERSION: ${{ steps.v.outputs.version }}
         run: |
+          # a pre-release left by an earlier failed run of this version is replaced; a published release never is
+          $existing = gh release view "v$env:VERSION" --json isPrerelease,isDraft 2>$null | ConvertFrom-Json
+          if ($existing) {
+            if (-not ($existing.isPrerelease -or $existing.isDraft)) { throw "v$env:VERSION is already published - use a higher version number" }
+            Write-Output "Replacing the unpublished pre-release v$env:VERSION from an earlier run"
+            gh release delete "v$env:VERSION" --yes --cleanup-tag
+            if ($LASTEXITCODE -ne 0) { throw "could not remove the old pre-release" }
+          }
           gh release create "v$env:VERSION" dist/ClubTools.exe THIRD_PARTY_NOTICES.txt --title "ClubTools $env:VERSION" --notes-file notes.md --prerelease --target $env:GITHUB_SHA
           if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
 
@@ -145,10 +153,11 @@ jobs:
           $u = Wait-For "the update check" 60 { param($u) $u -and $u.state -ne "checking" -and $u.state -ne "idle" }
           if ($u.state -ne "available") { throw "update not offered: state=$($u.state) error=$($u.error)" }
           Write-Output "Offered $($u.latest.version), download $($u.latest.asset.url), $($u.latest.asset.digest)"
+          $want = $u.latest.asset.digest   # remember it now: after the restart the new copy runs its own check
           Post-Upd "install"
           if (-not $old.WaitForExit(120000)) { throw "the old version didn't close after installing" }
           $u = Wait-For "the new version to start" 90 { param($u) $u -and $u.updated }
-          $want = $u.latest.asset.digest
+          if (-not $want) { throw "no checksum was offered for the release asset" }
           $have = "sha256:" + (Get-FileHash "$dir\ClubTools.exe" -Algorithm SHA256).Hash.ToLower()
           if ($have -ne $want) { throw "installed exe $have doesn't match the release $want" }
           $end = (Get-Date).AddSeconds(60)
