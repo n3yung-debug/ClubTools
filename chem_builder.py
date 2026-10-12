@@ -382,6 +382,33 @@ def meta_lists():
 
 # ------------------------------------------------------------------ search / pool
 
+def browse_cards(qs):
+    """Cards by nation / league / club / position / rating, sorted by rating or a stat (picker 'Browse')."""
+    g = lambda k: (qs.get(k) or [""])[0]   # noqa: E731
+    num = lambda k, d=0: int(g(k)) if g(k).lstrip("-").isdigit() else d   # noqa: E731
+    ni, li, ck, pos, gender = num("ni", None), num("li", None), g("ck"), g("pos"), num("g", 0)
+    lo, hi, sort = num("min", 0), num("max", 99), g("sort") or "ov"
+    out = []
+    for c in STATE["cards"]:
+        if (ni is not None and c["ni"] != ni) or (li is not None and c["li"] != li) or (ck and str(c.get("ck")) != ck):
+            continue
+        if pos and pos not in eng.prefs(c):
+            continue
+        if not lo <= c["ov"] <= hi or (gender and c["g"] != gender):
+            continue
+        out.append(c)
+
+    def key(c):
+        if sort.startswith("fs") and sort[2:].isdigit():
+            fs = c.get("fs") if c.get("p") != "GK" or pos == "GK" else None
+            return ((fs or [0] * 6)[int(sort[2:]) % 6], c["ov"])
+        if sort in ("wf", "sm", "ht"):
+            return (c.get(sort) or 0, c["ov"])
+        return (c["ov"], c.get("fs") and sum(c["fs"]) or 0)
+    out.sort(key=key, reverse=True)
+    return {"hits": [public(c) for c in out[:80]], "total": len(out)}
+
+
 def search_cards(q, live=False, limit=40):
     """Returns {"hits": [...], "live_error": str|None}."""
     toks = fold(q).split()
@@ -746,6 +773,8 @@ class Handler(BaseHTTPRequestHandler):
                                     "has_wf": any(c.get("wf") for c in STATE["cards"]),
                                     "has_ar": any(c.get("ar") for c in STATE["cards"]),
                                     "accel_types": sorted({c["ar"] for c in STATE["cards"] if c.get("ar")})})
+        if u.path == "/api/browse":   # picker browse mode: filter the whole card database
+            return self._send(200, browse_cards(qs))
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))

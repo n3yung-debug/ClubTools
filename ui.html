@@ -203,6 +203,10 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .presetbar select{flex:1;min-width:0;padding:5px 8px}
 #undoToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;gap:12px;align-items:center;background:var(--panel3);border:1px solid var(--line2);border-radius:99px;box-shadow:var(--sh);padding:8px 10px 8px 16px;font-size:13px}
 #undoToast button{border-radius:99px}
+.brpanel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
+.brpanel input,.brpanel select{width:100%;min-width:0;padding:5px 6px}
+.hit .acts{display:flex;gap:4px;margin-top:4px}
+.card .dupb{font-size:9px;font-weight:800;color:#241c05;background:var(--warn);border-radius:4px;padding:0 4px}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -459,7 +463,18 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
     <button id="dlgClose" class="sm">Close</button>
   </div>
   <div class="small mut" id="fillHint" style="margin-top:4px"></div>
-  <input id="q" placeholder="Search by name…" style="width:100%;margin-top:8px" autocomplete="off">
+  <div style="display:flex;gap:6px;margin-top:8px">
+    <input id="q" placeholder="Search by name…" style="flex:1" autocomplete="off">
+    <button class="sm" id="brToggle" title="Find cards by nation, league, club, position and stats">⚲ Browse</button>
+  </div>
+  <div id="brPanel" class="brpanel" hidden>
+    <label class="f">Nation<select id="brNi"></select></label>
+    <label class="f">League<select id="brLi"></select></label>
+    <label class="f">Club<select id="brCk"></select></label>
+    <label class="f">Position<select id="brPos"></select></label>
+    <label class="f">Rating<span style="display:flex;gap:4px"><input id="brMin" type="number" min="40" max="99" placeholder="min"><input id="brMax" type="number" min="40" max="99" placeholder="max"></span></label>
+    <label class="f">Sort by<select id="brSort"><option value="ov">Rating</option><option value="fs0">PAC</option><option value="fs1">SHO</option><option value="fs2">PAS</option><option value="fs3">DRI</option><option value="fs4">DEF</option><option value="fs5">PHY</option><option value="wf">Weak foot</option><option value="sm">Skill moves</option><option value="ht">Height</option></select></label>
+  </div>
   <label class="chk" style="margin-top:6px"><input type="checkbox" id="live"> also search FUT.GG live (finds cards below the cached rating)</label>
   <div class="list" id="hits"></div>
   <details style="margin-top:8px"><summary class="small mut">Card not found? Add a custom card</summary>
@@ -856,6 +871,11 @@ function cardTier(c){
   if(c.ty==="icon"||c.ty==="hero"||c.ty==="hof") return "t-"+c.ty;
   return c.rt && !/^(rare|common|non-rare)/i.test(c.rt) ? "t-special" : "";
 }
+// same player (any version) in another slot? -> that slot's position
+function dupOf(i){
+  const c = S.squad[i]; if(!c || c.bp == null) return "";
+  return S.squad.map((x,j) => j !== i && x && String(x.bp) === String(c.bp) ? S.slots[j] : null).filter(Boolean).join(", ");
+}
 function renderPitch(){
   const pitch = $("pitch"); pitch.innerHTML = '<div class="halfway"></div><div class="box top"></div><div class="box bot"></div>'; VIS = [];
   for(const r of rowsLayout()){
@@ -875,7 +895,7 @@ function renderPitch(){
           <div class="ctop"><span class="cov">${c.ov}</span>${sel}${lock}</div>
           <div class="cname">${esc(c.n)}</div>
           <div class="cl">${esc(c.nn||"?")} · ${esc(c.cn||"–")}</div><div class="cl">${esc(c.ln||"?")}</div>
-          <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
+          <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${dupOf(i)?`<span class="dupb" title="${esc(c.n)} is in your squad more than once (also at ${esc(dupOf(i))}) - the game won't allow that">DUP</span>`:""}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
       }
       row.appendChild(el);
     }
@@ -934,6 +954,7 @@ function openPicker(i){
   $("fillHint").innerHTML = fillMode ? `Fill mode · ${empty} empty slot${empty===1?"":"s"} left · <b>Enter</b> picks the highlighted card and moves on · <b>↑↓</b> choose · <b>Esc</b> stop`
                                      : `Replacing ${esc(S.squad[i].n)} · <b>Enter</b> picks · <b>↑↓</b> choose · <b>Esc</b> cancel`;
   $("q").value = ""; hitCache = []; hitQuery = ""; hl = 0;
+  $("brPanel").hidden = true; $("brToggle").classList.remove("primary"); if($("brPos").options.length) $("brPos").value = "";
   $("hits").innerHTML = `<div class="mut small" style="padding:6px">Type a name to search the card database.</div>`;
   highlightSlot(i);
   if(!$("dlg").open) $("dlg").showModal();
@@ -945,9 +966,35 @@ function highlightSlot(i){
 }
 function hitHtml(c, k){
   const okPos = fits(c, S.slots[pickIdx]);
-  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}<div class="small mut">${esc(c.rt)} · ${cardLine(c, S.slots[pickIdx])}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c, S.slots[pickIdx])}</div>${psHtml(c, S.slots[pickIdx])}</div></div>`;
+  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}${inSquadAt(c).length ? `<span class="tag" style="color:var(--warn)" title="This player is already in your squad">in squad: ${esc(inSquadAt(c).join(", "))}</span>` : ""}<div class="small mut">${esc(c.rt)} · ${cardLine(c, S.slots[pickIdx])}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c, S.slots[pickIdx])}</div>${psHtml(c, S.slots[pickIdx])}${S.squad[pickIdx] && S.squad[pickIdx].s !== c.s ? `<div class="acts"><button class="sm" data-cmp="${k}" title="Compare with ${esc(S.squad[pickIdx].n)} before picking">⇄ Compare with ${esc(S.squad[pickIdx].n)}</button></div>` : ""}</div></div>`;
 }
 let hitCache = [], hitQuery = "", liveError = null;
+/* browse mode (#5) */
+let brTimer = null, brFilled = false;
+function brFill(){
+  if(brFilled) return; brFilled = true;
+  const opts = (list, label) => `<option value="">Any ${label}</option>` + list.slice().sort((a,b) => String(a[1]).localeCompare(String(b[1]))).map(([id,n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join("");
+  $("brNi").innerHTML = opts(META.nations, "nation"); $("brLi").innerHTML = opts(META.leagues, "league"); $("brCk").innerHTML = opts(META.clubs, "club");
+  $("brPos").innerHTML = `<option value="">Any position</option>` + POS.map(p => `<option>${p}</option>`).join("");
+}
+async function doBrowse(){
+  const q = new URLSearchParams();
+  for(const [k,id] of [["ni","brNi"],["li","brLi"],["ck","brCk"],["pos","brPos"],["min","brMin"],["max","brMax"],["sort","brSort"]]) if($(id).value) q.set(k, $(id).value);
+  try{
+    const res = await api("/api/browse?" + q.toString());
+    hitCache = res.hits; hitQuery = ""; liveError = null; hl = 0; renderHits();
+    $("fillHint").innerHTML = `Browse: ${res.total.toLocaleString()} card${res.total===1?"":"s"} match${res.total > res.hits.length ? `, showing the top ${res.hits.length}` : ""}. <b>Enter</b> picks · <b>↑↓</b> choose`;
+  }catch(e){ $("hits").innerHTML = `<div class="note bad">${esc(e.message)}</div>`; }
+}
+$("brToggle").onclick = () => {
+  brFill();
+  const open = $("brPanel").hidden;
+  $("brPanel").hidden = !open; $("brToggle").classList.toggle("primary", open);
+  if(open){ if(!$("brPos").value) $("brPos").value = S.slots[pickIdx] || ""; doBrowse(); }
+};
+$("brPanel").addEventListener("change", () => { clearTimeout(brTimer); brTimer = setTimeout(doBrowse, 150); });
+$("brPanel").addEventListener("input", e => { if(e.target.type === "number"){ clearTimeout(brTimer); brTimer = setTimeout(doBrowse, 400); } });
+const inSquadAt = c => S.squad.map((x,i) => x && i !== pickIdx && String(x.bp) === String(c.bp) ? S.slots[i] : null).filter(Boolean);
 function renderHits(){
   const le = liveError ? `<div class="note bad">Live FUT.GG search failed: ${esc(liveError)}</div>` : "";
   $("hits").innerHTML = le + (hitCache.length ? hitCache.map(hitHtml).join("") : `<div class="mut small" style="padding:6px">No match. Try "also search FUT.GG live" or add a custom card.</div>`);
@@ -1448,6 +1495,9 @@ $("hits").addEventListener("click", e => {
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt}); renderHits(); return; }
   const pb = e.target.closest("[data-posban]");
   if(pb){ posBan({bp:pb.dataset.posban, name:pb.dataset.name, pos:pb.dataset.pos}); renderHits(); return; }
+  const cp = e.target.closest("[data-cmp]");
+  if(cp){ const c = hitCache[+cp.dataset.cmp], i = pickIdx;
+    return confirmApply([{slot:i, out:S.squad[i], in:c}], {}, () => { $("dlg").close(); }); }
   const h = e.target.closest("[data-hit]"); if(h) setCard(hitCache[+h.dataset.hit]);
 });
 $("psReset").onclick = () => { PSP = JSON.parse(JSON.stringify(PS_DEFAULT)); savePS(); };
