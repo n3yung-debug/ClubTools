@@ -198,6 +198,11 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .updbar b{color:#8ff0c0} .updbar .sp{flex:1}
 .updbar pre{flex-basis:100%;margin:4px 0 0;white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.5;color:var(--txt);background:#0006;border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px;max-height:220px;overflow:auto}
 .updbar progress{width:180px;height:8px;accent-color:var(--ok)}
+.presetbar{display:flex;align-items:center;gap:6px;margin-top:12px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
+.presetbar .lbl{font-size:12px;color:var(--mut);font-weight:700}
+.presetbar select{flex:1;min-width:0;padding:5px 8px}
+#undoToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;display:flex;gap:12px;align-items:center;background:var(--panel3);border:1px solid var(--line2);border-radius:99px;box-shadow:var(--sh);padding:8px 10px 8px 16px;font-size:13px}
+#undoToast button{border-radius:99px}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -242,6 +247,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 </header>
 <div id="updBar" class="updbar" hidden></div>
 <div id="syncMsg"></div>
+<div id="undoToast" hidden></div>
 <main>
   <section>
     <div class="pitchwrap">
@@ -302,6 +308,13 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
             <div class="accb"><div class="small mut">Overrides the limit above for that position; blank = use it.</div>
             <div id="capGrid" style="margin-top:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div></div>
           </details>
+        </div>
+        <div class="presetbar" title="A preset saves your required stats, filters, PlayStyle preferences and tab settings under a name">
+          <span class="lbl">Preset</span>
+          <select id="presetSel"><option value="">— current settings —</option></select>
+          <button class="sm" id="presetSave">Save as…</button>
+          <button class="sm" id="presetUpdate" hidden title="Overwrite the selected preset with the current settings">Update</button>
+          <button class="sm ghost" id="presetDel" hidden>Delete</button>
         </div>
         <details class="acc" id="filtDet"><summary>Filters <span class="mut small" id="filtSum" style="font-weight:400"></span></summary>
           <div class="accb">
@@ -1362,7 +1375,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await DB.load(); loadPS(); loadBL(); loadPB();
+  await DB.load(); loadPS(); loadBL(); loadPB(); loadPresets();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1448,7 +1461,8 @@ $("psGroups").addEventListener("change", e => {
 });
 $("pbList").addEventListener("click", e => {
   const b = e.target.closest("[data-unpb]"); if(!b) return;
-  PB.splice(+b.dataset.unpb, 1); savePB();
+  const gone = PB.splice(+b.dataset.unpb, 1)[0]; savePB();
+  if(gone) undoToast(`${esc(gone.n)} can be suggested at ${esc(gone.pos)} again`, () => { PB.push(gone); savePB(); });
   if(window.__R || window.__F) $("goMsg").textContent = "Position block removed — run the search again to include them.";
 });
 let pbTimer = null, pbHits = [];
@@ -1477,7 +1491,9 @@ $("pbAdd").onclick = () => {
 };
 $("blList").addEventListener("click", e => {
   const b = e.target.closest("[data-unban]"); if(!b) return;
+  const gone = BL.find(x => blKey(x) === b.dataset.unban);
   BL = BL.filter(x => blKey(x) !== b.dataset.unban); saveBL();
+  if(gone) undoToast(`${esc(gone.n)} removed from the blacklist`, () => { BL.push(gone); saveBL(); });
   if(window.__R) $("goMsg").textContent = "Removed from the blacklist — run “Find suggestions” again to include them.";
 });
 $("cAdd").onclick = () => {
@@ -1533,7 +1549,12 @@ $("rqCopy").addEventListener("click", e => {
   renderRqCopy();
 });
 document.addEventListener("keydown", e => { if(e.key === "Escape" && RQCOPY){ RQCOPY = null; renderRqCopy(); } });
-$("rqClear").onclick = () => { RQ = {}; RQCOPY = null; renderRq(true); renderRqCopy(); rqChanged(); };
+$("rqClear").onclick = () => {
+  if(!reqsActive()) return;
+  const before = JSON.parse(JSON.stringify(readReqs()));
+  RQ = {}; RQCOPY = null; renderRq(true); renderRqCopy(); rqChanged();
+  undoToast("Cleared all required stats", () => { writeReqs(before); rqChanged(); });
+};
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
@@ -1722,6 +1743,72 @@ $("aboutBtn").onclick = () => openAbout();
 $("footAbout").onclick = e => { e.preventDefault(); openAbout(); };
 $("aboutClose").onclick = () => $("aboutDlg").close();
 document.querySelectorAll("#aboutDlg [data-legal]").forEach(b => b.onclick = () => showLegal(b.dataset.legal));
+
+/* ---------- undo toast (#15) ---------- */
+let undoTimer = null;
+function undoToast(msg, undo){
+  const t = $("undoToast");
+  clearTimeout(undoTimer);
+  t.innerHTML = `<span>${msg}</span>${undo ? `<button class="sm primary" id="undoGo">Undo</button>` : ""}<button class="sm ghost" id="undoX" title="Dismiss">✕</button>`;
+  t.hidden = false;
+  const close = () => { t.hidden = true; t.innerHTML = ""; };
+  if(undo) $("undoGo").onclick = () => { undo(); close(); };
+  $("undoX").onclick = close;
+  undoTimer = setTimeout(close, 10000);
+}
+
+/* ---------- saved presets (#2) ---------- */
+const KEY_PRESETS = "chemBuilder.presets";
+const PRESET_SKIP = ["blacklist", "blacklist_cards", "pos_bans", "club_list"];   // global, not part of a preset
+let PRESETS = {};
+function loadPresets(){ try{ PRESETS = JSON.parse(DB.get(KEY_PRESETS) || "{}") || {}; }catch(e){ PRESETS = {}; } renderPresets(); }
+function savePresets(){ DB.set(KEY_PRESETS, JSON.stringify(PRESETS)); renderPresets(); }
+function renderPresets(sel){
+  const cur = sel !== undefined ? sel : $("presetSel").value;
+  const names = Object.keys(PRESETS).sort((a,b) => a.localeCompare(b));
+  $("presetSel").innerHTML = `<option value="">— current settings —</option>` + names.map(n => `<option ${n===cur?"selected":""}>${esc(n)}</option>`).join("");
+  const on = !!$("presetSel").value;
+  $("presetUpdate").hidden = !on; $("presetDel").hidden = !on;
+}
+function presetSnapshot(){
+  const o = readOpts(); for(const k of PRESET_SKIP) delete o[k];
+  return JSON.parse(JSON.stringify(o));
+}
+function applySettings(o){
+  const keep = {}; for(const k of PRESET_SKIP) keep[k] = readOpts()[k];
+  writeOpts(Object.assign({}, o, {club_list: keep.club_list}));
+  if(o.ps_prefs){ PSP = JSON.parse(JSON.stringify(o.ps_prefs)); savePS(); }
+  save(); updFiltSum(); rqRefreshCounts();
+}
+$("presetSel").onchange = () => {
+  const name = $("presetSel").value;
+  renderPresets(name);
+  if(!name) return;
+  const before = presetSnapshot();
+  applySettings(PRESETS[name].opts);
+  undoToast(`Preset “${esc(name)}” applied`, () => { applySettings(before); renderPresets(""); });
+};
+$("presetSave").onclick = () => {
+  const name = (prompt("Name for this preset (required stats, filters, PlayStyles):", $("presetSel").value || "") || "").trim();
+  if(!name) return;
+  if(PRESETS[name] && !confirm(`Replace the preset “${name}”?`)) return;
+  PRESETS[name] = {opts: presetSnapshot(), saved: new Date().toISOString()};
+  savePresets(); renderPresets(name);
+  undoToast(`Saved preset “${esc(name)}”`);
+};
+$("presetUpdate").onclick = () => {
+  const name = $("presetSel").value; if(!name) return;
+  const old = PRESETS[name];
+  PRESETS[name] = {opts: presetSnapshot(), saved: new Date().toISOString()};
+  savePresets(); renderPresets(name);
+  undoToast(`Updated “${esc(name)}” with the current settings`, () => { PRESETS[name] = old; savePresets(); });
+};
+$("presetDel").onclick = () => {
+  const name = $("presetSel").value; if(!name) return;
+  const old = PRESETS[name];
+  delete PRESETS[name]; savePresets(); renderPresets("");
+  undoToast(`Deleted preset “${esc(name)}”`, () => { PRESETS[name] = old; savePresets(); renderPresets(name); });
+};
 
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {
