@@ -412,6 +412,14 @@ def test_blacklist_single_card_keeps_other_versions():
     assert banned not in {c["s"] for c in left} and len(left) == len(versions) - 1
 
 
+def test_club_list_card_id_lines():
+    cb.load_cache()
+    pool, unmatched = cb.build_pool({"club_list": "27-50563395  Mbappé 91 (Destined for Glory)\n27-999999999  Nobody 99\n"})
+    assert [c["s"] for c in pool] == ["27-50563395"] and unmatched == ["27-999999999  Nobody 99"]
+    r = cb.club_ids(["50563395", "50563395", "999999999", "x"])
+    assert [c["s"] for c in r["cards"]] == ["27-50563395"] and r["unknown"] == 1
+
+
 def test_name_matching_prefers_word_starts():
     cb.load_cache()
     assert {c["n"] for c in cb.find_cards("Isco")} == {"Isco"}            # not Francisco Trincão

@@ -452,6 +452,18 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
   <pre id="legalText" hidden style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.5;max-height:60vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;margin:0"></pre>
 </dialog>
 
+<dialog id="clubDlg" style="width:min(520px,94vw)">
+  <strong>Cards from your browser</strong>
+  <div class="small mut" id="clubInfo" style="margin:6px 0 12px"></div>
+  <div style="display:grid;gap:8px">
+    <button class="primary" id="clubAdd">Add to my club (only suggest cards I own)</button>
+    <button id="clubReplace">Replace my club list with these</button>
+    <button id="clubSquad">Import as a squad instead</button>
+    <button class="ghost" id="clubCancel">Cancel</button>
+  </div>
+  <div class="small mut" style="margin-top:10px">Club pages are split into pages: open each page and click the bookmark again; “Add” keeps adding. The list lives in Filters → “Only use cards I own”.</div>
+</dialog>
+
 <dialog id="evoDlg" style="width:min(760px,96vw)">
   <div style="display:flex;gap:8px;align-items:center">
     <strong style="flex:1" id="evoTitle">Evolved card</strong>
@@ -1333,7 +1345,8 @@ function bookmarklet(){
   const code = `(function(){var B=${JSON.stringify(base)};var u=location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);`
     + `if(/fut\\.gg$/.test(location.hostname)&&u){window.open(B+'send?import=fgg:'+u[0]);return}`
     + `var ids=[],seen={};document.querySelectorAll('img').forEach(function(i){[i.currentSrc,i.src,i.getAttribute('data-src'),i.getAttribute('data-original'),i.getAttribute('srcset')].forEach(function(s){var m=s&&String(s).match(/\\/players\\/p?(\\d{3,})\\.(?:png|webp)/);if(m&&!seen[m[1]]){seen[m[1]]=1;ids.push(m[1])}})});`
-    + `if(!ids.length){alert('ClubTools: no player cards found on this page. Open a squad page and try again.');return}`
+    + `document.querySelectorAll('a[href*="/players/"]').forEach(function(a){var m=String(a.getAttribute('href')).match(/\\/players\\/\\d+-[^\\/]+\\/27-(\\d+)/);if(m&&!seen[m[1]]){seen[m[1]]=1;ids.push(m[1])}});`
+    + `if(!ids.length){alert('ClubTools: no player cards found on this page. Open a squad or club page and try again.');return}`
     + `window.open(B+'send?import=ids:'+ids.join(','))})()`;
   return "javascript:" + encodeURIComponent(code);
 }
@@ -1394,7 +1407,7 @@ function handleItem(h){
   if(h === "import=reload"){ location.reload(); return; }
   if(h.startsWith("squad=")) return openShared(h.slice(6));
   if(h.startsWith("import=fgg:")){ openImport("fgg"); $("fggUrl").value = h.slice(11); return runPreview({mode:"fgg", url:h.slice(11)}); }
-  if(h.startsWith("import=ids:")){ openImport("futbin"); return runPreview({mode:"ids", ids:h.slice(11).split(",")}); }
+  if(h.startsWith("import=ids:")) return clubChoice(h.slice(11).split(","));
 }
 
 /* ---------- app lifetime: the server stops by itself shortly after the last tab closes ---------- */
@@ -1938,6 +1951,33 @@ $("evoSave").onclick = () => {
   undoToast(`Saved evolved ${esc(evo.n)} (${evo.ov} ${esc(evo.p)})`, () => undo());
 };
 $("dlgEvo").onclick = openEvo;
+
+/* ---------- club import from the bookmark (#9) ---------- */
+let CLUB_IDS = [];
+async function clubChoice(ids){
+  CLUB_IDS = ids;
+  let info = `${ids.length} card${ids.length === 1 ? "" : "s"} found on that page.`;
+  if(ids.length <= 11) info += " That looks like a squad.";
+  $("clubInfo").textContent = info;
+  $("clubDlg").showModal();
+}
+function clubLines(){ return $("clubList").value.split("\n").filter(l => l.trim()); }
+async function clubImport(replace){
+  let r; try{ r = await api("/api/club_ids", {ids:CLUB_IDS}); }catch(e){ $("clubInfo").textContent = e.message; return; }
+  const before = $("clubList").value;
+  const lines = replace ? [] : clubLines();
+  const have = new Set(lines.map(l => l.trim().split(/\s+/)[0]));
+  let added = 0;
+  for(const c of r.cards) if(!have.has(c.s)){ lines.push(`${c.s}  ${c.n} ${c.ov} (${c.rt})`); have.add(c.s); added++; }
+  $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts();
+  $("clubDlg").close();
+  const skipped = r.unknown ? ` ${r.unknown} below the 75-rated card database were skipped.` : "";
+  undoToast(`${replace ? "Club list replaced" : "Added to your club"}: ${added} new card${added===1?"":"s"} (${clubLines().length} total).${skipped}`, () => { $("clubList").value = before; save(); updFiltSum(); });
+}
+$("clubAdd").onclick = () => clubImport(false);
+$("clubReplace").onclick = () => clubImport(true);
+$("clubSquad").onclick = () => { $("clubDlg").close(); openImport("futbin"); runPreview({mode:"ids", ids:CLUB_IDS}); };
+$("clubCancel").onclick = () => $("clubDlg").close();
 
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {

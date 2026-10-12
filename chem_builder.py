@@ -533,6 +533,20 @@ def pos_bans(opts):
     return out
 
 
+CARD_ID_LINE = re.compile(r"^27-\d+$")
+
+
+def club_ids(ids):
+    """Card ids collected by the bookmark on a club page -> known cards (no live lookups: a club can be
+    hundreds of cards, and the card database only holds rating 75+)."""
+    ids = list(dict.fromkeys(str(i) for i in ids if str(i).isdigit()))[:2000]
+    cards, unknown = [], []
+    for i in ids:
+        c = STATE["by_slug"].get(f"27-{i}")
+        (cards.append({"s": c["s"], "n": c["n"], "ov": c["ov"], "rt": c.get("rt", ""), "p": c["p"]}) if c else unknown.append(i))
+    return {"cards": cards, "unknown": len(unknown)}
+
+
 def build_pool(opts):
     gender = int(opts.get("gender") or 0)
     excl = set(opts.get("exclude_types") or [])
@@ -547,9 +561,13 @@ def build_pool(opts):
     if lines:
         chosen = {}
         for ln in lines:
-            slug_hit = STATE["by_slug"].get(ln.strip())
-            if slug_hit:
-                chosen[slug_hit["s"]] = slug_hit
+            first = ln.strip().split()[0]
+            if CARD_ID_LINE.match(first):   # "27-50563395  Mbappé 91 ..." from a club import: exact card
+                slug_hit = STATE["by_slug"].get(first)
+                if slug_hit:
+                    chosen[slug_hit["s"]] = slug_hit
+                else:
+                    unmatched.append(ln.strip())
                 continue
             p = parse_line(ln)
             found = find_cards(p["name"], p["rating"]) if p else []
@@ -851,6 +869,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/bye":
                 LIFE.bye(body.get("tab"))
                 return self._send(200, {"ok": True})
+            if self.path == "/api/club_ids":
+                return self._send(200, club_ids(body.get("ids") or []))
             if self.path == "/api/req_counts":   # how many cards still qualify per position with the stat requirements
                 o = body.get("opts") or {}
                 pool, _ = build_pool(o)
