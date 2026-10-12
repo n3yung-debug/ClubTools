@@ -207,6 +207,11 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .brpanel input,.brpanel select{width:100%;min-width:0;padding:5px 6px}
 .hit .acts{display:flex;gap:4px;margin-top:4px}
 .card .dupb{font-size:9px;font-weight:800;color:#241c05;background:var(--warn);border-radius:4px;padding:0 4px}
+.chips-row{display:flex;flex-wrap:wrap;gap:5px}
+.chips-row button{padding:3px 9px;font-size:12px;border-radius:99px}
+.chips-row button.on{background:#1d3a66;border-color:var(--acc);color:var(--txt)}
+.chips-row button.plus{background:#3b3217;border-color:#8a7433;color:var(--gold);font-weight:700}
+.tag.evo{background:#3e2a6b;color:#d6c4ff}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -447,6 +452,27 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
   <pre id="legalText" hidden style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.5;max-height:60vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;margin:0"></pre>
 </dialog>
 
+<dialog id="evoDlg" style="width:min(760px,96vw)">
+  <div style="display:flex;gap:8px;align-items:center">
+    <strong style="flex:1" id="evoTitle">Evolved card</strong>
+    <button id="evoCancel" class="sm">Cancel</button>
+    <button id="evoSave" class="sm primary">Save evolved card</button>
+  </div>
+  <div class="small mut" style="margin:4px 0 10px">Enter your card as it is after its Evolutions. ClubTools then uses it for chemistry, positions and suggestions. It's kept in <b>My evolved cards</b> and offered in name searches with an EVO tag.</div>
+  <div class="grid2" style="grid-template-columns:repeat(4,1fr)">
+    <label class="f">Overall<input id="evoOv" type="number" min="40" max="99"></label>
+    <label class="f">Main position<select id="evoPos"></select></label>
+    <label class="f">Weak foot<select id="evoWf"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+    <label class="f">Skill moves<select id="evoSm"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+  </div>
+  <div class="small mut" style="margin:10px 0 4px">Other positions it can play (alternate positions)</div>
+  <div id="evoAlts" class="chips-row"></div>
+  <div class="small mut" style="margin:10px 0 4px">Face stats</div>
+  <div id="evoFs" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+  <div class="small mut" style="margin:10px 0 4px">PlayStyles: tap once for PlayStyle, twice for PlayStyle<b>+</b>, again to remove</div>
+  <div id="evoPs" class="chips-row"></div>
+</dialog>
+
 <dialog id="cmpDlg" style="width:min(980px,96vw)">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
     <strong style="flex:1">Final check — compare before applying</strong>
@@ -459,6 +485,7 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 <dialog id="dlg">
   <div style="display:flex;gap:8px;align-items:center">
     <strong id="dlgTitle" style="flex:1">Pick player</strong>
+    <button id="dlgEvo" class="sm" hidden title="Your card has been through Evolutions? Enter its upgraded rating, positions, stats and PlayStyles">✎ Evolve…</button>
     <button id="dlgRemove" class="sm" hidden title="Empty this slot (e.g. to let ✚ Fill squad suggest someone)">Remove player</button>
     <button id="dlgClose" class="sm">Close</button>
   </div>
@@ -853,7 +880,7 @@ function cardLink(c){
   return (b ? ` <a class="ext" href="${b}" target="_blank" rel="noopener" title="Find ${esc(c.n)} on FUTBIN (prices, stats) - pick the ${c.ov} ${esc(c.rt||"")} version">FUTBIN ↗</a>` : "")
        + (g ? ` <a class="ext sub" href="${g}" target="_blank" rel="noopener" title="Open this exact card on FUT.GG">fut.gg</a>` : "");
 }
-function typeTag(c){ return c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
+function typeTag(c){ return isEvo(c) ? "EVO" : c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
 function cardLine(c, pos){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}${wfsm(c, pos)}`; }
 // weak foot / skill moves / foot; a requirement that is set and met is shown in gold
 function wfsm(c, pos){
@@ -950,7 +977,7 @@ function openPicker(i){
   pickIdx = i; fillMode = !S.squad[i];
   const empty = S.squad.filter(c => !c).length;
   $("dlgTitle").textContent = `Pick player for ${S.slots[i]}`;
-  $("dlgRemove").hidden = !S.squad[i];
+  $("dlgRemove").hidden = !S.squad[i]; $("dlgEvo").hidden = !S.squad[i];
   $("fillHint").innerHTML = fillMode ? `Fill mode · ${empty} empty slot${empty===1?"":"s"} left · <b>Enter</b> picks the highlighted card and moves on · <b>↑↓</b> choose · <b>Esc</b> stop`
                                      : `Replacing ${esc(S.squad[i].n)} · <b>Enter</b> picks · <b>↑↓</b> choose · <b>Esc</b> cancel`;
   $("q").value = ""; hitCache = []; hitQuery = ""; hl = 0;
@@ -1006,7 +1033,8 @@ async function doSearch(){
     const res = await api(`/api/search?q=${encodeURIComponent(q)}&live=${$("live").checked?1:0}`);
     if(q !== $("q").value.trim()) return;  // a newer search is on its way
     const pos = S.slots[pickIdx];   // cards that can play this slot first, otherwise the server's order (rating)
-    hitCache = res.hits.map((c,k)=>[c,k]).sort((a,b)=> (fits(b[0],pos)-fits(a[0],pos)) || a[1]-b[1]).map(x=>x[0]);
+    const ql = q.toLowerCase(), mine = EVOS.filter(e => (e.n + " " + (e.fn||"")).toLowerCase().includes(ql));   // your evolved cards first
+    hitCache = mine.concat(res.hits.map((c,k)=>[c,k]).sort((a,b)=> (fits(b[0],pos)-fits(a[0],pos)) || a[1]-b[1]).map(x=>x[0]));
     hitQuery = q; liveError = res.live_error; hl = 0; renderHits();
   }catch(e){ $("hits").innerHTML = `<div class="note bad">${esc(e.message)}</div>`; }
 }
@@ -1334,7 +1362,7 @@ const b64e = s => btoa(String.fromCharCode(...new TextEncoder().encode(s))).repl
 const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0)));
 $("share").onclick = async () => {
   const f = FORMATIONS[S.formation];
-  const d = {v:1, f:S.formation, p:S.squad.map(c => !c ? null : String(c.s).startsWith("custom:") ? c : c.s),
+  const d = {v:1, f:S.formation, p:S.squad.map(c => !c ? null : /^(custom|evo):/.test(String(c.s)) ? c : c.s),
              l:S.locks.flatMap((x,i)=>x?[i]:[]), m:S.mgr};
   if(!f || f.slots.some((p,i)=>p!==S.slots[i])) d.sl = S.slots;
   const url = location.origin + "/send?squad=" + b64e(JSON.stringify(d));
@@ -1422,7 +1450,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await DB.load(); loadPS(); loadBL(); loadPB(); loadPresets();
+  await DB.load(); loadPS(); loadBL(); loadPB(); loadPresets(); loadEvos();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1859,6 +1887,57 @@ $("presetDel").onclick = () => {
   delete PRESETS[name]; savePresets(); renderPresets("");
   undoToast(`Deleted preset “${esc(name)}”`, () => { PRESETS[name] = old; savePresets(); renderPresets(name); });
 };
+
+/* ---------- evolved cards (#8) ---------- */
+const KEY_EVOS = "chemBuilder.evos";
+let EVOS = [], EVO = null;   // library of evolved cards; card being edited
+function loadEvos(){ try{ EVOS = JSON.parse(DB.get(KEY_EVOS) || "[]") || []; }catch(e){ EVOS = []; } }
+function saveEvos(){ DB.set(KEY_EVOS, JSON.stringify(EVOS)); }
+const isEvo = c => !!c && /^evo:/.test(String(c.s));
+function openEvo(){
+  const c = S.squad[pickIdx]; if(!c) return;
+  EVO = {src:c, slot:pickIdx, ps:new Set((c.ps||[]).map(Number)), pp:new Set((c.pp||[]).map(Number)), alts:new Set(c.a||[])};
+  $("evoTitle").textContent = `${isEvo(c) ? "Edit evolved" : "Evolve"} ${c.n}`;
+  $("evoOv").value = c.ov; $("evoWf").value = String(c.wf || 3); $("evoSm").value = String(c.sm || 3);
+  $("evoPos").innerHTML = POS.map(p => `<option ${p===c.p?"selected":""}>${p}</option>`).join("");
+  renderEvo();
+  $("evoDlg").showModal();
+}
+function renderEvo(){
+  const c = EVO.src, gk = $("evoPos").value === "GK", lab = gk ? FACE_GK : FACE;
+  const cur = [...$("evoFs").querySelectorAll("input")].map(i => i.value);
+  $("evoAlts").innerHTML = POS.filter(p => p !== $("evoPos").value).map(p => `<button class="${EVO.alts.has(p)?"on":""}" data-alt="${p}">${p}</button>`).join("");
+  $("evoFs").innerHTML = lab.map((l,k) => `<label class="f" style="font-size:11px">${l}<input type="number" min="1" max="99" data-efs="${k}" value="${cur.length ? cur[k] : ((c.fs||[])[k] ?? "")}"></label>`).join("");
+  const gkSet = new Set((META.gk_playstyles||[]).map(Number));
+  const ids = Object.keys(META.playstyles||{}).map(Number).filter(id => gk ? gkSet.has(id) : !gkSet.has(id)).sort((a,b) => psName(a).localeCompare(psName(b)));
+  $("evoPs").innerHTML = ids.map(id => `<button class="${EVO.pp.has(id) ? "plus" : EVO.ps.has(id) ? "on" : ""}" data-eps="${id}">${esc(psName(id))}${EVO.pp.has(id) ? "+" : ""}</button>`).join("");
+}
+$("evoPos").onchange = () => { EVO.alts.delete($("evoPos").value); $("evoFs").innerHTML = ""; renderEvo(); };
+$("evoAlts").addEventListener("click", e => { const b = e.target.closest("[data-alt]"); if(!b) return; const p = b.dataset.alt; EVO.alts.has(p) ? EVO.alts.delete(p) : EVO.alts.add(p); renderEvo(); });
+$("evoPs").addEventListener("click", e => {
+  const b = e.target.closest("[data-eps]"); if(!b) return; const id = +b.dataset.eps;
+  if(EVO.pp.has(id)){ EVO.pp.delete(id); EVO.ps.delete(id); }          // + -> off
+  else if(EVO.ps.has(id)){ EVO.pp.add(id); }                           // on -> +
+  else EVO.ps.add(id);                                                 // off -> on
+  renderEvo();
+});
+$("evoCancel").onclick = () => { EVO = null; $("evoDlg").close(); };
+$("evoSave").onclick = () => {
+  const c = EVO.src, ov = Math.max(40, Math.min(99, +$("evoOv").value || c.ov));
+  const fs = [...$("evoFs").querySelectorAll("input")].map(i => Math.max(1, Math.min(99, +i.value || 0)));
+  const base = isEvo(c) ? (c.base_s || c.s) : c.s;
+  const evo = Object.assign({}, c, {
+    s: isEvo(c) ? c.s : `evo:${base}:${Date.now().toString(36)}`, base_s: base, evo: true,
+    ov, p: $("evoPos").value, a: [...EVO.alts].filter(p => p !== $("evoPos").value),
+    wf: +$("evoWf").value, sm: +$("evoSm").value, fs: fs.every(Boolean) ? fs : c.fs,
+    pp: [...EVO.pp], ps: [...new Set([...EVO.ps, ...EVO.pp])],
+  });
+  EVOS = EVOS.filter(x => x.s !== evo.s); EVOS.unshift(evo); saveEvos();
+  commit(); S.squad[EVO.slot] = evo;
+  EVO = null; $("evoDlg").close(); $("dlg").close(); refresh();
+  undoToast(`Saved evolved ${esc(evo.n)} (${evo.ov} ${esc(evo.p)})`, () => undo());
+};
+$("dlgEvo").onclick = openEvo;
 
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {
