@@ -27,6 +27,17 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 The workflow builds and self-tests the exe, publishes it as a pre-release (nobody is offered it yet), then runs an old copy of ClubTools on a Windows machine that updates itself to the new release and checks the installed file's checksum. Only when that passes does it become the latest release, which every ClubTools offers on its next start. Version numbers must go up (1.2.0 → 1.2.1 / 1.3.0); release notes default to the list of changes since the previous release. Builds from the normal "Build Windows app" workflow (test builds without a version number) are offered a release published after them.
 
 ## Use
+
+New in 1.2 (quality of life):
+- **Presets** (bar above Filters): save required stats, filters, PlayStyle preferences and tab settings under a name and switch with one click (Undo after switching). Blacklist, position blocks and your club list stay global.
+- **Player picker**:
+  - **⚲ Browse** finds cards by nation / league / club / position / rating, sorted by rating, any face stat, weak foot, skill moves or height.
+  - **⇄ Compare** opens the final-check screen against the player in that slot.
+  - Results already in your squad are tagged, and a player placed twice shows **DUP** on the pitch.
+- **✎ Evolve…** (picker on a filled slot): enter your evolved card's rating, positions, face stats, WF/SM and PlayStyles(+). It's used everywhere, kept under "My evolved cards", offered first in name searches (EVO tag) and carried in share links.
+- **🖼 Share as image** (Squads menu): a picture of the squad with chemistry, formation and manager. Copy it, or save it as a PNG in Downloads.
+- A reminder when card data is 7+ days old (new TOTW/promo cards). **?** shows keyboard shortcuts; ⚙ → "Show the quick tips again".
+- The app remembers which sections were open, and has **Undo** after Clear all, preset changes and blacklist removals.
 - Pick a formation (all 29 FC 27 Ultimate Team formations, taken from FUT.GG's squad builder), or edit any slot's position dropdown.
 - Click an empty slot to start **fill mode**: type a name, press Enter, and the picker moves to the next empty slot (↑↓ to choose, Esc to stop). Chemistry updates live as you add players.
 - Drag a card onto another slot to swap them. **Undo / Redo** (Ctrl+Z / Ctrl+Y) cover every change.

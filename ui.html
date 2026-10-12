@@ -212,6 +212,14 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .chips-row button.on{background:#1d3a66;border-color:var(--acc);color:var(--txt)}
 .chips-row button.plus{background:#3b3217;border-color:#8a7433;color:var(--gold);font-weight:700}
 .tag.evo{background:#3e2a6b;color:#d6c4ff}
+.databar{background:linear-gradient(90deg,#3a2a10,#13284a);border-bottom-color:#8a7433}
+.keys{width:100%;border-collapse:collapse;font-size:13px} .keys td,.keys th{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
+.keys th{text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding-top:12px}
+.keys td:first-child{white-space:nowrap;color:var(--mut);width:42%}
+kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;background:var(--panel2);font:600 11px/1.5 inherit;color:var(--txt)}
+.tourbox{position:fixed;z-index:70;max-width:320px;background:var(--panel);border:1px solid var(--acc);border-radius:var(--r);box-shadow:0 12px 40px #000c;padding:12px 14px;font-size:13px}
+.tourbox .tb-h{font-weight:800;margin-bottom:4px} .tourbox .tb-f{display:flex;align-items:center;gap:6px;margin-top:10px}
+.tour-hl{outline:3px solid var(--acc)!important;outline-offset:3px;border-radius:10px;position:relative;z-index:69}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -250,12 +258,15 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
       <hr>
       <button id="diag" class="sm">Test connection</button>
       <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
+      <button id="keysBtn" class="sm">⌨ Keyboard shortcuts <span class="mut">(?)</span></button>
+      <button id="tourBtn" class="sm">💡 Show the quick tips again</button>
       <button id="aboutBtn" class="sm">ⓘ About &amp; legal</button>
       <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
     </div>
   </div>
 </header>
 <div id="updBar" class="updbar" hidden></div>
+<div id="dataBar" class="updbar databar" hidden></div>
 <div id="syncMsg"></div>
 <div id="undoToast" hidden></div>
 <main>
@@ -452,6 +463,24 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
   </div>
   <pre id="legalText" hidden style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;line-height:1.5;max-height:60vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;margin:0"></pre>
 </dialog>
+
+<dialog id="keysDlg" style="width:min(520px,94vw)">
+  <div style="display:flex;align-items:center;margin-bottom:8px"><strong style="flex:1">Keyboard shortcuts</strong><button class="sm" id="keysClose">Close</button></div>
+  <table class="keys">
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo a squad change</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Redo</td></tr>
+    <tr><td><kbd>?</kbd></td><td>This list</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close a window, menu or the copy strip</td></tr>
+    <tr><th colspan="2">In the player picker</th></tr>
+    <tr><td>Type a name</td><td>Search (your evolved cards come first)</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move through the results</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>Pick the highlighted card; on an empty slot it moves on to the next empty one (fill mode)</td></tr>
+    <tr><th colspan="2">On the pitch</th></tr>
+    <tr><td>Drag a card</td><td>Swap two slots</td></tr>
+    <tr><td>🔒 on a card</td><td>Keep that slot fixed during searches</td></tr>
+  </table>
+</dialog>
+<div id="tourBox" class="tourbox" hidden></div>
 
 <dialog id="imgDlg" style="width:min(720px,96vw)">
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
@@ -2071,6 +2100,78 @@ $("imgSave").onclick = async () => {
   catch(e){ $("imgMsg").textContent = "Couldn't save: " + e.message; }
 };
 
+/* ---------- card data age reminder (#12) ---------- */
+const KEY_DATA_SNOOZE = "chemBuilder.dataSnooze";
+function checkDataAge(){
+  const t = META.meta && META.meta.synced_at; if(!t) return;
+  const synced = new Date(String(t).replace(" ", "T")), days = Math.floor((Date.now() - synced) / 864e5);
+  const snooze = +DB.get(KEY_DATA_SNOOZE) || 0;
+  if(!(days >= 7) || Date.now() < snooze) return;
+  const bar = $("dataBar");
+  bar.innerHTML = `<span>🗓 Your card data is <b>${days} days old</b>, so this week's new cards (TOTW, promos) may be missing.</span><span class="sp"></span>
+    <button class="sm primary" id="dataGo">Update card data</button><button class="sm ghost" id="dataLater">Remind me in 3 days</button>`;
+  bar.hidden = false;
+  $("dataGo").onclick = () => { bar.hidden = true; $("sync").click(); };
+  $("dataLater").onclick = () => { DB.set(KEY_DATA_SNOOZE, String(Date.now() + 3*864e5)); bar.hidden = true; };
+}
+
+/* ---------- keyboard shortcuts overlay (#13) ---------- */
+$("keysBtn").onclick = () => $("keysDlg").showModal();
+$("keysClose").onclick = () => $("keysDlg").close();
+addEventListener("keydown", e => {
+  if(e.key !== "?" || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.target.closest && e.target.closest("input,textarea,select") || document.querySelector("dialog[open]")) return;
+  e.preventDefault(); $("keysDlg").showModal();
+});
+
+/* ---------- remember layout (#14): open sections, required-stats tab, "show all positions" ---------- */
+const KEY_UI = "chemBuilder.ui";
+const UI_SECTIONS = ["filtDet", "rqDet", "psDet", "blDet", "capDet"];
+function saveUiState(){
+  DB.set(KEY_UI, JSON.stringify({open: UI_SECTIONS.filter(id => $(id) && $(id).open), rqTab: RQTAB, rqAll: $("rqAllPos").checked}));
+}
+function loadUiState(){
+  let u; try{ u = JSON.parse(DB.get(KEY_UI) || "null"); }catch(e){ u = null; }
+  if(!u) return;
+  for(const id of UI_SECTIONS) if($(id)) $(id).open = (u.open || []).includes(id);
+  if(u.rqTab) RQTAB = u.rqTab;
+  $("rqAllPos").checked = !!u.rqAll;
+  renderRq(true);
+}
+for(const id of UI_SECTIONS) if($(id)) $(id).addEventListener("toggle", saveUiState);
+$("rqAllPos").addEventListener("change", saveUiState);
+document.querySelectorAll("#rqTabs [data-rqtab]").forEach(b => b.addEventListener("click", saveUiState));
+
+/* ---------- first-run tips (#16) ---------- */
+const KEY_TOUR = "chemBuilder.tourDone";
+const TOUR = [
+  ["#impBtn", "Bring your squad in", "Import it from a FUT.GG share link or with the FUTBIN bookmark, or click any slot on the pitch to add players one by one."],
+  ["#pitch", "Your squad", "Click a card to replace it or ✎ Evolve it, drag cards to swap them, and 🔒 keeps a slot fixed. The ring on the right is your live chemistry."],
+  [".modetabs", "Three ways to improve it", "<b>Chemistry</b> finds swaps and manager changes, <b>Upgrades</b> finds higher-rated players that keep your chemistry, and <b>Fill squad</b> builds around the players you choose."],
+  ["#rqDet > summary", "Make it yours", "Required stats (5★ skills, pace, left foot…), PlayStyles, blacklist, and presets to save it all. Press <kbd>?</kbd> for shortcuts."],
+];
+let tourStep = -1;
+function showTour(k){
+  document.querySelectorAll(".tour-hl").forEach(x => x.classList.remove("tour-hl"));
+  const box = $("tourBox");
+  if(k < 0 || k >= TOUR.length){ box.hidden = true; tourStep = -1; DB.set(KEY_TOUR, "1"); return; }
+  tourStep = k;
+  const [sel, h, txt] = TOUR[k], el = document.querySelector(sel);
+  if(!el) return showTour(k + 1);
+  el.scrollIntoView({block:"nearest"}); el.classList.add("tour-hl");
+  box.innerHTML = `<div class="tb-h">${h}</div><div>${txt}</div><div class="tb-f"><span class="mut small">${k + 1} / ${TOUR.length}</span><span style="flex:1"></span>
+    <button class="sm ghost" id="tourSkip">Skip</button><button class="sm primary" id="tourNext">${k === TOUR.length - 1 ? "Got it" : "Next"}</button></div>`;
+  box.hidden = false;
+  const r = el.getBoundingClientRect(), bw = Math.min(320, innerWidth - 24);
+  const left = Math.max(12, Math.min(innerWidth - bw - 12, r.left));
+  const below = r.bottom + 12 + box.offsetHeight < innerHeight;
+  box.style.left = left + "px"; box.style.top = (below ? r.bottom + 12 : Math.max(12, r.top - box.offsetHeight - 12)) + "px";
+  $("tourNext").onclick = () => showTour(k + 1);
+  $("tourSkip").onclick = () => showTour(-1);
+}
+$("tourBtn").onclick = () => showTour(0);
+addEventListener("resize", () => { if(tourStep >= 0) showTour(tourStep); });
+
 /* ---------- header menus, toast ---------- */
 document.querySelectorAll(".menu [data-menu]").forEach(b => b.onclick = e => {
   const m = b.closest(".menu"), was = m.classList.contains("open");
@@ -2082,7 +2183,7 @@ document.addEventListener("click", e => {
   if(e.target.closest(".pop select, .pop input")) return;
   if(!e.target.closest(".pop") || e.target.closest(".pop button")) document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open"));
 });
-document.addEventListener("keydown", e => { if(e.key==="Escape") document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open")); });
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ document.querySelectorAll(".menu.open").forEach(x => x.classList.remove("open")); if(tourStep >= 0) showTour(-1); } });
 let toastTimer = null;
 new MutationObserver(() => {
   clearTimeout(toastTimer);
@@ -2104,7 +2205,7 @@ $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps())
 $("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
 $("filtDet").addEventListener("change", () => rqRefreshCounts());
 
-init().then(() => { updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); });
+init().then(() => { loadUiState(); updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); checkDataAge(); if(DB.get(KEY_TOUR) !== "1") setTimeout(() => showTour(0), 600); });
 </script>
 </body>
 </html>
