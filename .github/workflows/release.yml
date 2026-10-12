@@ -76,7 +76,7 @@ jobs:
       - name: Build ClubTools.exe
         run: >
           pyinstaller --noconfirm --onefile --windowed --name ClubTools --icon icon.ico
-          --add-data "ui.html;." --add-data "cards.json;." --add-data "version.txt;." --add-data "EULA.md;." --add-data "PRIVACY.md;." --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --collect-all webview --exclude-module webview.__pyinstaller --exclude-module PyInstaller --exclude-module setuptools --exclude-module _distutils_hack --exclude-module pkg_resources --exclude-module altgraph --exclude-module packaging --exclude-module pefile --exclude-module win32ctypes chem_builder.py
+          --add-data "ui.html;." --add-data "assets;assets" --add-data "cards.json;." --add-data "version.txt;." --add-data "EULA.md;." --add-data "PRIVACY.md;." --add-data "LICENSE;." --add-data "THIRD_PARTY_NOTICES.txt;." --collect-all webview --exclude-module webview.__pyinstaller --exclude-module PyInstaller --exclude-module setuptools --exclude-module _distutils_hack --exclude-module pkg_resources --exclude-module altgraph --exclude-module packaging --exclude-module pefile --exclude-module win32ctypes chem_builder.py
 
       - name: Check what went into the exe (only components covered by the license notices; no GPL PyInstaller modules)
         run: python tools/check_bundle.py build/ClubTools/PYZ-00.toc

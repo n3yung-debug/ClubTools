@@ -6,6 +6,11 @@
 <title>ClubTools</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%20aria-hidden%3D%22true%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22ctg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231f8a5e%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230d3326%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M16%202.5%2027.5%206.5V15c0%207.2-5%2012.2-11.5%2014.5C9.5%2027.2%204.5%2022.2%204.5%2015V6.5Z%22%20fill%3D%22%2316603f%22%20stroke%3D%22%2345b886%22%20stroke-width%3D%221.4%22/%3E%3Cpath%20d%3D%22M5%2015.5h22%22%20stroke%3D%22%23cfeedd%22%20stroke-opacity%3D%22.35%22%20stroke-width%3D%221%22/%3E%3Cpath%20d%3D%22M10%2012.8%2012.7%2015.5%2010%2018.2%207.3%2015.5Z%22%20fill%3D%22%235fb4ff%22/%3E%3Cpath%20d%3D%22M16%2011.6%2019.9%2015.5%2016%2019.4%2012.1%2015.5Z%22%20fill%3D%22%239fd2ff%22/%3E%3Cpath%20d%3D%22M22%2012.8%2024.7%2015.5%2022%2018.2%2019.3%2015.5Z%22%20fill%3D%22%235fb4ff%22/%3E%3C/svg%3E">
 <style>
+/* Inter (SIL Open Font License, see THIRD_PARTY_NOTICES.txt), bundled so the app looks the same offline */
+@font-face{font-family:"Inter";font-style:normal;font-display:swap;font-weight:100 900;src:url(/assets/fonts/inter-latin-ext-wght-normal.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Inter";font-style:normal;font-display:swap;font-weight:100 900;src:url(/assets/fonts/inter-latin-wght-normal.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{
   --bg:#0a0f1a;--bg2:#0d1422;--panel:#121a2b;--panel2:#18223a;--panel3:#1f2b47;--line:#26324d;--line2:#33415f;
   --txt:#e9eef8;--mut:#8d9bb9;--acc:#4da3ff;--acc2:#7cc0ff;--ok:#3ecf8e;--warn:#f5b84b;--bad:#ef6b6b;--gold:#f0cb62;
@@ -15,7 +20,10 @@
 [hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#14223d 0%,transparent 60%),var(--bg);background-attachment:fixed;color:var(--txt);
-  font:14px/1.45 "Inter","Segoe UI Variable","Segoe UI",system-ui,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  font:14px/1.45 "Inter","Segoe UI Variable","Segoe UI",system-ui,Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+.num,.cov,.gauge b,.chip,.rqn,.hit strong{font-variant-numeric:tabular-nums}
+.ic{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none;stroke-width:2}
+button .ic:only-child{margin:0}
 .mut{color:var(--mut)} .small{font-size:12px}
 a{color:var(--acc)}
 /* controls */
@@ -27,6 +35,14 @@ button.primary{background:linear-gradient(180deg,#5fb0ff,#3b8fe8);border-color:#
 button.primary:hover{background:linear-gradient(180deg,#78bdff,#4a9cf0)}
 button.ghost{background:transparent;border-color:transparent} button.ghost:hover{background:var(--panel2);border-color:var(--line)}
 button.sm{padding:4px 9px;font-size:12px}
+header .hbtn{height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;font-size:12.5px;font-weight:600}
+header .hbtn.icbtn{width:32px;padding:0;justify-content:center}
+header .hbtn .chev{width:14px;height:14px;opacity:.6;margin-left:-2px}
+header select#formation{height:32px;padding:0 8px}
+.btngrp{display:inline-flex} .btngrp>button{border-radius:0} .btngrp>button:first-child{border-radius:var(--r2) 0 0 var(--r2)} .btngrp>button:last-child{border-radius:0 var(--r2) var(--r2) 0;margin-left:-1px}
+button.linkbtn{background:none;border:0;padding:0;color:var(--acc);font-size:12px;cursor:pointer} button.linkbtn:hover{background:none;text-decoration:underline}
+.pop button{display:flex;align-items:center;gap:8px} .pop button .ic{color:var(--mut)}
+.infoi{display:inline-flex;color:var(--mut);cursor:help;vertical-align:middle} .infoi .ic{width:13px;height:13px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
 .chk{display:flex;gap:6px;align-items:center;font-size:13px}
 input[type=checkbox]{accent-color:var(--acc);width:15px;height:15px}
@@ -66,42 +82,52 @@ main{display:grid;grid-template-columns:minmax(540px,1.25fr) minmax(380px,1fr);g
 .pitch .box{position:absolute;left:50%;width:260px;margin-left:-130px;height:70px;border:2px solid #ffffff12;pointer-events:none}
 .pitch .box.top{top:10px;border-top:0} .pitch .box.bot{bottom:10px;border-bottom:0}
 .row{position:relative;z-index:1;display:flex;justify-content:space-evenly;gap:6px}
-.slot{width:118px}
+.slot{width:122px}
 .pitch-empty{position:absolute;inset:0;z-index:2;display:grid;place-items:center;pointer-events:none}
 .pitch-empty>div{pointer-events:auto;background:#0b1220d9;border:1px solid var(--line2);border-radius:var(--r);padding:16px 18px;text-align:center;max-width:320px;box-shadow:var(--sh)}
 .tips{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12px;color:var(--mut)}
-.tips span b{color:var(--txt)}
-/* FUT-style card */
-.card{position:relative;height:104px;border-radius:10px;padding:6px 7px 5px;cursor:pointer;overflow:hidden;
-  background:linear-gradient(160deg,#3d3418,#2a2410 60%,#221d0c);border:1px solid #8a7433;box-shadow:0 4px 12px #0007;transition:transform .12s,box-shadow .12s}
-.card:hover{transform:translateY(-2px);box-shadow:0 8px 18px #000a}
+.tips span b{color:var(--txt)} .tips .ic{width:13px;height:13px;vertical-align:-2px}
+/* FUT-style card: colours come from cardTheme() as CSS variables */
+.card{position:relative;height:108px;border-radius:10px;padding:6px 7px 5px;cursor:pointer;overflow:hidden;color:var(--ct,#fff);
+  --c1:#4a3c14;--c2:#211a08;--cb:#c9a645;--co:#f6d36b;--cd:#6cc0ff;
+  background:linear-gradient(160deg,var(--c1),var(--c2) 75%);border:1px solid var(--cb);box-shadow:0 4px 12px #0007,inset 0 1px 0 #ffffff1f;transition:transform .14s,box-shadow .14s}
+.card.shine::after{content:"";position:absolute;inset:0;background:linear-gradient(118deg,transparent 30%,#ffffff17 44%,transparent 58%);pointer-events:none}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 20px #000a,inset 0 1px 0 #ffffff1f}
 .card[draggable=true]{cursor:grab}
-.card.t-icon{background:linear-gradient(160deg,#f3ead2,#d8c9a0 65%,#bfae80);border-color:#fff3;color:#1d1a12}
-.card.t-hero{background:linear-gradient(160deg,#5b3aa0,#3a2470 65%,#2a1a52);border-color:#9b7be0}
-.card.t-hof{background:linear-gradient(160deg,#1f6f6a,#14504c 65%,#0e3a37);border-color:#4fc3b8}
-.card.t-special{background:linear-gradient(160deg,#21325e,#172446 65%,#111b35);border-color:#5b7fd6}
 .card.off{border-color:var(--bad);box-shadow:0 0 0 2px #ef6b6b55,0 4px 12px #0007}
-.card .ctop{display:flex;align-items:center;gap:4px}
-.card .cov{font-size:20px;font-weight:900;line-height:1;color:var(--gold)}
-.card.t-icon .cov{color:#6b5418} .card.t-hero .cov,.card.t-special .cov{color:#ffe08a} .card.t-hof .cov{color:#b6fff3}
+.card .ctop{display:flex;align-items:center;gap:4px;height:22px}
+.card .cov{font-size:21px;font-weight:900;line-height:1;color:var(--co);letter-spacing:-.5px}
 .card .ctype{font-size:9px;font-weight:800;letter-spacing:.5px;padding:1px 4px;border-radius:4px;background:#0005;color:#fff}
-.card.t-icon .ctype{background:#0002;color:#3a2f10}
-.card .cname{font-weight:800;font-size:13px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card .cl{font-size:10.5px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
-.card .cchem{position:absolute;left:7px;right:7px;bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.card.lt .ctype{background:#0002;color:inherit}
+.card .cname{font-weight:800;font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}
+.card .cl{display:flex;align-items:center;gap:4px;font-size:10.5px;opacity:.85;white-space:nowrap;overflow:hidden;line-height:1.35}
+.card .cl span{overflow:hidden;text-overflow:ellipsis}
+.card .cl2{opacity:.65}
+.flag{width:16px;height:12px;border-radius:2px;flex:none;object-fit:cover;box-shadow:0 0 0 1px #0004;vertical-align:-1px}
+.card .cchem{position:absolute;left:7px;right:7px;bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:4px}
 .card .offb{font-size:9px;font-weight:800;color:#fff;background:var(--bad);border-radius:4px;padding:0 4px}
-.posSel{margin-left:auto;padding:0 2px;font-size:10px;font-weight:700;height:18px;border-radius:5px;background:#0006;border:1px solid #fff2;color:inherit}
-.card.t-icon .posSel{background:#0001;border-color:#0002}
-.lock{padding:0 4px;height:18px;font-size:10px;line-height:16px;border-radius:5px;background:#0006;border:1px solid #fff2;opacity:.55}
-.lock:hover{opacity:1} .lock.on{opacity:1;background:var(--warn);border-color:var(--warn);color:#2a1b00}
+/* position + lock stay quiet until you point at the card */
+.posSel{margin-left:auto;width:42px;padding:0 3px;font-size:10.5px;font-weight:800;height:20px;border-radius:5px;background:transparent;border:1px solid transparent;color:inherit;
+  appearance:none;-webkit-appearance:none;text-align:right;cursor:pointer}
+.card:hover .posSel,.card:focus-within .posSel,.posSel:focus{background:#0006;border-color:#fff3;text-align:center}
+.card.lt:hover .posSel,.card.lt:focus-within .posSel{background:#0001;border-color:#0003}
+.posSel option{background:var(--panel2);color:var(--txt)}
+.lock{display:inline-grid;place-items:center;padding:0;width:20px;height:20px;border-radius:5px;background:#0006;border:1px solid #fff2;color:inherit;opacity:0;transition:opacity .12s}
+.lock .ic{width:11px;height:11px}
+.card:hover .lock,.card:focus-within .lock{opacity:.7} .lock:hover{opacity:1!important}
+.lock.on{opacity:1;background:var(--warn);border-color:var(--warn);color:#2a1b00}
 .card.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#0b2a1f99;border:2px dashed #2f7a5c;color:#8fd4b4;box-shadow:none}
 .card.empty .plus{font-size:24px;line-height:1;font-weight:300}
 .card.empty .ctop{position:absolute;top:5px;left:6px;right:6px}
-.dia{letter-spacing:1px;font-size:12px;color:#5fb4ff} .dia.z{color:var(--bad)}
-.card.t-icon .dia{color:#1f5fa8}
+.card.empty .posSel{color:#8fd4b4}
+.dia{letter-spacing:1px;font-size:12px;color:var(--cd,#5fb4ff)} .dia.z{color:var(--bad)}
 .slot.dragover .card{outline:2px dashed var(--acc);outline-offset:2px}
 /* chemistry gauge */
-.chemhead{display:flex;align-items:center;gap:16px}
+.chemhead{display:flex;align-items:center;gap:16px;margin-top:14px}
+.chemmeta{min-width:0} .chemmeta .mgr{margin-top:2px}
+.grid2>*{min-width:0} #blDet input,#blDet select{min-width:0;width:100%} label.f select,label.f input{width:100%;min-width:0;max-width:100%}
+.gamechk{margin-top:6px;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.modedesc{margin:10px 0 8px}
 .gauge{position:relative;width:96px;height:96px;flex:none}
 .gauge svg{transform:rotate(-90deg)}
 .gauge .g-bg{fill:none;stroke:#ffffff12;stroke-width:3.2}
@@ -115,7 +141,7 @@ main{display:grid;grid-template-columns:minmax(540px,1.25fr) minmax(380px,1fr);g
 .chemmeta .t1{font-size:15px;font-weight:700}
 /* tabs */
 .modetabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
-.modetabs .mt{border:0;border-radius:9px;padding:9px 6px;font-weight:700;background:transparent;color:var(--mut)}
+.modetabs .mt{border:0;border-radius:9px;padding:10px 6px;font-weight:700;background:transparent;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:7px}
 .modetabs .mt:hover{background:var(--panel2);color:var(--txt)}
 .modetabs .mt.on{background:linear-gradient(180deg,#1d3a66,#16304f);color:var(--txt);box-shadow:inset 0 0 0 1px #4da3ff55}
 .tabs{display:flex;gap:6px;margin:10px 0 6px}
@@ -156,6 +182,12 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .rqt th:first-child,.rqt td:first-child{width:46px;text-align:left}
 .rqt td{padding:2px}
 .rqt input,.rqt select{width:100%;padding:3px 2px;font-size:12px;text-align:center;border-radius:6px}
+.rqt input:placeholder-shown,.rqt select:has(option[value=""]:checked){background:#ffffff05;border-color:transparent;color:var(--mut)}
+.rqt input::placeholder{color:#3b4a6b}
+.rqt tr:hover input:placeholder-shown,.rqt tr:hover select:has(option[value=""]:checked){border-color:var(--line)}
+.rqt input:not(:placeholder-shown),.rqt select:not(:has(option[value=""]:checked)){background:#3b321733;border-color:#8a7433;color:var(--gold);font-weight:700}
+.rqt input:focus{border-color:var(--acc)!important;background:var(--panel2)!important;color:var(--txt)}
+.rqt tbody tr td{transition:background .15s} .rqt tbody tr:hover td{background:#ffffff05}
 .rqt select{padding:3px 0}
 .rqt tr.on td:first-child{color:var(--gold);font-weight:800}
 .rqt tr.on input:not(:placeholder-shown),.rqt tr.on select:not(:has(option[value=""]:checked)){border-color:#8a7433}
@@ -163,7 +195,8 @@ dialog::backdrop{background:#02050bcc;backdrop-filter:blur(2px)}
 .rqt tr.all td:first-child{color:var(--acc2);font-weight:700}
 .rqt .na{color:var(--line2);text-align:center}
 .rqt th:last-child,.rqt td:last-child{width:30px}
-.rqt .cp{width:100%;padding:3px 0;font-size:13px;line-height:1;background:transparent;border-color:transparent;color:var(--mut)}
+.rqt .cp{width:100%;padding:3px 0;font-size:13px;line-height:1;background:transparent;border-color:transparent;color:var(--mut);opacity:.5}
+.rqt tr:hover .cp,.rqt tr.on .cp{opacity:1} .rqt .cp .ic{width:13px;height:13px}
 .rqt .cp:hover{color:var(--acc2);border-color:var(--line2);background:var(--panel2)}
 .rqmode{display:grid;gap:6px;font-size:12.5px}
 .rqmode .chk{align-items:flex-start}
@@ -188,9 +221,10 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .cmp-grid{display:grid;grid-template-columns:1fr 1fr 190px;gap:12px;align-items:start}
 @media(max-width:760px){.cmp-grid{grid-template-columns:1fr}}
 .cmp-t{border-collapse:collapse;font-size:12px;width:100%} .cmp-t td,.cmp-t th{padding:1px 6px;text-align:right} .cmp-t td:first-child{text-align:left}
-.gobar{display:flex;flex-direction:column;gap:6px;margin-top:14px}
-.gobar #go{width:100%;padding:11px;font-size:15px}
-#goMsg{min-height:1em;text-align:center}
+.gobar{display:flex;flex-direction:column;gap:6px;margin:14px -14px -14px;padding:12px 14px;position:sticky;bottom:0;z-index:6;
+  background:linear-gradient(180deg,#111929ee,#101727);backdrop-filter:blur(6px);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
+.gobar #go{width:100%;padding:11px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+#goMsg{text-align:center} #goMsg:empty{display:none}
 .support{white-space:nowrap;display:inline-block;font-size:12px;font-weight:700;color:#ff8fb0;text-decoration:none;padding:4px 10px;border:1px solid #ff8fb044;border-radius:99px;background:#ff8fb00d}
 .support:hover{background:#ff8fb022;border-color:#ff8fb088}
 /* update bar */
@@ -220,6 +254,17 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
 .tourbox{position:fixed;z-index:70;max-width:320px;background:var(--panel);border:1px solid var(--acc);border-radius:var(--r);box-shadow:0 12px 40px #000c;padding:12px 14px;font-size:13px}
 .tourbox .tb-h{font-weight:800;margin-bottom:4px} .tourbox .tb-f{display:flex;align-items:center;gap:6px;margin-top:10px}
 .tour-hl{outline:3px solid var(--acc)!important;outline-offset:3px;border-radius:10px;position:relative;z-index:69}
+/* motion (switched off when Windows asks for less animation) */
+@keyframes cardIn{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.card.pop{animation:cardIn .34s cubic-bezier(.2,.8,.3,1.2) both}
+#results>.panel{animation:rise .28s ease-out both}
+#results .res{animation:rise .3s ease-out both}
+#results .res:nth-child(2){animation-delay:.03s} #results .res:nth-child(3){animation-delay:.06s} #results .res:nth-child(4){animation-delay:.09s} #results .res:nth-child(n+5){animation-delay:.12s}
+dialog[open]{animation:dlgIn .2s ease-out}
+.menu.open .pop{animation:dlgIn .14s ease-out}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 /* toast */
 #syncMsg{position:fixed;right:18px;bottom:18px;z-index:50;max-width:460px;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 12px;font-size:12.5px}
 #syncMsg:empty{display:none}
@@ -230,38 +275,37 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
   <div class="brand"><span class="crest"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg></span><span class="word">Club<span>Tools</span></span><span class="badge" title="Works with EA SPORTS FC™ 27 Ultimate Team. Not affiliated with EA.">for FC 27</span></div>
   <div class="hgroup"><span class="lbl">Formation</span><select id="formation"></select></div>
   <div class="hgroup">
-    <button id="impBtn" class="primary sm">⇪ Import squad</button>
-    <button id="undo" class="sm ghost" title="Undo (Ctrl+Z)">↶ Undo</button>
-    <button id="redo" class="sm ghost" title="Redo (Ctrl+Y)">↷ Redo</button>
+    <button id="impBtn" class="primary sm hbtn"><i data-ic="import"></i> Import squad</button>
+    <span class="btngrp"><button id="undo" class="sm hbtn icbtn" title="Undo (Ctrl+Z)" aria-label="Undo"><i data-ic="undo-2"></i></button><button id="redo" class="sm hbtn icbtn" title="Redo (Ctrl+Y)" aria-label="Redo"><i data-ic="redo-2"></i></button></span>
   </div>
   <div class="menu left" id="squadsMenu">
-    <button class="sm" data-menu>☰ Squads ▾</button>
+    <button class="sm hbtn" data-menu><i data-ic="layout-list"></i> Squads <i data-ic="chevron-down" class="chev"></i></button>
     <div class="pop">
       <select id="savedSel"><option value="">Saved squads…</option></select>
       <div class="row2"><button id="saveAs" class="sm" style="flex:1">Save as…</button><button id="delSaved" class="sm" title="Delete the selected saved squad">Delete</button></div>
       <hr>
-      <button id="share" class="sm" title="Copy a link that opens this squad in ClubTools">🔗 Copy share link</button>
-      <button id="shareImg" class="sm" title="A picture of your squad to post on Discord, Reddit, etc.">🖼 Share as image</button>
-      <button id="clear" class="sm">✕ Clear squad</button>
+      <button id="share" class="sm" title="Copy a link that opens this squad in ClubTools"><i data-ic="link"></i> Copy share link</button>
+      <button id="shareImg" class="sm" title="A picture of your squad to post on Discord, Reddit, etc."><i data-ic="image"></i> Share as image</button>
+      <button id="clear" class="sm"><i data-ic="x"></i> Clear squad</button>
     </div>
   </div>
   <div class="spacer"></div>
-  <a id="supportBtn" class="support" href="#" target="_blank" rel="noopener" hidden title="ClubTools is free. Donations are voluntary and don't unlock anything.">♥ Support</a>
+  <a id="supportBtn" class="support" href="#" target="_blank" rel="noopener" hidden title="ClubTools is free. Donations are voluntary and don't unlock anything."><i data-ic="heart"></i> Support</a>
   <div class="menu" id="appMenu">
-    <button class="sm ghost" data-menu title="Card data and app settings">⚙ ▾</button>
+    <button class="sm hbtn icbtn" data-menu title="Card data and app settings" aria-label="Settings"><i data-ic="settings"></i></button>
     <div class="pop">
       <div class="small mut" id="dataInfo"></div>
       <hr>
-      <button id="sync" class="sm">⟳ Update card data</button>
-      <button id="updCheck" class="sm">⬆ Check for updates</button>
+      <button id="sync" class="sm"><i data-ic="refresh-cw"></i> Update card data</button>
+      <button id="updCheck" class="sm"><i data-ic="circle-arrow-up"></i> Check for updates</button>
       <label class="chk small" style="padding:0 2px"><input type="checkbox" id="updAuto" checked> Check for updates when ClubTools starts</label>
       <hr>
-      <button id="diag" class="sm">Test connection</button>
+      <button id="diag" class="sm"><i data-ic="activity"></i> Test connection</button>
       <button id="migrate" class="sm" hidden title="Copy squads, blacklist and preferences saved by the browser version into this app">Bring over browser data</button>
-      <button id="keysBtn" class="sm">⌨ Keyboard shortcuts <span class="mut">(?)</span></button>
-      <button id="tourBtn" class="sm">💡 Show the quick tips again</button>
-      <button id="aboutBtn" class="sm">ⓘ About &amp; legal</button>
-      <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)">Stop app</button>
+      <button id="keysBtn" class="sm"><i data-ic="keyboard"></i> Keyboard shortcuts <span class="mut">(?)</span></button>
+      <button id="tourBtn" class="sm"><i data-ic="lightbulb"></i> Show the quick tips again</button>
+      <button id="aboutBtn" class="sm"><i data-ic="info"></i> About &amp; legal</button>
+      <button id="quit" class="sm" title="Stop the app (it also stops by itself shortly after you close this tab)"><i data-ic="power"></i> Stop app</button>
     </div>
   </div>
 </header>
@@ -273,11 +317,16 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
   <section>
     <div class="pitchwrap">
       <div class="pitch" id="pitch"></div>
-      <div class="tips"><span><b>Click</b> a card to pick or replace</span><span><b>Empty slot</b> → fill mode (type, Enter)</span><span><b>Drag</b> to swap</span><span><b>🔒</b> keeps a slot fixed</span><span><b>Ctrl+Z</b> undo</span></div>
+      <div class="tips"><span><b>Click</b> a card to pick or replace</span><span><b>Empty slot</b> → fill mode (type, Enter)</span><span><b>Drag</b> to swap</span><span><b><i data-ic="lock"></i></b> keeps a slot fixed</span><span><b>Ctrl+Z</b> undo</span></div>
     </div>
   </section>
   <section>
-    <div class="panel">
+    <div class="panel" id="sidePanel">
+      <div class="modetabs">
+        <button class="mt" data-mode="chem"><i data-ic="flask-conical"></i> Chemistry</button>
+        <button class="mt" data-mode="up"><i data-ic="trending-up"></i> Upgrades</button>
+        <button class="mt" data-mode="fill"><i data-ic="users"></i> Fill squad</button>
+      </div>
       <div class="chemhead">
         <div class="gauge" id="gauge">
           <svg viewBox="0 0 36 36" width="96" height="96"><circle class="g-bg" cx="18" cy="18" r="15.9155"/><circle class="g-arc" id="gArc" cx="18" cy="18" r="15.9155" stroke-dasharray="0 100" pathLength="100"/></svg>
@@ -285,42 +334,33 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
         </div>
         <div class="chemmeta">
           <div class="t1">Squad chemistry <span id="filled" class="small mut" style="font-weight:400"></span></div>
-          <label class="small mut" style="display:flex;align-items:center;gap:6px">In-game total (optional check)
-            <input id="gameTotal" type="number" min="0" max="33" style="width:64px;padding:4px 6px"></label>
+          <div class="grid2 mgr">
+            <label class="f"><span>Manager nation <span class="infoi" title="Your manager counts like one extra player of that nation and league. League Modifier switches are always considered."><i data-ic="info"></i></span></span><select id="mNation"></select></label>
+            <label class="f">Manager league (right now)<select id="mLeague"></select></label>
+          </div>
         </div>
       </div>
+      <div class="small" id="mInfo" style="margin-top:8px"></div>
+      <div class="gamechk"><button class="linkbtn" id="gameTog" title="Type the chemistry the game shows to double-check this tool">Compare with the in-game total</button>
+        <label id="gameWrap" hidden style="display:flex;align-items:center;gap:6px">In-game total <input id="gameTotal" type="number" min="0" max="33" style="width:64px;padding:3px 6px"></label></div>
       <div id="gameNote"></div>
       <div class="sec">
-        <div class="sec-h">Manager</div>
-        <div class="grid2">
-          <label class="f">Nation<select id="mNation"></select></label>
-          <label class="f">League (right now)<select id="mLeague"></select></label>
-        </div>
-        <div class="small mut" style="margin-top:6px">Counts like one extra player of that nation and league. League Modifier switches are always considered.</div>
-        <div class="small" id="mInfo" style="margin-top:4px"></div>
-      </div>
-      <div class="sec">
-        <div class="modetabs">
-          <button class="mt" data-mode="chem">⚗ Chemistry</button>
-          <button class="mt" data-mode="up">▲ Upgrades</button>
-          <button class="mt" data-mode="fill">✚ Fill squad</button>
-        </div>
         <div data-modepane="chem">
-          <div class="small mut" style="margin:10px 0 8px">Raise squad chemistry with swaps, a step-by-step plan and manager changes.</div>
+          <div class="small mut modedesc">Swaps, a step-by-step plan and manager changes that raise chemistry.</div>
           <div class="grid2">
             <label class="f">Max rating drop per swap<input id="maxDrop" type="number" min="0" max="20" value="3"></label>
             <label class="f">Max swaps in the plan<input id="maxSteps" type="number" min="1" max="11" value="5"></label>
           </div>
         </div>
         <div data-modepane="fill" hidden>
-          <div class="small mut" style="margin:10px 0 8px">Place the players you want, leave the rest empty (click a player → <b>Remove player</b>) and get complete squads built around them. Your players are never changed.</div>
+          <div class="small mut modedesc" title="Leave the slots you want filled empty: click a player → Remove player.">Complete squads built around the players you've placed. Yours are never changed.</div>
           <div class="grid2">
             <label class="f">Max OVR of a filler card<input id="fillMaxOvr" type="number" min="40" max="99" placeholder="no limit"></label>
             <div class="small mut" style="align-self:end" id="fillEmpty"></div>
           </div>
         </div>
         <div data-modepane="up" hidden>
-          <div class="small mut" style="margin:10px 0 8px">Higher-rated players for your positions, giving up as little chemistry as you allow.</div>
+          <div class="small mut modedesc">Higher-rated players that cost as little chemistry as you allow.</div>
           <div class="grid2">
             <label class="f">Chemistry you'll give up (total)<input id="upLoss" type="number" min="0" max="33" value="3"></label>
             <label class="f">Max OVR of a suggested card<input id="upMaxOvr" type="number" min="40" max="99" placeholder="no limit"></label>
@@ -367,7 +407,7 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
               <span style="flex:1"></span>
               <button class="sm ghost" id="rqClear" title="Remove all required stats">Clear all</button>
             </div>
-            <div class="small mut" style="margin-bottom:6px">Blank = anything. The number next to a position is how many cards still qualify there. ⧉ copies a row (both tabs) to other positions; the <b>All</b> row fills every position shown.</div>
+            <div class="small mut" style="margin-bottom:6px" title="The number next to a position is how many cards still qualify there. The copy button copies a row (both tabs) to other positions; the All row fills every position shown.">Blank = anything · <span class="rqn">12</span> cards still qualify · <i data-ic="copy"></i> copy a row · <b>All</b> fills every row</div>
             <table class="rqt"><thead id="rqHead"></thead><tbody id="rqBody"></tbody></table>
             <div id="rqCopy" class="rqcopy" hidden></div>
             <label class="chk small" style="margin-top:6px"><input type="checkbox" id="rqAllPos"> Show all positions (not just this formation's)</label>
@@ -385,7 +425,7 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
         <details class="acc" id="blDet"><summary id="blSum">Blacklist</summary>
           <div class="accb">
             <div class="sec-h" style="margin:4px 0 4px">Cards</div>
-            <div class="small mut">Never suggested. 🚫 next to a suggestion or search result blocks that exact card only, so cheaper versions can still be suggested.</div>
+            <div class="small mut">Never suggested. <i data-ic="ban"></i> next to a suggestion or search result blocks that exact card only, so cheaper versions can still be suggested.</div>
             <div id="blList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
             <div class="sec-h" style="margin:14px 0 4px">Blocked at a position</div>
             <div class="small mut">The player (every version) is never suggested at that position, but can still be suggested at their other positions — e.g. Bellingham not at CAM. Use “not at …” next to a suggestion, or add one here:</div>
@@ -538,14 +578,14 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
 <dialog id="dlg">
   <div style="display:flex;gap:8px;align-items:center">
     <strong id="dlgTitle" style="flex:1">Pick player</strong>
-    <button id="dlgEvo" class="sm" hidden title="Your card has been through Evolutions? Enter its upgraded rating, positions, stats and PlayStyles">✎ Evolve…</button>
-    <button id="dlgRemove" class="sm" hidden title="Empty this slot (e.g. to let ✚ Fill squad suggest someone)">Remove player</button>
+    <button id="dlgEvo" class="sm" hidden title="Your card has been through Evolutions? Enter its upgraded rating, positions, stats and PlayStyles"><i data-ic="pencil"></i> Evolve…</button>
+    <button id="dlgRemove" class="sm" hidden title="Empty this slot (e.g. to let Fill squad suggest someone)">Remove player</button>
     <button id="dlgClose" class="sm">Close</button>
   </div>
   <div class="small mut" id="fillHint" style="margin-top:4px"></div>
   <div style="display:flex;gap:6px;margin-top:8px">
     <input id="q" placeholder="Search by name…" style="flex:1" autocomplete="off">
-    <button class="sm" id="brToggle" title="Find cards by nation, league, club, position and stats">⚲ Browse</button>
+    <button class="sm" id="brToggle" title="Find cards by nation, league, club, position and stats"><i data-ic="search"></i> Browse</button>
   </div>
   <div id="brPanel" class="brpanel" hidden>
     <label class="f">Nation<select id="brNi"></select></label>
@@ -575,6 +615,63 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
 
 <script>
 "use strict";
+// Lucide icons (ISC licence, see THIRD_PARTY_NOTICES.txt)
+const ICONS = {"undo-2":"<path d=\"M9 14 4 9l5-5\"/> <path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11\"/>","redo-2":"<path d=\"m15 14 5-5-5-5\"/> <path d=\"M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13\"/>","import":"<path d=\"M12 3v12\"/> <path d=\"m8 11 4 4 4-4\"/> <path d=\"M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4\"/>","settings":"<path d=\"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915\"/> <circle cx=\"12\" cy=\"12\" r=\"3\"/>","link":"<path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/> <path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/>","image":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" ry=\"2\"/> <circle cx=\"9\" cy=\"9\" r=\"2\"/> <path d=\"m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21\"/>","x":"<path d=\"M18 6 6 18\"/> <path d=\"m6 6 12 12\"/>","refresh-cw":"<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/> <path d=\"M21 3v5h-5\"/> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/> <path d=\"M8 16H3v5\"/>","circle-arrow-up":"<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"m16 12-4-4-4 4\"/> <path d=\"M12 16V8\"/>","keyboard":"<path d=\"M10 8h.01\"/> <path d=\"M12 12h.01\"/> <path d=\"M14 8h.01\"/> <path d=\"M16 12h.01\"/> <path d=\"M18 8h.01\"/> <path d=\"M6 8h.01\"/> <path d=\"M7 16h10\"/> <path d=\"M8 12h.01\"/> <rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"/>","lightbulb":"<path d=\"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5\"/> <path d=\"M9 18h6\"/> <path d=\"M10 22h4\"/>","info":"<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"M12 16v-4\"/> <path d=\"M12 8h.01\"/>","power":"<path d=\"M12 2v10\"/> <path d=\"M18.4 6.6a9 9 0 1 1-12.77.04\"/>","flask-conical":"<path d=\"M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2\"/> <path d=\"M6.453 15h11.094\"/> <path d=\"M8.5 2h7\"/>","trending-up":"<path d=\"M16 7h6v6\"/> <path d=\"m22 7-8.5 8.5-5-5L2 17\"/>","users":"<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/> <path d=\"M16 3.128a4 4 0 0 1 0 7.744\"/> <path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/> <circle cx=\"9\" cy=\"7\" r=\"4\"/>","lock":"<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\"/> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/>","lock-open":"<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\"/> <path d=\"M7 11V7a5 5 0 0 1 9.9-1\"/>","copy":"<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/> <path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>","heart":"<path d=\"M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5\"/>","chevron-down":"<path d=\"m6 9 6 6 6-6\"/>","ban":"<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"M4.929 4.929 19.07 19.071\"/>","external-link":"<path d=\"M15 3h6v6\"/> <path d=\"M10 14 21 3\"/> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/>","arrow-left-right":"<path d=\"M8 3 4 7l4 4\"/> <path d=\"M4 7h16\"/> <path d=\"m16 21 4-4-4-4\"/> <path d=\"M20 17H4\"/>","pencil":"<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\"/> <path d=\"m15 5 4 4\"/>","calendar":"<path d=\"M8 2v3\"/> <path d=\"M16 2v3\"/> <rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/> <path d=\"M3 9h18\"/>","search":"<path d=\"m21 21-4.34-4.34\"/> <circle cx=\"11\" cy=\"11\" r=\"8\"/>","layout-list":"<rect width=\"7\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\"/> <rect width=\"7\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\"/> <path d=\"M14 4h7\"/> <path d=\"M14 9h7\"/> <path d=\"M14 15h7\"/> <path d=\"M14 20h7\"/>","save":"<path d=\"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z\"/> <path d=\"M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7\"/> <path d=\"M7 3v4a1 1 0 0 0 1 1h7\"/>","trash-2":"<path d=\"M10 11v6\"/> <path d=\"M14 11v6\"/> <path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/> <path d=\"M3 6h18\"/> <path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/>","plus":"<path d=\"M5 12h14\"/> <path d=\"M12 5v14\"/>","sparkles":"<path d=\"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z\"/> <path d=\"M20 2v4\"/> <path d=\"M22 4h-4\"/> <circle cx=\"4\" cy=\"20\" r=\"2\"/>","check":"<path d=\"M20 6 9 17l-5-5\"/>","activity":"<path d=\"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2\"/>"};
+const ic = (name, cls) => `<svg class="ic${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+document.querySelectorAll("i[data-ic]").forEach(el => { el.outerHTML = ic(el.dataset.ic, el.className); });
+// nation name -> flag file (flag-icons, MIT, bundled in assets/flags)
+let FLAGS = {};
+async function loadFlags(){ try{ const r = await fetch("/assets/flags/names.json"); if(r.ok) FLAGS = await r.json(); }catch(e){} }
+const flagCode = n => FLAGS[String(n || "").toLowerCase()] || "";
+const flagImg = n => flagCode(n) ? `<img class="flag" src="/assets/flags/${flagCode(n)}.svg" alt="" title="${esc(n)}">` : "";
+// card colours by type and rarity: background top/bottom, border, rating, text, chemistry diamonds; light = dark text
+const THEMES = {
+  gold:   {c1:"#4f3f14", c2:"#1f1807", cb:"#c9a645", co:"#f6d36b", ct:"#fff", cd:"#6cc0ff", shine:true},
+  goldc:  {c1:"#3d3418", c2:"#231d0c", cb:"#8a7433", co:"#e8c867", ct:"#fff", cd:"#6cc0ff"},
+  silver: {c1:"#4c535d", c2:"#1f2328", cb:"#a9b3bf", co:"#eef2f7", ct:"#fff", cd:"#8fd0ff", shine:true},
+  bronze: {c1:"#5a3d26", c2:"#24160c", cb:"#b07f52", co:"#f3c79c", ct:"#fff", cd:"#8fd0ff", shine:true},
+  totw:   {c1:"#1d1d22", c2:"#050506", cb:"#d4b24c", co:"#f0cb62", ct:"#fff", cd:"#6cc0ff", shine:true},
+  icon:   {c1:"#f6efd9", c2:"#c9b585", cb:"#fff6", co:"#6b5418", ct:"#1d1a12", cd:"#1f5fa8", shine:true, light:true},
+  hero:   {c1:"#3d2b80", c2:"#130d33", cb:"#9b86f2", co:"#ffe08a", ct:"#fff", cd:"#9fd2ff", shine:true},
+  hof:    {c1:"#1f6f6a", c2:"#092a27", cb:"#4fc3b8", co:"#b6fff3", ct:"#fff", cd:"#9fd2ff", shine:true},
+  evo:    {c1:"#1c5230", c2:"#071d10", cb:"#5fd38a", co:"#c9ffd8", ct:"#fff", cd:"#9fd2ff", shine:true},
+};
+// promos get their own colour, the same every time (all POTM cards share one). Hues are kept apart from
+// the fixed themes (gold, Hero violet, Hall of FUT teal, Evolution green)
+const PROMO_HUES = [22, 215, 325, 0, 85, 290, 192, 45];
+const PROMO_KNOWN = {"future stars":290, "ones to watch":22, "potm":215, "destined for glory":325, "partnerships":0, "squad foundations":192};
+function hashHue(s){ let h = 7; for(const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PROMO_HUES[h % PROMO_HUES.length]; }
+function promoTheme(rt){
+  const key = /^POTM/i.test(rt) ? "potm" : rt.toLowerCase(), h = PROMO_KNOWN[key] ?? hashHue(key);
+  return {c1:`hsl(${h} 55% 27%)`, c2:`hsl(${h} 60% 9%)`, cb:`hsl(${h} 70% 62%)`, co:`hsl(${h} 95% 82%)`, ct:"#fff", cd:"#9fd2ff", shine:true};
+}
+function cardTheme(c){
+  if(!c) return THEMES.gold;
+  if(isEvo(c)) return THEMES.evo;
+  if(c.ty === "icon" || c.ty === "hero" || c.ty === "hof") return THEMES[c.ty];
+  const rt = String(c.rt || "");
+  if(/team of the week|^totw/i.test(rt)) return THEMES.totw;
+  if(rt && !/^(rare|common|non-rare|custom)$/i.test(rt)) return promoTheme(rt);
+  const metal = c.ov >= 75 ? "gold" : c.ov >= 65 ? "silver" : "bronze";
+  return metal === "gold" && /common|non-rare/i.test(rt) ? THEMES.goldc : THEMES[metal];
+}
+const themeVars = th => `--c1:${th.c1};--c2:${th.c2};--cb:${th.cb};--co:${th.co};--ct:${th.ct};--cd:${th.cd}`;
+// short label for a promo card on the pitch: "Ones to Watch" -> OTW, "POTM Liga F" -> POTM
+function promoTag(c){
+  const rt = String(c.rt || "");
+  if(!rt || /^(rare|common|non-rare|custom)$/i.test(rt) || /^base /i.test(rt)) return "";
+  const first = rt.split(/\s+/)[0];
+  if(/^[A-Z]{2,5}$/.test(first)) return first;
+  const tag = rt.split(/[\s-]+/).filter(Boolean).map(w => w[0].toUpperCase()).join("");
+  return tag.length >= 2 ? tag.slice(0, 4) : rt.slice(0, 4).toUpperCase();
+}
+// shrink a name until it fits its box (long names stay readable instead of "Marcos Llore…")
+function fitEl(el, max, min){
+  el.style.fontSize = "";
+  for(let s = max; el.scrollWidth > el.clientWidth && s > min; ){ s -= .5; el.style.fontSize = s + "px"; }
+}
+function fitCards(){ document.querySelectorAll("#pitch .card .cname").forEach(el => fitEl(el, 13, 9.5)); document.querySelectorAll("#pitch .card .cl span").forEach(el => fitEl(el, 10.5, 9)); }
+if(document.fonts) document.fonts.ready.then(() => fitCards());
 // FC 25+ positions (LWB/RWB/CF were folded into LB/RB/ST); formations come from the server (/api/meta)
 const POS = ["GK","LB","CB","RB","CDM","CM","CAM","LM","RM","LW","ST","RW"];
 const DEFAULT_FORMATION = "4-1-2-1-2 (2)";
@@ -824,7 +921,7 @@ function renderRq(force){
     ? `<td>${sel(p,"wf",x.wf,STARS)}</td><td>${sel(p,"sm",x.sm,STARS)}</td><td>${sel(p,"ft",x.ft,FOOT)}</td><td>${num(p,"ht",x.ht,"cm",150,210)}</td><td>${sel(p,"ar",x.ar,AR)}</td>`
     : p === "GK" ? `<td colspan="6" class="na small">face stats don't apply to keepers</td>` : FACE.map((_,k) => `<td>${num(p,"fs"+k,x.fs[k],"–",1,99)}</td>`).join("");
   const row = (p, x, cls) => `<tr class="${cls}" data-row="${p}"><td>${p === "*" ? "All" : p}${p === "*" ? "" : cnt(p)}</td>${cells(p, x)}<td>${
-      p === "*" ? "" : `<button class="sm cp" data-copy="${p}" title="Copy ${p}'s requirements (both tabs) to other positions">⧉</button>`}</td></tr>`;
+      p === "*" ? "" : `<button class="sm cp" data-copy="${p}" title="Copy ${p}'s requirements (both tabs) to other positions" aria-label="Copy ${p}">${ic("copy")}</button>`}</td></tr>`;
   $("rqBody").innerHTML = row("*", rqEmpty(), "all") + rows.map(p => row(p, RQ[p] || rqEmpty(), rqOn(RQ[p]) ? "on" : "")).join("");
   if(RQCOPY) renderRqCopy();
 }
@@ -934,7 +1031,7 @@ function cardLink(c){
        + (g ? ` <a class="ext sub" href="${g}" target="_blank" rel="noopener" title="Open this exact card on FUT.GG">fut.gg</a>` : "");
 }
 function typeTag(c){ return isEvo(c) ? "EVO" : c.ty==="icon"?"ICON":c.ty==="hero"?"HERO":c.ty==="hof"?"HoF":""; }
-function cardLine(c, pos){ return `${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}${wfsm(c, pos)}`; }
+function cardLine(c, pos){ return `${flagImg(c.nn)} ${esc(c.nn||"?")} · ${esc(c.ln||"?")}${c.cn?" · "+esc(c.cn):""}${wfsm(c, pos)}`; }
 // weak foot / skill moves / foot; a requirement that is set and met is shown in gold
 function wfsm(c, pos){
   if(!c || (c.wf == null && c.sm == null)) return "";
@@ -947,10 +1044,9 @@ function wfsm(c, pos){
 }
 
 const CREST_SVG = document.querySelector(".brand .crest").innerHTML.replace(/ctg/g, "ctg3");
-function cardTier(c){
-  if(c.ty==="icon"||c.ty==="hero"||c.ty==="hof") return "t-"+c.ty;
-  return c.rt && !/^(rare|common|non-rare)/i.test(c.rt) ? "t-special" : "";
-}
+// slots whose card just changed animate in; the timestamp lets the second render (after the chemistry
+// check, ~60 ms later) continue the same animation instead of restarting it
+const SHOWN = {}, CHANGED = {};
 // same player (any version) in another slot? -> that slot's position
 function dupOf(i){
   const c = S.squad[i]; if(!c || c.bp == null) return "";
@@ -965,16 +1061,21 @@ function renderPitch(){
       const c = S.squad[i], ev = lastEval && lastEval.players[i];
       const el = document.createElement("div"); el.className = "slot"; el.dataset.slot = i;
       const sel = `<select data-i="${i}" class="posSel" title="Position of this slot">${POS.map(p=>`<option ${p===S.slots[i]?"selected":""}>${p}</option>`).join("")}</select>`;
-      const lock = `<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="${S.locks[i]?"Locked: never swapped by suggestions":"Lock this slot"}">${S.locks[i]?"🔒":"🔓"}</button>`;
+      const lock = `<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="${S.locks[i]?"Locked: never swapped by suggestions":"Lock this slot"}" aria-label="${S.locks[i]?"Unlock":"Lock"} slot">${ic(S.locks[i]?"lock":"lock-open")}</button>`;
+      const id = c ? String(c.s) : "";
+      if(SHOWN[i] !== undefined && SHOWN[i] !== id) CHANGED[i] = performance.now();
+      SHOWN[i] = id;
+      const age = CHANGED[i] ? performance.now() - CHANGED[i] : 1e9;
+      const pop = c && age < 340 ? ` pop" style="animation-delay:-${Math.round(age)}ms;` : "";
       if(!c){ el.innerHTML = `<div class="card empty" data-pick="${i}"><div class="ctop">${sel}${lock}</div><span class="plus">+</span><span class="small">Add player</span></div>`; }
       else{
         const off = ev && !ev.inpos;
         const tip = ev && ev.inpos && !ev.full ? `club ${ev.club[0]} → +${ev.club[1]} · league ${ev.league[0]} → +${ev.league[1]} · nation ${ev.nation[0]} → +${ev.nation[1]} (counts include the manager)` : (ev&&ev.full?"full chemistry card":"");
-        const tt = typeTag(c);
-        el.innerHTML = `<div class="card ${cardTier(c)} ${off?"off":""}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""}${tip?"\n"+esc(tip):""}">
+        const tt = typeTag(c) || promoTag(c), th = cardTheme(c);
+        el.innerHTML = `<div class="card ${th.shine?"shine":""} ${th.light?"lt":""} ${off?"off":""}${pop ? pop : '" style="'}${themeVars(th)}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""} · ${esc(c.rt||"")}\n${esc(c.nn||"?")} · ${esc(c.cn||"no club")} · ${esc(c.ln||"?")}${tip?"\n"+esc(tip):""}">
           <div class="ctop"><span class="cov">${c.ov}</span>${sel}${lock}</div>
           <div class="cname">${esc(c.n)}</div>
-          <div class="cl">${esc(c.nn||"?")} · ${esc(c.cn||"–")}</div><div class="cl">${esc(c.ln||"?")}</div>
+          <div class="cl">${flagImg(c.nn) || `<span>${esc(c.nn||"?")} ·</span>`}<span>${esc(c.cn || c.ln || "?")}</span></div>${c.cn ? `<div class="cl cl2"><span>${esc(c.ln||"?")}</span></div>` : ""}
           <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${dupOf(i)?`<span class="dupb" title="${esc(c.n)} is in your squad more than once (also at ${esc(dupOf(i))}) - the game won't allow that">DUP</span>`:""}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
       }
       row.appendChild(el);
@@ -986,12 +1087,25 @@ function renderPitch(){
     ov.innerHTML = `<div><div class="crest">${CREST_SVG}</div><div style="font-size:16px;font-weight:800;margin-bottom:4px">Start your squad</div><div class="small mut" style="margin-bottom:10px">Import it from FUT.GG or FUTBIN, or click any slot to add players one by one.</div><button class="primary" data-imp>⇪ Import squad</button></div>`;
     pitch.appendChild(ov);
   }
+  fitCards();
 }
 
+let countAnim = null;
+function countTo(el, to){
+  const from = +el.dataset.v;
+  el.dataset.v = to === null ? "" : to;
+  cancelAnimationFrame(countAnim);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(to === null || el.textContent === "–" || isNaN(from) || from === to || reduce){ el.textContent = to === null ? "–" : to; return; }
+  const t0 = performance.now(), dur = 420;
+  const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (to - from) * e); if(k < 1) countAnim = requestAnimationFrame(step); };
+  countAnim = requestAnimationFrame(step);
+}
 function renderTotal(){
   const n = S.squad.filter(Boolean).length, full = n===11;
   const t = lastEval ? lastEval.total : null;
-  $("total").textContent = t===null ? "–" : t;
+  countTo($("total"), t);
   $("gauge").className = "gauge " + (t===null || !full ? "" : t>=30?"ok":t>=24?"mid":"low");
   $("gArc").setAttribute("stroke-dasharray", `${t===null?0:Math.round(t/33*1000)/10} 100`);
   $("filled").textContent = n && !full ? `· ${n} of 11 placed` : !n ? "· empty squad" : "";
@@ -1003,10 +1117,10 @@ function renderTotal(){
   const mi = $("mInfo"), bm = lastEval && lastEval.best_mgr;
   let hint = "";
   if(lastEval && lastEval.best_total > lastEval.total && lastEval.best_li != null)
-    hint += `<div>💡 A League Modifier to <strong>${esc(leagueName(lastEval.best_li))}</strong> would give <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33. <button class="sm" id="useBestLi">Use it</button></div>`;
+    hint += `<div>${ic("lightbulb")} A League Modifier to <strong>${esc(leagueName(lastEval.best_li))}</strong> would give <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33. <button class="sm" id="useBestLi">Use it</button></div>`;
   if(bm && bm.nation && bm.total > Math.max(lastEval.total, lastEval.best_total || 0))
-    hint += `<div style="margin-top:3px">💡 Best manager for this squad: <strong>${mgrPair(bm)}</strong> → ${bm.total}/33 <span class="chip pos">+${bm.total - lastEval.total}</span> <span class="mut">(new manager card${bm.league?" + League Modifier":""})</span> <button class="sm" id="useBestMgr">Use it</button></div>`;
-  if(!hint && lastEval && full) hint = "Your manager is already the best nation + league for this squad.";
+    hint += `<div style="margin-top:3px">${ic("lightbulb")} Best manager for this squad: <strong>${mgrPair(bm)}</strong> → ${bm.total}/33 <span class="chip pos">+${bm.total - lastEval.total}</span> <span class="mut">(new manager card${bm.league?" + League Modifier":""})</span> <button class="sm" id="useBestMgr">Use it</button></div>`;
+  if(!hint && lastEval && full) hint = `<span class="mut">${ic("check")} Your manager is already the best nation + league for this squad.</span>`;
   mi.innerHTML = hint;
 }
 
@@ -1046,7 +1160,7 @@ function highlightSlot(i){
 }
 function hitHtml(c, k){
   const okPos = fits(c, S.slots[pickIdx]);
-  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}${inSquadAt(c).length ? `<span class="tag" style="color:var(--warn)" title="This player is already in your squad">in squad: ${esc(inSquadAt(c).join(", "))}</span>` : ""}<div class="small mut">${esc(c.rt)} · ${cardLine(c, S.slots[pickIdx])}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c, S.slots[pickIdx])}</div>${psHtml(c, S.slots[pickIdx])}${S.squad[pickIdx] && S.squad[pickIdx].s !== c.s ? `<div class="acts"><button class="sm" data-cmp="${k}" title="Compare with ${esc(S.squad[pickIdx].n)} before picking">⇄ Compare with ${esc(S.squad[pickIdx].n)}</button></div>` : ""}</div></div>`;
+  return `<div class="hit ${k===hl?"hl":""}" data-hit="${k}"><div><strong>${c.ov}</strong> ${esc(c.n)} <span class="mut">${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</span>${typeTag(c)?`<span class="tag">${typeTag(c)}</span>`:""}${c.live?`<span class="tag">live</span>`:""}${okPos?"":`<span class="tag" style="color:var(--bad)">off-position</span>`}${inSquadAt(c).length ? `<span class="tag" style="color:var(--warn)" title="This player is already in your squad">in squad: ${esc(inSquadAt(c).join(", "))}</span>` : ""}<div class="small mut">${esc(c.rt)} · ${cardLine(c, S.slots[pickIdx])}${c.g===2?" · women":""}${cardLink(c)}${banBtn(c, S.slots[pickIdx])}${isBanned(c)?` <span class="tag" style="color:var(--bad)">blacklisted</span>`:""}${isPosBanned(c, S.slots[pickIdx])?` <span class="tag" style="color:var(--bad)">blocked at ${esc(S.slots[pickIdx])}</span>`:""}</div><div class="small">${faceStats(c, S.slots[pickIdx])}</div>${psHtml(c, S.slots[pickIdx])}${S.squad[pickIdx] && S.squad[pickIdx].s !== c.s ? `<div class="acts"><button class="sm" data-cmp="${k}" title="Compare with ${esc(S.squad[pickIdx].n)} before picking">${ic("arrow-left-right")} Compare with ${esc(S.squad[pickIdx].n)}</button></div>` : ""}</div></div>`;
 }
 let hitCache = [], hitQuery = "", liveError = null;
 /* browse mode (#5) */
@@ -1117,7 +1231,7 @@ $("pitch").addEventListener("dragend", () => { dragFrom = -1; document.querySele
 
 /* ---------- optimizer ---------- */
 const banBtn = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "" :
-  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)">🚫</button>`
+  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)" aria-label="Blacklist this card">${ic("ban")}</button>`
   + (pos && !isPosBanned(c, pos) ? ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>` : "");
 function swapHtml(s){
   const a=s.out, b=s.in;
@@ -1134,7 +1248,7 @@ function setMode(m, rerender=true){
   MODE = m;
   document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
-  $("go").textContent = m === "up" ? "Find rating upgrades" : m === "fill" ? "Fill empty slots" : "Find chemistry upgrades";
+  $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : " Find chemistry upgrades");
   VIEW = LAST_VIEW[m];
   try{ DB.set("chemBuilder.mode", m); }catch(e){}
   updFillInfo();
@@ -1151,7 +1265,7 @@ const mgrText = o => {
 function resultsBody(r){
   let h = "";
   if(VIEW === "plan"){
-    if(!r.chain.length) return `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>▲ Rating upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
+    if(!r.chain.length) return `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>Upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
     let run = r.base, li = r.li_cur;
     r.chain.forEach((st,k)=>{
       const d = st.total-run; run = st.total;
@@ -1223,7 +1337,7 @@ function renderResults(r){
   if(r) window.__R = r; r = window.__R;
   if(MODE === "up" ? !VIEW.startsWith("u") : VIEW.startsWith("u")) VIEW = LAST_VIEW[MODE];
   let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-    <strong>${MODE === "up" ? "▲ Rating upgrades" : "⚗ Chemistry upgrades"}</strong>
+    <strong>${MODE === "up" ? ic("trending-up") + " Rating upgrades" : ic("flask-conical") + " Chemistry upgrades"}</strong>
     <span class="small mut">Searched ${r.pool.toLocaleString()} candidate cards. Current ${r.base}/33.</span></div>`;
   if(r.unmatched && r.unmatched.length) h += `<div class="note warn">Not found in the database: ${r.unmatched.map(esc).join(", ")}</div>`;
   h += `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 6px">
@@ -1253,7 +1367,7 @@ function bestMgrLine(b, now){
 function renderFill(){
   const F = window.__F; if(!F) return;
   let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-    <strong>✚ Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
+    <strong>${ic("users")} Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
   if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
   else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
@@ -1273,7 +1387,7 @@ function reqsDataWarning(){
 async function runOptimize(){
   if(reqsDataWarning()) return;
   if(MODE === "fill") return runFill();
-  if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first (or use the ✚ Fill squad tab)."; return; }
+  if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first (or use the Fill squad tab)."; return; }
   $("goMsg").textContent = "Searching…"; $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";   // old results are out of date now
   try{
@@ -1504,7 +1618,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await DB.load(); loadPS(); loadBL(); loadPB(); loadPresets(); loadEvos();
+  await Promise.all([DB.load(), loadFlags()]); loadPS(); loadBL(); loadPB(); loadPresets(); loadEvos();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1519,7 +1633,7 @@ async function init(){
   $("formation").innerHTML = `<option value="" disabled>Custom</option>` + Object.keys(FORMATIONS).map(f=>`<option>${esc(f)}</option>`).join("");
   load();
   $("formation").value = FORMATIONS[S.formation] ? S.formation : "";
-  $("gameTotal").value = S.game || "";
+  $("gameTotal").value = S.game || ""; $("gameWrap").hidden = !S.game; $("gameTog").hidden = !!S.game;
   syncMgrInputs();
   $("cPos").innerHTML = POS.map(p=>`<option>${p}</option>`).join("");
   $("bmLink").href = bookmarklet();
@@ -1644,6 +1758,7 @@ $("mInfo").addEventListener("click", e => {
 });
 $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
+$("gameTog").onclick = () => { $("gameWrap").hidden = false; $("gameTog").hidden = true; $("gameTotal").focus(); };
 $("gameTotal").oninput = e => { S.game = e.target.value; renderTotal(); save(); };
 $("capGrid").addEventListener("change", () => { writeCaps(readCaps()); save(); });
 $("noWomen").addEventListener("change", save);
@@ -2027,7 +2142,12 @@ function fitText(ctx, t, max){ t = String(t); if(ctx.measureText(t).width <= max
 async function squadImage(){
   const W = 1200, H = 1400, pad = 40, top = 150, foot = 70;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-  const ctx = cv.getContext("2d"), font = '"Segoe UI", Inter, system-ui, sans-serif';
+  const ctx = cv.getContext("2d"), font = 'Inter, "Segoe UI", system-ui, sans-serif';
+  try{ await Promise.all(["500 15px Inter", "800 21px Inter", "900 40px Inter"].map(f => document.fonts.load(f))); }catch(e){}
+  const flags = {};   // nation flags, drawn next to the club name
+  await Promise.all([...new Set(S.squad.filter(Boolean).map(c => flagCode(c.nn)).filter(Boolean))].map(async f => {
+    try{ const im = new Image(); im.src = `/assets/flags/${f}.svg`; await im.decode(); flags[f] = im; }catch(e){}
+  }));
   // background + header
   const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0d1626"); bg.addColorStop(1, "#090e18");
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
@@ -2054,28 +2174,31 @@ async function squadImage(){
   ctx.strokeRect(px + pw/2 - 180, py + 12, 360, 110); ctx.strokeRect(px + pw/2 - 180, py + ph - 122, 360, 110);
   // cards
   const rows = rowsLayout(), cw = 170, ch = 150, gapY = (ph - 40 - rows.length*ch) / Math.max(1, rows.length - 1);
-  const tiers = {"t-icon":["#f3ead2","#bfae80","#6b5418","#1d1a12"], "t-hero":["#5b3aa0","#2a1a52","#ffe08a","#fff"], "t-hof":["#1f6f6a","#0e3a37","#b6fff3","#fff"],
-                 "t-special":["#21325e","#111b35","#ffe08a","#fff"], "":["#3d3418","#221d0c","#f0cb62","#fff"]};
   rows.forEach((r, ri) => {
     const y = py + 20 + ri * (ch + gapY);
     r.forEach((i, k) => {
       const x = px + pw * (k + 1) / (r.length + 1) - cw/2, c = S.squad[i], ev = lastEval && lastEval.players[i];
       if(!c){ ctx.setLineDash([8,6]); ctx.strokeStyle = "#2f7a5c"; rr(ctx, x, y, cw, ch, 12); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = "#8fd4b4"; ctx.font = `700 22px ${font}`; ctx.textAlign = "center"; ctx.fillText(S.slots[i], x + cw/2, y + ch/2 + 8); ctx.textAlign = "left"; return; }
-      const [c1, c2, ovc, txt] = tiers[cardTier(c)] || tiers[""];
-      const g = ctx.createLinearGradient(x, y, x + cw, y + ch); g.addColorStop(0, c1); g.addColorStop(1, c2);
+      const th = cardTheme(c), ovc = th.co, txt = th.ct;
+      const g = ctx.createLinearGradient(x, y, x + cw * .6, y + ch); g.addColorStop(0, th.c1); g.addColorStop(1, th.c2);
       ctx.fillStyle = g; rr(ctx, x, y, cw, ch, 12); ctx.fill();
-      ctx.strokeStyle = ev && !ev.inpos ? "#ef6b6b" : "rgba(255,255,255,.25)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = ev && !ev.inpos ? "#ef6b6b" : th.cb; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = ovc; ctx.font = `900 40px ${font}`; ctx.fillText(String(c.ov), x + 12, y + 44);
       ctx.fillStyle = txt; ctx.globalAlpha = .85; ctx.font = `800 18px ${font}`; ctx.textAlign = "right"; ctx.fillText(S.slots[i], x + cw - 12, y + 30);
-      const tt = typeTag(c); if(tt){ ctx.font = `800 13px ${font}`; ctx.fillText(tt, x + cw - 12, y + 48); }
+      const tt = typeTag(c) || promoTag(c); if(tt){ ctx.font = `800 13px ${font}`; ctx.fillText(tt, x + cw - 12, y + 48); }
       ctx.textAlign = "left"; ctx.globalAlpha = 1;
-      ctx.font = `800 21px ${font}`; ctx.fillText(fitText(ctx, c.n, cw - 24), x + 12, y + 82);
-      ctx.globalAlpha = .8; ctx.font = `500 15px ${font}`; ctx.fillText(fitText(ctx, `${c.nn || ""} · ${c.cn || c.ln || ""}`, cw - 24), x + 12, y + 104); ctx.globalAlpha = 1;
+      let fsz = 21; ctx.font = `800 ${fsz}px ${font}`;
+      while(fsz > 15 && ctx.measureText(c.n).width > cw - 24){ fsz--; ctx.font = `800 ${fsz}px ${font}`; }
+      ctx.fillText(fitText(ctx, c.n, cw - 24), x + 12, y + 82);
+      const fl = flags[flagCode(c.nn)], fx = fl ? 32 : 0;
+      if(fl){ ctx.drawImage(fl, x + 12, y + 92, 24, 18); }
+      ctx.globalAlpha = .85; ctx.font = `500 15px ${font}`;
+      ctx.fillText(fitText(ctx, fl ? (c.cn || c.ln || "") : `${c.nn || ""} · ${c.cn || c.ln || ""}`, cw - 24 - fx), x + 12 + fx, y + 106); ctx.globalAlpha = 1;
       const n = ev ? ev.chem : null;
       for(let d = 0; d < 3; d++){ const dx = x + 20 + d*24, dy = y + ch - 22;
         ctx.beginPath(); ctx.moveTo(dx, dy - 9); ctx.lineTo(dx + 9, dy); ctx.lineTo(dx, dy + 9); ctx.lineTo(dx - 9, dy); ctx.closePath();
-        if(n != null && d < n){ ctx.fillStyle = cardTier(c) === "t-icon" ? "#1f5fa8" : "#5fb4ff"; ctx.fill(); }
+        if(n != null && d < n){ ctx.fillStyle = th.cd; ctx.fill(); }
         else { ctx.strokeStyle = n === 0 ? "#ef6b6b" : "rgba(255,255,255,.45)"; ctx.lineWidth = 2; ctx.stroke(); } }
     });
   });
@@ -2108,7 +2231,7 @@ function checkDataAge(){
   const snooze = +DB.get(KEY_DATA_SNOOZE) || 0;
   if(!(days >= 7) || Date.now() < snooze) return;
   const bar = $("dataBar");
-  bar.innerHTML = `<span>🗓 Your card data is <b>${days} days old</b>, so this week's new cards (TOTW, promos) may be missing.</span><span class="sp"></span>
+  bar.innerHTML = `<span>${ic("calendar")} Your card data is <b>${days} days old</b>, so this week's new cards (TOTW, promos) may be missing.</span><span class="sp"></span>
     <button class="sm primary" id="dataGo">Update card data</button><button class="sm ghost" id="dataLater">Remind me in 3 days</button>`;
   bar.hidden = false;
   $("dataGo").onclick = () => { bar.hidden = true; $("sync").click(); };
@@ -2146,7 +2269,7 @@ document.querySelectorAll("#rqTabs [data-rqtab]").forEach(b => b.addEventListene
 const KEY_TOUR = "chemBuilder.tourDone";
 const TOUR = [
   ["#impBtn", "Bring your squad in", "Import it from a FUT.GG share link or with the FUTBIN bookmark, or click any slot on the pitch to add players one by one."],
-  ["#pitch", "Your squad", "Click a card to replace it or ✎ Evolve it, drag cards to swap them, and 🔒 keeps a slot fixed. The ring on the right is your live chemistry."],
+  ["#pitch", "Your squad", "Click a card to replace it or Evolve it, drag cards to swap them, and the lock (point at a card) keeps a slot fixed. The ring on the right is your live chemistry."],
   [".modetabs", "Three ways to improve it", "<b>Chemistry</b> finds swaps and manager changes, <b>Upgrades</b> finds higher-rated players that keep your chemistry, and <b>Fill squad</b> builds around the players you choose."],
   ["#rqDet > summary", "Make it yours", "Required stats (5★ skills, pace, left foot…), PlayStyles, blacklist, and presets to save it all. Press <kbd>?</kbd> for shortcuts."],
 ];

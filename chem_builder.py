@@ -783,12 +783,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):  # quiet
         pass
 
-    def _send(self, code, body, ctype="application/json"):
+    def _send(self, code, body, ctype="application/json", cache=False):
         data = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        self.send_header("Content-Type", ctype if ctype.startswith(("image/", "font/")) else ctype + "; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "max-age=86400" if cache else "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
 
@@ -804,6 +805,12 @@ class Handler(BaseHTTPRequestHandler):
         if u.path in ("/", "/index.html"):
             with open(UI, "rb") as f:
                 return self._send(200, f.read(), "text/html")
+        if u.path.startswith("/assets/"):
+            f = asset_file(u.path)
+            if not f:
+                return self._send(404, {"error": "not found"})
+            with open(f, "rb") as fh:
+                return self._send(200, fh.read(), ASSET_TYPES[os.path.splitext(f)[1]], cache=True)
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
@@ -1079,6 +1086,22 @@ def support_url():
     return u
 
 
+# bundled font, flags (see THIRD_PARTY_NOTICES.txt); served read-only from assets/<dir>/<name>
+ASSET_TYPES = {".svg": "image/svg+xml", ".woff2": "font/woff2", ".json": "application/json"}
+ASSET_NAME = re.compile(r"^/assets/(fonts|flags)/([a-z0-9][a-z0-9-]{0,60}\.(?:svg|woff2|json))$")
+
+
+def asset_file(path):
+    m = ASSET_NAME.match(path)
+    if not m:
+        return None
+    for base in (BUNDLE, HERE):
+        f = os.path.join(base, "assets", m.group(1), m.group(2))
+        if os.path.isfile(f):
+            return f
+    return None
+
+
 LEGAL_DOCS = {"eula": "EULA.md", "privacy": "PRIVACY.md", "notices": "THIRD_PARTY_NOTICES.txt", "license": "LICENSE"}
 UPDATE_REPO = "n3yung-debug/ClubTools"   # public (renamed from FifaChemPlus; GitHub redirects the old name)
 UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
@@ -1300,6 +1323,9 @@ def selftest(port):
         with urllib.request.urlopen(base + "/api/meta", timeout=10) as r:
             meta = json.load(r)
         assert meta["n"] > 1000 and len(meta["formations"]) == 29, meta.get("n")
+        for a in ("fonts/inter-latin-wght-normal.woff2", "flags/names.json", "flags/gb-eng.svg"):   # bundled assets
+            with urllib.request.urlopen(base + "/assets/" + a, timeout=10) as r:
+                assert len(r.read()) > 100, a
         if FROZEN:   # the legal documents must be inside the exe
             for doc, must in (("notices", "pywebview"), ("eula", "License Agreement"), ("privacy", "privacy"), ("license", "proprietary")):
                 with urllib.request.urlopen(base + "/api/legal?doc=" + doc, timeout=10) as r:

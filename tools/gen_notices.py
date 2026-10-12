@@ -31,7 +31,10 @@ BUILD_ONLY = {"pip", "setuptools", "wheel", "packaging", "altgraph", "pefile", "
 # license texts that are not inside the installed package
 VENDORED = {"proxy_tools": "legal/proxy_tools-LICENSE.txt"}
 EXTRA = [("Microsoft WebView2 SDK", "shipped inside pywebview (Core, WinForms and Loader DLLs)",
-          "legal/webview2-LICENSE.txt")]
+          "legal/webview2-LICENSE.txt"),
+         ("Inter font 4.x (@fontsource-variable/inter 5.3.0)", "the app's typeface (assets/fonts)", "legal/inter-OFL.txt"),
+         ("flag-icons 7.5.0", "nation flags (assets/flags)", "legal/flag-icons-LICENSE.txt"),
+         ("Lucide icons (lucide-static 1.55.0)", "interface icons, embedded in ui.html", "legal/lucide-LICENSE.txt")]
 
 
 def norm(name):

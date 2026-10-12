@@ -585,6 +585,21 @@ def test_support_link_only_known_donation_sites():
         cb.SUPPORT_URL = old
 
 
+def test_assets_only_bundled_files():
+    assert cb.asset_file("/assets/flags/fr.svg") and cb.asset_file("/assets/fonts/inter-latin-wght-normal.woff2")
+    for bad in ("/assets/flags/../../chem_builder.py", "/assets/flags/..%2fchem_builder.py", "/assets/x/fr.svg",
+                "/assets/flags/FR.svg", "/assets/flags/fr.svg.py", "/assets/flags/nope.svg", "/assets/flags/"):
+        assert cb.asset_file(bad) is None, bad
+    import json
+    names = json.load(open(cb.asset_file("/assets/flags/names.json"), encoding="utf-8"))
+    with open(os.path.join(cb.HERE, "cards.json"), encoding="utf-8") as f:
+        data = json.load(f)
+    nations = {c["nn"] for c in (data["cards"] if isinstance(data, dict) else data) if c.get("nn")}
+    assert len(nations) > 50
+    assert all(n.lower() in names for n in nations), sorted(n for n in nations if n.lower() not in names)
+    assert all(cb.asset_file(f"/assets/flags/{f}.svg") for f in set(names.values()))
+
+
 def _opt_body(**opts):
     cb.load_cache()
     pool = [c for c in cb.STATE["cards"] if c["ov"] >= 80]

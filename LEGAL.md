@@ -77,6 +77,7 @@ The exe is unsigned, so Windows SmartScreen warns people. This matters more once
   - the PyInstaller bootloader (GPL-2.0+ with the "Bootloader Exception", which explicitly allows commercial use)
   - pyinstaller-hooks-contrib runtime hooks
   - the Microsoft WebView2 SDK DLLs (BSD-style licence from Microsoft's NuGet package)
+  - the Inter typeface (SIL Open Font License 1.1: bundling it in software is allowed; the font itself can't be sold on its own), the flag-icons nation flags (MIT) and the Lucide interface icons (ISC). Their licences are in `legal/` and in THIRD_PARTY_NOTICES.txt. The flags are plain national flags: no club badges or league logos, which are trademarks.
 - **Licence notices generated on every build.** `tools/gen_notices.py` writes `THIRD_PARTY_NOTICES.txt` from the actual installed packages. The build **fails** if a shipped component has no licence text or a new package appears unclassified. The file is bundled in the exe, shown in the app and attached to each release, and the exe's self-test checks it's inside.
 - **Bundle check after every build.** `tools/check_bundle.py` reads the list of modules PyInstaller actually packed. The build **fails** if any module comes from a package the notices don't cover, or if PyInstaller's own Python package is inside: only its bootloader is under the commercial-use exception, and the rest is plain GPL. This caught a real problem: the earlier exes (including the free v1.0.0) contained PyInstaller and setuptools modules because pywebview's build hook was swept in. They are now excluded. Builds from now on contain only Python, ClubTools, pywebview and its runtime dependencies.
 - **`LICENSE`:** proprietary, all rights reserved, with a trademark notice.
@@ -101,4 +102,5 @@ The exe is unsigned, so Windows SmartScreen warns people. This matters more once
 - C.B.C. v. MLB Advanced Media, 505 F.3d 818 (8th Cir. 2007): https://www.quimbee.com/cases/c-b-c-distribution-and-marketing-inc-v-major-league-baseball-advanced-media-l-p
 - PyInstaller licence (Bootloader Exception): COPYING.txt in the pyinstaller 6.22.3 wheel; https://pyinstaller.org/en/v3.2/license.html
 - Microsoft WebView2 SDK licence: LICENSE.txt in the Microsoft.Web.WebView2 1.0.3856.49 NuGet package
+- Inter (OFL-1.1), flag-icons (MIT), Lucide (ISC): LICENSE files in the npm packages @fontsource-variable/inter 5.3.0, flag-icons 7.5.0 and lucide-static 1.55.0
 - Package licences: METADATA of the exact wheels the build installs (pywebview 6.2.1, pythonnet 3.2.1, clr_loader 0.3.1, cffi 2.1.1, pycparser 3.11, bottle 0.13.4, proxy_tools 0.1.0, typing_extensions 4.16.0)
