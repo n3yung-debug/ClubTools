@@ -2,11 +2,19 @@
 
 > **ClubTools is free** (passive ads and voluntary donations, no paywall). Read [LEGAL.md](LEGAL.md) before turning on ads: card-data permission from FUT.GG comes first. ClubTools is proprietary ([LICENSE](LICENSE)); third-party licences are generated into THIRD_PARTY_NOTICES.txt at build time.
 
-Local tool that shows how to raise squad chemistry, with lockable players.
+Free Windows app for EA SPORTS FC 27 Ultimate Team: chemistry swaps, rating upgrades and complete squads built around the players you choose.
+
+## Download
+
+**[⬇ Download ClubTools.exe](https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe)** (latest version, Windows 10 and 11) · [Release notes](https://github.com/n3yung-debug/ClubTools/releases/latest) · [Website](https://n3yung-debug.github.io/ClubTools/)
+
+1. Download **ClubTools.exe** and put it anywhere (Desktop, Documents…). It's one file, with no installer.
+2. Double-click it. The first time, Windows SmartScreen may say *"Windows protected your PC"* because the app isn't code-signed: click **More info → Run anyway**.
+3. That's it. ClubTools offers new versions itself (an update bar on start), so you don't need to download it again.
 
 ## Run
 **Desktop app (recommended):** run **ClubTools.exe**. It opens in its own window (no browser) and quits when you close the window.
-- Get it from GitHub: the repo's **Actions** tab → latest "Build Windows app" run → **ClubTools-windows** artifact (a zip containing ClubTools.exe).
+- Get it from the [Download](#download) link above (the latest release). Test builds of every change are also in the repo's **Actions** tab → "Build Windows app" → **ClubTools-windows** artifact (needs a GitHub login).
 - It's not code-signed, so Windows SmartScreen may say "Windows protected your PC" the first time: click **More info → Run anyway**.
 - It uses Microsoft Edge WebView2, which is built into Windows 10 and 11.
 - ClubTools was previously called Chem Builder. On first start it copies everything from the old `%APPDATA%\ChemBuilder` folder, so squads and settings carry over.
@@ -15,6 +23,10 @@ Local tool that shows how to raise squad chemistry, with lockable players.
 - The FUTBIN bookmark and share links open in your browser; while the app is open they are handed straight to the app window.
 
 **From the Python files:** double-click **start.bat** (needs Python 3.9+). With `pip install pywebview==6.2.1` it opens the same app window; without it, it opens in your browser and stops about 30 s after the tab closes. **start_console.bat** shows error messages. Command line: `python chem_builder.py --app` (window) or `python chem_builder.py` (browser).
+
+## Website
+
+The download page is `docs/index.html` (plain HTML, no trackers), served by GitHub Pages at https://n3yung-debug.github.io/ClubTools/. Its download buttons always point at the latest release, and it reads the current version number from GitHub. Screenshots are in `docs/img/`.
 
 ## Updates
 
