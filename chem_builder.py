@@ -1129,8 +1129,9 @@ SUPPORT_HOSTS = ("ko-fi.com", "www.ko-fi.com", "buymeacoffee.com", "www.buymeaco
 # "Send feedback" posts to the owner's Google Form (answers land in their Google Sheet; no account needed).
 # FEEDBACK_FORM is the form's public id (docs.google.com/forms/d/e/<id>/viewform); FEEDBACK_FIELDS maps our
 # fields to the form's entry ids. Empty = the dialog offers email instead.
-FEEDBACK_FORM = ""
-FEEDBACK_FIELDS = {"type": "", "message": "", "contact": "", "version": ""}
+FEEDBACK_FORM = "1FAIpQLScLzDRqo-QV9XmWk0Stdx6gtrHALEhqvXj9kno34mwZQ1JQGg"   # "ClubTools Feedback"
+FEEDBACK_FIELDS = {"type": "entry.1878556707", "message": "entry.531716143", "contact": "entry.830250071",
+                   "version": "entry.1143773344"}
 FEEDBACK_EMAIL = "n3yung@gmail.com"
 FEEDBACK_TYPES = ("Bug", "Feature request", "Other")
 FEEDBACK_LAST = {"t": 0.0}
