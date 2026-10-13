@@ -881,6 +881,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, dict(UPDATE, current=current_version(), can_install=can_self_update(), auto=auto_update_on()))
         if u.path == "/api/diag":
             return self._send(200, diagnose())
+        if u.path == "/api/progress":   # what a running search is doing (polled by the page)
+            return self._send(200, PROGRESS)
         if u.path == "/api/sync_status":
             return self._send(200, STATE["sync"])
         if u.path == "/api/state":
@@ -906,7 +908,8 @@ class Handler(BaseHTTPRequestHandler):
                 ev = eng.evaluate(body["slots"], body["squad"], fixed)
                 best = eng.evaluate(body["slots"], body["squad"], free)
                 return self._send(200, dict(ev, best_li=best["mgr_li"], best_total=best["total"],
-                                            best_mgr=eng.best_manager(body["slots"], body["squad"], fixed)))
+                                            best_mgr=eng.best_manager(body["slots"], body["squad"], fixed),
+                                            rating=eng.squad_rating(body["squad"])))
             if self.path == "/api/fill":
                 return self._send(200, self.fill(body))
             if self.path == "/api/optimize":
@@ -991,12 +994,15 @@ class Handler(BaseHTTPRequestHandler):
         val = value_fn(o)
         by_pos = search_index(o, pool)
         args = dict(min_rating=int(o.get("min_rating", 0)), max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
+        progress("Building squads with your manager…")
         res = eng.fill_squad(slots, squad, free, by_pos, **args)
         # the same search with other manager nations (new manager card); League Modifier is free in all of them
         started, opts_all = time.time(), [dict(x, mgr=None) for x in res["options"]]
-        for ni in eng.candidate_nations(slots, squad, by_pos, free):
+        alts = eng.candidate_nations(slots, squad, by_pos, free)
+        for k, ni in enumerate(alts):
             if time.time() - started > MGR_SEARCH_BUDGET:
                 break
+            progress(f"Trying a manager from {mgr_tag(ni)['nn']}…", k + 1, len(alts))
             alt = eng.fill_squad(slots, squad, dict(free, ni=ni), by_pos, time_limit=2.0, **args)
             opts_all += [dict(x, mgr=mgr_tag(ni)) for x in alt["options"]]
         res["options"] = merge_options(opts_all, lambda x: tuple(sorted(f["in"]["bp"] for f in x["fills"])),
@@ -1006,6 +1012,8 @@ class Handler(BaseHTTPRequestHandler):
             for f in opt["fills"]:
                 full[f["slot"]] = f["in"]
             opt["best_mgr"] = eng.best_manager(slots, full, fixed)
+            opt["rating"] = (eng.squad_rating(full) or {}).get("rating")
+        progress("")
         res.update(pool=len(pool), unmatched=unmatched, base=eng.total_only(slots, squad, fixed))
         return res
 
@@ -1018,6 +1026,7 @@ class Handler(BaseHTTPRequestHandler):
         val = value_fn(o)
         base = eng.total_only(slots, squad, fixed)          # what the squad has right now
         base_free, li_now = eng.total_only(slots, squad, free), eng._manager_rows(slots, squad, free)[1]
+        progress("Looking for chemistry swaps…")
         _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok, val=val)
         chain, chain_total, final = eng.plan_chain(slots, squad, locks, free, by_pos, max_drop, min_rating,
                                                    max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
@@ -1025,9 +1034,10 @@ class Handler(BaseHTTPRequestHandler):
         # the same plan with each promising manager nation (new manager card); kept only if it reaches more
         nations = eng.candidate_nations(slots, squad, by_pos, fixed)
         started = time.time()
-        for ni in nations:
+        for k, ni in enumerate(nations):
             if chain_total >= 33 or time.time() - started > MGR_SEARCH_BUDGET:
                 break
+            progress(f"Step-by-step plan with a manager from {mgr_tag(ni)['nn']}…", k + 1, len(nations))
             m = dict(free, ni=ni)
             c2, t2, f2 = eng.plan_chain(slots, squad, locks, m, by_pos, max_drop, min_rating,
                                         max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
@@ -1049,19 +1059,22 @@ class Handler(BaseHTTPRequestHandler):
                              "swaps": [{"slot": w["slot"], "in": w["in"]} for w in ws]}
         k_max = max(1, min(5, int(o.get("max_steps", 5))))
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
+        progress("Trying 1–5 player swaps…")
         combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, val=val)
         combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True, val=val)
         up_args = dict(k_max=5, max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base, val=val,
                        max_ovr=int(o.get("upgrade_max_ovr") or 0) or None,
                        pos_caps={k: int(v) for k, v in (o.get("upgrade_pos_caps") or {}).items() if v})
+        progress("Looking for rating upgrades…")
         upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, **up_args)
         for lst in upgrades["by_k"].values():
             for x in lst:
                 x["mgr"] = None
         started = time.time()
-        for ni in nations:   # a new manager nation can pay for upgrades that would cost chemistry
+        for k, ni in enumerate(nations):   # a new manager nation can pay for upgrades that would cost chemistry
             if time.time() - started > MGR_SEARCH_BUDGET:
                 break
+            progress(f"Upgrades with a manager from {mgr_tag(ni)['nn']}…", k + 1, len(nations))
             alt = eng.upgrade_combos(slots, squad, locks, dict(free, ni=ni), by_pos, min_rating, **up_args)
             for k, lst in alt["by_k"].items():
                 upgrades["by_k"][k] = upgrades["by_k"].get(k, []) + [dict(x, mgr=mgr_tag(ni)) for x in lst]
@@ -1069,12 +1082,36 @@ class Handler(BaseHTTPRequestHandler):
             upgrades["by_k"][k] = merge_options(lst, lambda x: tuple(sorted((w["slot"], w["in"]["bp"]) for w in x["swaps"])),
                                                 # same upgrade with and without a new manager: the one without wins
                                                 lambda x: (-x["dv"], x["mgr"] is not None, -x["total"]), 25)
-        return {                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
+        progress("")
+        for st_i, st in enumerate(chain):
+            st["rating"] = with_rating(squad, [w for s in chain[:st_i + 1] for w in s["swaps"]])
+        for C in (combos, combos_mgr, upgrades):
+            for lst in C["by_k"].values():
+                for x in lst:
+                    x["rating"] = with_rating(squad, x["swaps"])
+        return {"rating": (eng.squad_rating(squad) or {}).get("rating"),
+                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
                 "singles": singles, "chain": chain, "chain_total": chain_total, "chain_mgr": chain_mgr, "lock_hint": lock_hint,
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
                 "best_mgr": eng.best_manager(slots, squad, fixed),
                 "mgr_suggest_after": eng.manager_suggestions(slots, final, fixed)}
+
+
+PROGRESS = {"text": "", "step": 0, "of": 0}
+
+
+def progress(text, step=0, of=0):
+    PROGRESS.update(text=text, step=step, of=of)
+
+
+def with_rating(squad, swaps):
+    """Squad rating after these swaps ({slot, in})."""
+    sq = list(squad)
+    for w in swaps:
+        sq[w["slot"]] = w["in"]
+    r = eng.squad_rating(sq)
+    return r["rating"] if r else None
 
 
 MGR_SEARCH_BUDGET = 4.0   # seconds each search may spend trying other manager nations

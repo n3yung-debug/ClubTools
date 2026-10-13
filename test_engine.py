@@ -574,6 +574,14 @@ def test_searches_try_other_manager_nations():
     assert r["chain_total"] >= r["base"] and (r["chain_mgr"] is None or r["chain_mgr"]["ni"] != bad["ni"])
 
 
+def test_squad_rating_community_formula():
+    mk = lambda ovs: [{"ov": o} for o in ovs]   # noqa: E731
+    assert eng.squad_rating(mk([84] * 10 + [90])) == {"rating": 85, "exact": 85.04}   # the outlier lifts it
+    assert eng.squad_rating(mk([84] * 11))["rating"] == 84
+    assert eng.squad_rating(mk([86, 86] + [84] + [83] * 8))["rating"] == 84
+    assert eng.squad_rating(mk([84] * 10)) is None and eng.squad_rating(mk([84] * 10) + [None]) is None
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)

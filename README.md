@@ -45,6 +45,9 @@ The workflow builds and self-tests the exe, publishes it as a pre-release (nobod
 - **No promo cards**: only base cards (gold, base ICONs and Heroes).
 - **No ICONs**: never suggest any ICON.
 - **Skip ICONs rated over 90** (ticked by default): ICONs rated 90 and below can still be suggested; the ones above usually cost millions or are hardly on the market. Untick it to allow every ICON. Favourites are always allowed. To drop one card that's never on the market, blacklist it once.
+- **Squad rating** of the starting XI next to chemistry (the SBC way; community formula, since EA doesn't publish one; the in-game club screen also counts subs). Every suggestion shows the rating it leads to.
+- **Player overview**: click a card in your squad for its stats, PlayStyles, chemistry, and FUTBIN / FUT.GG buttons.
+- **Live progress** under the search button, and **Report this** on any search or import error (opens Send feedback with the error filled in).
 - **Manager in every search**: the League Modifier is always free, and every search (step-by-step plan, swaps, upgrades, fill) also tries the most promising other manager nations. A result that needs a new manager card says so ("Manager from France (new manager card)") and Apply switches it. At equal chemistry your current manager wins.
 - **Lock hint**: when your locks stop the chemistry plan from going further, the results name the locked players to free (e.g. "unlocking Dumornay (ST) would allow 33/33") with an Unlock and search again button.
 - **Version switcher**: click a card in your squad and the picker shows every version of that player; one click switches (Undo is offered, and a favourite moves with the card).

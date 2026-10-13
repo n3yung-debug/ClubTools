@@ -26,6 +26,7 @@ RULES (sources checked 8 Oct 2026, see README):
     and +1 nation; ICON/Hero/Hall of FUT are full chemistry and have no club link
   * men's and women's players link through affiliated clubs (same ck), never through leagues
 """
+import math
 import time
 from collections import Counter
 
@@ -903,6 +904,19 @@ def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=N
         out.append({"fills": [{"slot": i, "in": sq[i]} for i in empty], "total": t, "li": li, "league": li != mli,
                     "avg_ov": round(sum(c["ov"] for c in sq) / len(sq), 1), "value": v})
     return {"options": out, "empty": empty, "timed_out": timed_out}
+
+
+def squad_rating(cards):
+    """Squad rating of a full starting eleven as SBCs count it (community formula; EA hasn't published one):
+    total of the ratings, plus how far each player is above the average, rounded, divided by 11 and rounded
+    down. Returns {"rating": int, "exact": float} or None if a slot is empty."""
+    if len(cards) != 11 or any(c is None for c in cards):
+        return None
+    ovs = [int(c["ov"]) for c in cards]
+    total = sum(ovs)
+    avg = total / 11
+    adjusted = total + sum(o - avg for o in ovs if o > avg)
+    return {"rating": int(math.floor(round(adjusted) / 11)), "exact": round(adjusted / 11, 2)}
 
 
 def candidate_nations(slots, squad, by_pos, mgr=None, k=6, top=25):
