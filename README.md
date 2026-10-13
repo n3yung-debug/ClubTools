@@ -28,10 +28,16 @@ The workflow builds and self-tests the exe, publishes it as a pre-release (nobod
 
 ## Use
 
+New in 1.3 (new look):
+- **Cards coloured by type**: gold, silver, bronze, TOTW, Icon, Hero, Hall of FUT, Evolution, and a fixed colour plus short label for each promo (FS, OTW, POTM…). Nation flags, full names that shrink to fit.
+- **Quieter pitch**: the position picker and lock show when you point at a card; a locked slot always shows its lock.
+- **Tidier panel**: mode tabs on top, chemistry ring next to the manager, the main button stays at the bottom of the screen, and the in-game total check is behind a link.
+- Icons instead of emoji, the Inter font built in, light animations (off when Windows is set to reduce motion). The share image uses the new card colours and flags.
+
 New in 1.2 (quality of life):
 - **Presets** (bar above Filters): save required stats, filters, PlayStyle preferences and tab settings under a name and switch with one click (Undo after switching). Blacklist, position blocks and your club list stay global.
 - **Player picker**:
-  - **⚲ Browse** finds cards by nation / league / club / position / rating, sorted by rating, any face stat, weak foot, skill moves or height.
+  - **Browse** finds cards by nation / league / club / position / rating, sorted by rating, any face stat, weak foot, skill moves or height.
   - **⇄ Compare** opens the final-check screen against the player in that slot.
   - Results already in your squad are tagged, and a player placed twice shows **DUP** on the pitch.
 - **✎ Evolve…** (picker on a filled slot): enter your evolved card's rating, positions, face stats, WF/SM and PlayStyles(+). It's used everywhere, kept under "My evolved cards", offered first in name searches (EVO tag) and carried in share links.
