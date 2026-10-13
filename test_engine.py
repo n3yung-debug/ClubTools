@@ -472,6 +472,35 @@ def test_server_cheap_versions_and_no_promo():
     assert "Rare" in rts and "Base Icon" in rts and not rts & {"Team of the week", "Future Stars", "Destined for Glory"}
 
 
+def test_icon_and_hero_rating_caps():
+    cb.load_cache()
+    pool, _ = cb.build_pool({"icon_max": 87, "hero_max": 86})
+    assert max(c["ov"] for c in pool if c["ty"] == "icon") <= 87 and max(c["ov"] for c in pool if c["ty"] == "hero") <= 86
+    assert any(c["ty"] == "icon" for c in pool) and max(c["ov"] for c in pool if c["ty"] == "") > 87   # others untouched
+    pele = next(c for c in cb.STATE["cards"] if c["n"] == "Pelé" and c["ty"] == "icon")
+    kept, _ = cb.build_pool({"icon_max": 87, "favs": [{"s": pele["s"], "pos": "CAM"}]})
+    assert any(c["s"] == pele["s"] for c in kept)                     # a favourite is always allowed
+
+
+def test_lock_hint_names_the_locked_players_that_block_chemistry():
+    cb.load_cache()
+    meta_f = {f["name"]: f for f in cb.FORMATIONS.values()}
+    slots = meta_f["4-1-2-1-2 (2)"]["slots"]
+    by = cb.STATE["by_slug"]
+    pick = {"ST": ["27-265898", "27-231443"], "CAM": ["27-247827"], "CM": ["27-233662", "27-271446"], "CDM": ["27-237289"],
+            "LB": ["27-265674"], "CB": ["27-278046", "27-268889"], "RB": ["27-226161"], "GK": ["27-259532"]}
+    squad = [by[pick[p].pop(0)] for p in slots]
+    fr = next(c["ni"] for c in cb.STATE["cards"] if c["nn"] == "France")
+    ark = next(c["li"] for c in cb.STATE["cards"] if c["ln"] == "Arkema Première Ligue")
+    locks = [p != "CB" or i == 2 for i, p in enumerate(slots)]       # only one CB free
+    r = cb.Handler.optimize({"slots": slots, "squad": squad, "locks": locks, "mgr": {"ni": fr, "li": ark},
+                             "opts": {"max_drop": 6, "max_steps": 8}})
+    assert r["chain_total"] == 32 and r["lock_hint"]["total"] == 33
+    assert all(locks[i] for i in r["lock_hint"]["slots"]) and r["lock_hint"]["slots"]
+    free = cb.Handler.optimize({"slots": slots, "squad": squad, "locks": [False] * 11, "mgr": {"ni": fr, "li": ark}, "opts": {}})
+    assert free["lock_hint"] is None
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)

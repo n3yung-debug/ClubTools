@@ -600,8 +600,15 @@ def build_pool(opts):
     banned_cards = set(opts.get("blacklist_cards") or [])          # card ids: just that version
 
     no_promo = "promo" in excl
+    # rating caps for ICONs and Heroes: the higher-rated ones cost millions or are hardly on the market
+    caps = {t: int(opts.get(k) or 0) for t, k in (("icon", "icon_max"), ("hero", "hero_max"))}
+    fav_cards = {s for s, _ in favs(opts)[0]}
 
     def allowed(c):
+        if c["s"] in fav_cards:
+            return True   # picked by hand
+        if caps.get(c.get("ty")) and c["ov"] > caps[c["ty"]]:
+            return False
         rt = str(c.get("rt") or "").lower()
         if no_promo and rt not in eng.BASE_RARITY and not rt.startswith("base ") and rt != "custom":
             return False   # promo / special versions (TOTW, Future Stars, ...): usually the expensive ones
@@ -1006,6 +1013,14 @@ class Handler(BaseHTTPRequestHandler):
             for w in st["swaps"]:
                 cur[w["slot"]] = w["in"]
             st["li"] = eng._manager_rows(slots, cur, free)[1]
+        lock_hint = None
+        if any(locks) and chain_total < 33:   # would unlocking help? -> which locked players the free plan changes
+            free_chain, free_total, _ = eng.plan_chain(slots, squad, [False] * len(squad), free, by_pos, max_drop, min_rating,
+                                                       max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
+            if free_total > chain_total:
+                ws = [w for st in free_chain for w in st["swaps"]]
+                lock_hint = {"total": free_total, "slots": sorted({w["slot"] for w in ws if locks[w["slot"]]}),
+                             "swaps": [{"slot": w["slot"], "in": w["in"]} for w in ws]}
         k_max = max(1, min(5, int(o.get("max_steps", 5))))
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
         combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, val=val)
@@ -1015,7 +1030,7 @@ class Handler(BaseHTTPRequestHandler):
                                       max_ovr=int(o.get("upgrade_max_ovr") or 0) or None,
                                       pos_caps={k: int(v) for k, v in (o.get("upgrade_pos_caps") or {}).items() if v})
         return {                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
-                "singles": singles, "chain": chain, "chain_total": chain_total,
+                "singles": singles, "chain": chain, "chain_total": chain_total, "lock_hint": lock_hint,
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
                 "best_mgr": eng.best_manager(slots, squad, fixed),

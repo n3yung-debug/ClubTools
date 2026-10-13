@@ -410,6 +410,10 @@ dialog[open]{animation:dlgIn .2s ease-out}
               <label class="chk"><input type="checkbox" id="xHero"> No Heroes</label>
               <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
             </div>
+            <div class="grid2" style="margin-top:10px" title="High-rated ICONs and Heroes usually cost millions or are hardly on the market. Blank = no limit. Favourites are always allowed.">
+              <label class="f">ICONs up to (OVR)<input id="iconMax" type="number" min="75" max="99" placeholder="no limit"></label>
+              <label class="f">Heroes up to (OVR)<input id="heroMax" type="number" min="75" max="99" placeholder="no limit"></label>
+            </div>
             <details><summary>Only use cards I own (optional)</summary>
               <textarea id="clubList" rows="5" style="width:100%" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card."></textarea>
             </details>
@@ -1053,14 +1057,14 @@ function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
     max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), reqs:readReqs(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof",$("xPromo").checked&&"promo"].filter(Boolean),
-    cheap_versions:$("cheapV").checked,
+    cheap_versions:$("cheapV").checked, icon_max:+$("iconMax").value||0, hero_max:+$("heroMax").value||0,
     favs:FAV.map(x => ({s:x.s, pos:x.pos})), fav_mode:favMode(), fav_w:favMode()==="always"?100:($("favW").value===""?10:+$("favW").value),
     blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), pos_bans:PB.map(x => ({bp:x.bp, pos:x.pos})), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
   $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("favW").value=o.fav_mode==="points"?(o.fav_w??10):($("favW").value||10); document.querySelectorAll('[name="favmode"]').forEach(r => r.checked = r.value === (o.fav_mode || "always")); $("psW").value=o.ps_w??1;
-  const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof"); $("xPromo").checked=ex.includes("promo"); $("cheapV").checked=o.cheap_versions ?? true;
+  const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof"); $("xPromo").checked=ex.includes("promo"); $("cheapV").checked=o.cheap_versions ?? true; $("iconMax").value=o.icon_max||""; $("heroMax").value=o.hero_max||"";
 }
 
 async function api(path, body){
@@ -1354,10 +1358,18 @@ const mgrText = o => {
   if(o.league) what.push(`League <b>${esc(o.ln || leagueName(o.li))}</b> <span class="mut">(League Modifier, or a manager from that league)</span>`);
   return what.join(" + ");
 };
+// the locks keep the plan short: which locked players a plan without locks would change
+function lockHintHtml(r){
+  const L = r.lock_hint; if(!L || !L.slots.length) return "";
+  const who = L.slots.map(i => S.squad[i] ? `<b>${esc(S.squad[i].n)}</b> (${esc(S.slots[i])})` : esc(S.slots[i])).join(", ");
+  const eg = L.swaps.filter(w => L.slots.includes(w.slot)).slice(0, 2).map(w => `${w.in.ov} ${esc(w.in.n)}`).join(", ");
+  return `<div class="note warn" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:220px">${ic("lock")} Your locks are holding this back: unlocking ${who} would allow <b>${L.total}/33</b>${eg ? ` <span class="mut">(e.g. ${eg})</span>` : ""}.</span><button class="sm" id="unlockGo" data-slots="${L.slots.join(",")}">Unlock and search again</button></div>`;
+}
 function resultsBody(r){
   let h = "";
+  if(VIEW === "plan") h += lockHintHtml(r);
   if(VIEW === "plan"){
-    if(!r.chain.length) return `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>Upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
+    if(!r.chain.length) return h + `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>Upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
     let run = r.base, li = r.li_cur;
     r.chain.forEach((st,k)=>{
       const d = st.total-run; run = st.total;
@@ -1937,7 +1949,7 @@ $("rqClear").onclick = () => {
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 document.querySelectorAll('[name="favmode"]').forEach(r => r.addEventListener("change", save));
-for(const id of ["favW","upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof","xPromo","cheapV"]) $(id).addEventListener("change", save);
+for(const id of ["favW","upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof","xPromo","cheapV","iconMax","heroMax"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
   const fb = e.target.closest("[data-fav]");
@@ -1958,6 +1970,9 @@ $("results").addEventListener("click", e => {
                         () => { window.__F = null; });
   }
   const R = window.__R; if(!R) return;
+  if(e.target.id==="unlockGo"){
+    commit(); e.target.dataset.slots.split(",").forEach(i => S.locks[+i] = false); refresh(); runOptimize(); return;
+  }
   if(e.target.id==="applyChain"){
     const last = R.chain[R.chain.length-1];
     return confirmApply(R.chain.flatMap(s=>s.swaps), {li: last && last.li != null && last.li !== S.mgr.li ? last.li : undefined});
@@ -2459,6 +2474,7 @@ function updFiltSum(){
   if(+$("gender").value) o.push(+$("gender").value===1?"men only":"women only");
   const x = ["xIcon","xHero","xHof","xPromo"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
   if($("cheapV").checked) o.push("cheapest versions");
+  if(+$("iconMax").value) o.push(`ICONs ≤${$("iconMax").value}`); if(+$("heroMax").value) o.push(`Heroes ≤${$("heroMax").value}`);
   if($("clubList").value.trim()) o.push("own cards only");
   updRqSum();
   $("filtSum").textContent = o.length ? "· "+o.join(" · ") : "";

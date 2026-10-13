@@ -31,6 +31,8 @@ The workflow builds and self-tests the exe, publishes it as a pre-release (nobod
 **Cheaper suggestions** (Filters): there's no price data (see LEGAL.md), so two stand-ins keep suggestions affordable:
 - **Cheapest version of each player** (on by default): suggestions use the lowest-rated version of each player, e.g. the 84 base Vicky López rather than her 90 Future Stars. A promo version still shows up where it adds a position or gives different chemistry.
 - **No promo cards**: only base cards (gold, base ICONs and Heroes).
+- **ICONs up to / Heroes up to (OVR)**: most ICONs are 88+ and the high-rated ones cost millions or are hardly on the market; a rating cap keeps the affordable ones. Favourites are always allowed. To drop one card that's never on the market, blacklist it once.
+- **Lock hint**: when your locks stop the chemistry plan from going further, the results name the locked players to free (e.g. "unlocking Dumornay (ST) would allow 33/33") with an Unlock and search again button.
 - **Version switcher**: click a card in your squad and the picker shows every version of that player; one click switches (Undo is offered, and a favourite moves with the card).
 
 **Favourites** (section above Blacklist): cards you'd rather play at a position even over higher-rated ones, e.g. the 84 Vicky López at CAM. Add them with the heart on a pitch card, a search result or a suggestion. Chemistry still comes first; among options with the same chemistry, **Always** picks the favourite, **Boost** counts it as N rating points higher. Required stats and the women filter don't apply to a favourite at its position; position blocks and the blacklist still do. A favourite already in your squad isn't locked: lock it if chemistry swaps shouldn't touch it.
