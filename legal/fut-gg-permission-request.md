@@ -15,7 +15,9 @@ Your terms ask for written permission before automated access or commercial use 
 **What ClubTools uses from FUT.GG today:**
 - Public card data from your player list endpoint: name, rating, positions, nation, league, club, face stats, PlayStyles. It's downloaded only when the user presses "Update card data" (or on first start if there's no data). If the user ticks "also search FUT.GG live" in the player search, it also looks that name up on FUT.GG.
 - Squad import from a FUT.GG squad-builder share link the user pastes.
-- It does **not** use or show your price data, and it doesn't log in or touch any user accounts.
+- It does **not** use or show your price data today, and it doesn't log in or touch any user accounts.
+
+**Prices (optional, asking separately):** players' biggest complaint is that suggestions can be cards that cost millions. If you're open to it, I'd like to show a card's current FUT.GG price next to each suggestion and let users cap suggestions by price, refreshed at most once a day, always credited and linked to the card's FUT.GG page. If you'd rather not share prices, the rest of this request stands on its own.
 
 **What FUT.GG gets in return:**
 - Attribution in the app ("Card data: FUT.GG") and in its About page.

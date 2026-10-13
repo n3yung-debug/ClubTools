@@ -364,6 +364,41 @@ def index_pool(pool, no_women=(), pos_bans=(), reqs=None, keep=()):
     return by_pos
 
 
+BASE_RARITY = ("rare", "common", "non-rare")
+
+
+def _chem_key(c):
+    """Cards with the same key give exactly the same chemistry (same player, nation, league, club and extras)."""
+    return (str(c.get("bp")), c.get("g"), c["ni"], c["li"], c.get("ck"), bool(c.get("fc")), c.get("xc", 0),
+            c.get("xl", 0), c.get("xn", 0), bool(c.get("xsl")), bool(c.get("xsn")))
+
+
+def cheapest_versions(by_pos, floor=0, keep=()):
+    """Per position, keep only the lowest-rated version of each player among versions that give the same
+    chemistry (a stand-in for the cheapest, since there are no prices). A promo version still shows up where it
+    adds a position or different chemistry. floor: versions rated below it don't count (min rating filter).
+    keep: (slug, position) favourites, always kept."""
+    keep = set(keep or ())
+    out = {}
+    for pos, cards in by_pos.items():
+        best, kept = {}, []
+        for c in cards:
+            if (c["s"], pos) in keep:
+                kept.append(c)
+                continue
+            if c["ov"] < floor:
+                continue
+            k = _chem_key(c)
+            b = best.get(k)
+            # lower rating wins; at the same rating a base card beats a special one
+            rank = (c["ov"], str(c.get("rt", "")).lower() not in BASE_RARITY)
+            if b is None or rank < b[0]:
+                best[k] = (rank, c)
+        seen = {c["s"] for c in kept}
+        out[pos] = kept + [c for _, c in best.values() if c["s"] not in seen]
+    return out
+
+
 def _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating, val=plain_value):
     cur, pos = squad[i], slots[i]
     floor = cur["ov"] - max_drop   # a favourite coming in gets its bonus as leeway on the rating drop

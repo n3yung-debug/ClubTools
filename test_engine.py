@@ -444,6 +444,34 @@ def test_favourite_skips_required_stats_and_women_filter_but_not_blocks():
     assert "CAM" not in eng.index_pool([w], pos_bans=[(970, "CAM")], keep={(w["s"], "CAM")})
 
 
+def test_cheapest_versions_keeps_lowest_with_same_chemistry():
+    base = card(980, "CM", ov=84, rt="Rare", bp=77, alts=("CAM",))
+    promo = card(981, "CM", ov=90, rt="Future Stars", bp=77, alts=("CAM", "ST"))   # adds ST
+    moved = card(982, "CM", ov=88, rt="Team of the week", bp=77, ck="B")          # other club: own chemistry
+    other = card(983, "CM", ov=86, rt="Rare", bp=78)
+    by = eng.cheapest_versions(eng.index_pool([base, promo, moved, other]))
+    assert {c["s"] for c in by["CM"]} == {base["s"], moved["s"], other["s"]}
+    assert {c["s"] for c in by["CAM"]} == {base["s"]} and [c["s"] for c in by["ST"]] == [promo["s"]]
+    # below the minimum rating the base card doesn't count, so the promo stays
+    assert {c["s"] for c in eng.cheapest_versions(eng.index_pool([base, promo]), floor=85)["CM"]} == {promo["s"]}
+    # a favourite version is always kept
+    kept = eng.cheapest_versions(eng.index_pool([base, promo]), keep={(promo["s"], "CM")})
+    assert {c["s"] for c in kept["CM"]} == {base["s"], promo["s"]}
+
+
+def test_server_cheap_versions_and_no_promo():
+    cb.load_cache()
+    mb = cb.STATE["by_bp"][231747]                       # Mbappé: Rare 91 and Destined for Glory 91
+    assert {c["rt"] for c in mb} >= {"Rare", "Destined for Glory"}
+    pool, _ = cb.build_pool({})
+    st = [c for c in cb.search_index({"cheap_versions": True}, pool)["ST"] if c["bp"] == 231747]
+    assert [c["rt"] for c in st] == ["Rare"]
+    assert len([c for c in cb.search_index({}, pool)["ST"] if c["bp"] == 231747]) == 2
+    nopromo, _ = cb.build_pool({"exclude_types": ["promo"]})
+    rts = {c["rt"] for c in nopromo}
+    assert "Rare" in rts and "Base Icon" in rts and not rts & {"Team of the week", "Future Stars", "Destined for Glory"}
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)

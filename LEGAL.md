@@ -40,6 +40,13 @@ EA's content policy says not to use its game content commercially. It names sell
 - **Keep EA at arm's length.** No EA logos, card art or imagery (ClubTools uses none), and keep the "not affiliated" disclaimer visible (About & legal and the footer).
 - ⚠️ EA's examples talk about fan *sites* and videos, not desktop apps. The cautious way to read it is to put ads on a **ClubTools website** (the download page) rather than inside the app. That's also what most ad networks support (item 3).
 
+## 🟡 2b. Card prices (researched 13 Oct 2026)
+There is no official EA price API. The options:
+- **FUT.GG / FUTBIN / FUTWIZ:** their sites and apps show prices, but there's no public API. FUT.GG's terms (13 May 2026) forbid automated access and copying data "except where expressly permitted", so prices are added to the permission request in `legal/fut-gg-permission-request.md`.
+- **EA's Web App transfer market:** reading it automatically means logging in with a player's EA account and automating it, against EA's terms, with a risk of account bans. Not an option.
+- **FutDB (paid API):** sells player data including prices, updated every 30 minutes to 24 hours. Its FC 26 page listed €79 a month (20,000 requests a day); I couldn't confirm an FC 27 plan or price. Its terms forbid "reproduction, distribution, or modification without the explicit permission of the Provider", so ClubTools couldn't ship prices from one shared key without a deal. A "bring your own key" setting (each user pays FutDB) might work, but check with FutDB first.
+- **In the app until then:** "Cheapest version of each player", "No promo cards", the max OVR caps, and a one-click version switcher.
+
 ## 🟡 3. Where the ads go
 - **Google AdSense** is for websites. Its policies set out supported in-app web views (Android and iOS mobile only), and it bans showing ads "as a result of the actions of software applications such as toolbars". I found no policy that allows AdSense inside a desktop app, so **don't put AdSense in the app**.
 - **Recommended: a ClubTools website** (download page, guides, changelog) with passive banner ads. This matches EA's own example ("fan sites via passive banner ads") and AdSense's normal use. The app links to it.
@@ -97,6 +104,7 @@ The exe is unsigned, so Windows SmartScreen warns people. This matters more once
 - GitHub Sponsors fees: https://docs.github.com/en/sponsors/getting-started-with-github-sponsors/about-github-sponsors
 - Ko-fi / Buy Me a Coffee fees (secondary sources): https://schoolmaker.com/blog/ko-fi-pricing and https://schoolmaker.com/blog/buy-me-a-coffee-pricing
 - EA ratings site (base items only): https://www.ea.com/games/ea-sports-fc/ratings
+- FutDB terms: https://futdb.digitalsable.com/terms ; FC 26 plan page (€79/month, prices every 30 min to 24 h): https://www.futdatabase.com/
 - Stormstrike contact: support@stormstrike.gg (from https://stormstrike.gg/terms)
 - EA community partners (FUTBIN, FUT.GG, FUTWIZ): https://help.ea.com/en/articles/ea-sports-fc/community-api/
 - C.B.C. v. MLB Advanced Media, 505 F.3d 818 (8th Cir. 2007): https://www.quimbee.com/cases/c-b-c-distribution-and-marketing-inc-v-major-league-baseball-advanced-media-l-p

@@ -533,6 +533,16 @@ def favs(opts):
     return out, max(0.0, min(100.0, float(10 if w in (None, "") else w)))   # 100 = "always" in the UI
 
 
+def search_index(opts, pool):
+    """Cards per position for a search, with every filter applied. cheap_versions: only the lowest-rated
+    version of each player (cheapest stand-in) - the user upgrades to a better version by hand."""
+    keep = favs(opts)[0]
+    by_pos = eng.index_pool(pool, opts.get("no_women"), pos_bans(opts), reqs(opts), keep)
+    if opts.get("cheap_versions"):
+        by_pos = eng.cheapest_versions(by_pos, int(opts.get("min_rating", 0) or 0), keep)
+    return by_pos
+
+
 def value_fn(opts):
     """Card value for ranking: overall + wanted PlayStyles + preferred stats + favourites."""
     return eng.make_value(opts.get("ps_prefs"), float(opts.get("ps_w_plus", 3) or 0), float(opts.get("ps_w", 1) or 0),
@@ -589,7 +599,12 @@ def build_pool(opts):
     banned = {str(x) for x in opts.get("blacklist") or []}        # base player ids: every version (older lists)
     banned_cards = set(opts.get("blacklist_cards") or [])          # card ids: just that version
 
+    no_promo = "promo" in excl
+
     def allowed(c):
+        rt = str(c.get("rt") or "").lower()
+        if no_promo and rt not in eng.BASE_RARITY and not rt.startswith("base ") and rt != "custom":
+            return False   # promo / special versions (TOTW, Future Stars, ...): usually the expensive ones
         return str(c["bp"]) not in banned and c["s"] not in banned_cards
     pool = [c for c in STATE["cards"] if (not gender or c["g"] == gender) and c["ty"] not in excl and allowed(c)]
     unmatched = []
@@ -836,6 +851,10 @@ class Handler(BaseHTTPRequestHandler):
                                     "accel_types": sorted({c["ar"] for c in STATE["cards"] if c.get("ar")})})
         if u.path == "/api/browse":   # picker browse mode: filter the whole card database
             return self._send(200, browse_cards(qs))
+        if u.path == "/api/versions":   # every version of one player, lowest rated first (version switcher)
+            bp = (qs.get("bp") or [""])[0]
+            vs = sorted((c for c in STATE["by_bp"].get(int(bp) if bp.isdigit() else bp, [])), key=lambda c: (c["ov"], c["s"]))
+            return self._send(200, {"versions": [public(c) for c in vs]})
         if u.path == "/api/search":
             q = (qs.get("q") or [""])[0]
             return self._send(200, search_cards(q, live=(qs.get("live") or ["0"])[0] == "1"))
@@ -960,7 +979,7 @@ class Handler(BaseHTTPRequestHandler):
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
         val = value_fn(o)
-        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o), favs(o)[0]), int(o.get("min_rating", 0)),
+        res = eng.fill_squad(slots, squad, free, search_index(o, pool), int(o.get("min_rating", 0)),
                              max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         for opt in res["options"]:
             full = list(squad)
@@ -1015,7 +1034,7 @@ def _search_setup(b):
         raise ValueError("Fill all 11 slots first.")
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
-    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o), favs(o)[0])
+    by_pos = search_index(o, pool)
     return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 
