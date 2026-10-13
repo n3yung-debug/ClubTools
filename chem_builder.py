@@ -989,8 +989,18 @@ class Handler(BaseHTTPRequestHandler):
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
         val = value_fn(o)
-        res = eng.fill_squad(slots, squad, free, search_index(o, pool), int(o.get("min_rating", 0)),
-                             max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
+        by_pos = search_index(o, pool)
+        args = dict(min_rating=int(o.get("min_rating", 0)), max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
+        res = eng.fill_squad(slots, squad, free, by_pos, **args)
+        # the same search with other manager nations (new manager card); League Modifier is free in all of them
+        started, opts_all = time.time(), [dict(x, mgr=None) for x in res["options"]]
+        for ni in eng.candidate_nations(slots, squad, by_pos, free):
+            if time.time() - started > MGR_SEARCH_BUDGET:
+                break
+            alt = eng.fill_squad(slots, squad, dict(free, ni=ni), by_pos, time_limit=2.0, **args)
+            opts_all += [dict(x, mgr=mgr_tag(ni)) for x in alt["options"]]
+        res["options"] = merge_options(opts_all, lambda x: tuple(sorted(f["in"]["bp"] for f in x["fills"])),
+                                       lambda x: (-x["total"], -x["value"], x["mgr"] is not None), 25)
         for opt in res["options"]:
             full = list(squad)
             for f in opt["fills"]:
@@ -1011,11 +1021,24 @@ class Handler(BaseHTTPRequestHandler):
         _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok, val=val)
         chain, chain_total, final = eng.plan_chain(slots, squad, locks, free, by_pos, max_drop, min_rating,
                                                    max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
+        plan_mgr = free
+        # the same plan with each promising manager nation (new manager card); kept only if it reaches more
+        nations = eng.candidate_nations(slots, squad, by_pos, fixed)
+        started = time.time()
+        for ni in nations:
+            if chain_total >= 33 or time.time() - started > MGR_SEARCH_BUDGET:
+                break
+            m = dict(free, ni=ni)
+            c2, t2, f2 = eng.plan_chain(slots, squad, locks, m, by_pos, max_drop, min_rating,
+                                        max_steps=int(o.get("max_steps", 5)), ok=ok, val=val)
+            if t2 > chain_total:
+                chain, chain_total, final, plan_mgr = c2, t2, f2, m
         cur = list(squad)
         for st in chain:  # which manager league each step assumes (League Modifier)
             for w in st["swaps"]:
                 cur[w["slot"]] = w["in"]
-            st["li"] = eng._manager_rows(slots, cur, free)[1]
+            st["li"] = eng._manager_rows(slots, cur, plan_mgr)[1]
+        chain_mgr = mgr_tag(plan_mgr["ni"]) if plan_mgr is not free else None
         lock_hint = None
         if any(locks) and chain_total < 33:   # would unlocking help? -> which locked players the free plan changes
             free_chain, free_total, _ = eng.plan_chain(slots, squad, [False] * len(squad), free, by_pos, max_drop, min_rating,
@@ -1028,16 +1051,54 @@ class Handler(BaseHTTPRequestHandler):
         args = (slots, squad, locks, free, by_pos, max_drop, min_rating)
         combos = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, val=val)
         combos_mgr = eng.k_swap_combos(*args, k_max=k_max, n=25, ok=ok, base=base, mgr_change=True, val=val)
-        upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, k_max=5,
-                                      max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base, val=val,
-                                      max_ovr=int(o.get("upgrade_max_ovr") or 0) or None,
-                                      pos_caps={k: int(v) for k, v in (o.get("upgrade_pos_caps") or {}).items() if v})
+        up_args = dict(k_max=5, max_loss=max(0, int(o.get("upgrade_loss", 3))), n=25, ok=ok, base=base, val=val,
+                       max_ovr=int(o.get("upgrade_max_ovr") or 0) or None,
+                       pos_caps={k: int(v) for k, v in (o.get("upgrade_pos_caps") or {}).items() if v})
+        upgrades = eng.upgrade_combos(slots, squad, locks, free, by_pos, min_rating, **up_args)
+        for lst in upgrades["by_k"].values():
+            for x in lst:
+                x["mgr"] = None
+        started = time.time()
+        for ni in nations:   # a new manager nation can pay for upgrades that would cost chemistry
+            if time.time() - started > MGR_SEARCH_BUDGET:
+                break
+            alt = eng.upgrade_combos(slots, squad, locks, dict(free, ni=ni), by_pos, min_rating, **up_args)
+            for k, lst in alt["by_k"].items():
+                upgrades["by_k"][k] = upgrades["by_k"].get(k, []) + [dict(x, mgr=mgr_tag(ni)) for x in lst]
+        for k, lst in upgrades["by_k"].items():
+            upgrades["by_k"][k] = merge_options(lst, lambda x: tuple(sorted((w["slot"], w["in"]["bp"]) for w in x["swaps"])),
+                                                # same upgrade with and without a new manager: the one without wins
+                                                lambda x: (-x["dv"], x["mgr"] is not None, -x["total"]), 25)
         return {                "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
-                "singles": singles, "chain": chain, "chain_total": chain_total, "lock_hint": lock_hint,
+                "singles": singles, "chain": chain, "chain_total": chain_total, "chain_mgr": chain_mgr, "lock_hint": lock_hint,
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
                 "best_mgr": eng.best_manager(slots, squad, fixed),
                 "mgr_suggest_after": eng.manager_suggestions(slots, final, fixed)}
+
+
+MGR_SEARCH_BUDGET = 4.0   # seconds each search may spend trying other manager nations
+
+
+def mgr_tag(ni):
+    """How a result that needs a new manager card names it."""
+    nn = next((c["nn"] for c in STATE["cards"] if c.get("ni") == ni), None)
+    return {"ni": ni, "nn": nn, "nation": True}
+
+
+def merge_options(items, key, order, n):
+    """Best-first list without repeats (same players: the first in `order` wins, so the current manager
+    beats a new one at equal chemistry)."""
+    seen, out = set(), []
+    for x in sorted(items, key=order):
+        k = key(x)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(x)
+        if len(out) >= n:
+            break
+    return out
 
 
 def _mgr_modes(mgr):

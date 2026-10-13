@@ -905,6 +905,22 @@ def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=N
     return {"options": out, "empty": empty, "timed_out": timed_out}
 
 
+def candidate_nations(slots, squad, by_pos, mgr=None, k=6, top=25):
+    """Manager nations worth trying in a search, best first (the current one left out): nations of the
+    players in the squad count most, then nations common among the top-rated cards for the squad's positions
+    (the ones a search would bring in)."""
+    cur = (mgr or {}).get("ni")
+    score = Counter()
+    for c in squad:
+        if c is not None and c.get("ni") is not None:
+            score[c["ni"]] += 3
+    for pos in set(slots):
+        for c in sorted(by_pos.get(pos, ()), key=lambda c: -c["ov"])[:top]:
+            if c.get("ni") is not None:
+                score[c["ni"]] += 1
+    return [ni for ni, _ in score.most_common() if ni != cur][:k]
+
+
 def best_manager(slots, squad, mgr=None):
     """The manager nation + league that give this squad the most chemistry (every nation and league in the
     squad is tried; ties keep the current nation/league). Returns {ni, li, total, current, nation, league}."""

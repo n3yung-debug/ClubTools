@@ -544,6 +544,36 @@ def test_feedback_posts_to_the_google_form():
         cb.FEEDBACK_FIELDS.clear(); cb.FEEDBACK_FIELDS.update(old[1]); cb.FEEDBACK_LAST["t"] = 0
 
 
+def test_searches_try_other_manager_nations():
+    cb.load_cache()
+    by = cb.STATE["by_slug"]
+    slots = cb.FORMATIONS["4-1-2-1-2 (2)"]["slots"]
+    pick = {"ST": ["27-265898", "27-231443"], "CAM": ["27-247827"], "CM": ["27-233662", "27-271446"], "CDM": ["27-237289"],
+            "LB": ["27-265674"], "CB": ["27-278046", "27-268889"], "RB": ["27-226161"], "GK": ["27-259532"]}
+    squad = [by[pick[p].pop(0)] for p in slots]
+    nat = lambda n: next(c["ni"] for c in cb.STATE["cards"] if c["nn"] == n)   # noqa: E731
+    ark = next(c["li"] for c in cb.STATE["cards"] if c["ln"] == "Arkema Première Ligue")
+    o = {"max_drop": 3, "cheap_versions": True, "icon_max": 90, "exclude_types": ["icon"]}
+    locks = [True] * 11
+    locks[2] = locks[3] = False
+    bad = {"ni": nat("Japan"), "li": ark}                    # nobody in the squad is Japanese
+    nations = eng.candidate_nations(slots, squad, cb.search_index(o, cb.build_pool(o)[0]), bad)
+    assert nat("France") in nations and nat("Japan") not in nations
+    # fill: the best options use a French manager, and say so
+    sq2 = [c if i not in (8, 9, 10) else None for i, c in enumerate(squad)]
+    f = cb.Handler.fill({"slots": slots, "squad": sq2, "mgr": bad, "opts": o})
+    assert f["options"][0]["total"] == 33 and f["options"][0]["mgr"]["ni"] == nat("France")
+    # with the best manager already in place nothing suggests a new one
+    good = cb.Handler.fill({"slots": slots, "squad": sq2, "mgr": {"ni": nat("France"), "li": ark}, "opts": o})
+    assert all(x["mgr"] is None for x in good["options"][:5])
+    # upgrades: the same upgrade with and without a new manager -> the one without
+    r = cb.Handler.optimize({"slots": slots, "squad": squad, "locks": locks, "mgr": bad, "opts": o})
+    ups = r["upgrades"]["by_k"][1]
+    keys = [tuple(sorted((w["slot"], w["in"]["bp"]) for w in x["swaps"])) for x in ups]
+    assert len(keys) == len(set(keys)) and any(x["mgr"] is None for x in ups)
+    assert r["chain_total"] >= r["base"] and (r["chain_mgr"] is None or r["chain_mgr"]["ni"] != bad["ni"])
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
