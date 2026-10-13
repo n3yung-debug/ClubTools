@@ -1,10 +1,8 @@
 # ClubTools End User License Agreement
 
-**DRAFT. Have a lawyer review this before a wide public release.** Placeholders are in [brackets].
+Last updated: 13 October 2026
 
-Last updated: [DATE]
-
-This agreement is between you and [OWNER - legal name] ("we", "us"). It covers the ClubTools software, its updates and its documentation (together, "ClubTools"). By installing or using ClubTools you agree to it. If you don't agree, don't install or use ClubTools.
+This agreement is between you and nTre, the developer of ClubTools ("we", "us"). It covers the ClubTools software, its updates and its documentation (together, "ClubTools"). By installing or using ClubTools you agree to it. If you don't agree, don't install or use ClubTools.
 
 ## 1. Free licence
 ClubTools is free. We give you a personal, non-exclusive, non-transferable, revocable licence to install and use it for your own non-commercial use. ClubTools is licensed to you, not sold. We and our licensors keep all rights not expressly granted here.
@@ -20,7 +18,7 @@ Except as this agreement or applicable law expressly allows, you may not:
 - use ClubTools to break the terms of any game, platform or website, including those of Electronic Arts.
 
 ## 3. Donations and advertising
-- **Donations** are voluntary gifts to support development. They don't buy a product, a licence, features, priority or support. Donations are handled by the platform you use (e.g. [Ko-fi]) under its terms. Donations are not tax-deductible.
+- **Donations** are voluntary gifts to support development. They don't buy a product, a licence, features, priority or support. Donations are handled by the platform you use (for example Ko-fi) under its terms. Donations are not tax-deductible.
 - **Advertising.** ClubTools or its website may show passive advertising. Ads come from third parties, and we don't endorse what they advertise.
 
 ## 4. Third-party software, services and data
@@ -55,7 +53,7 @@ Nothing in this agreement limits rights you have as a consumer that can't be wai
 This licence ends automatically if you break this agreement. When it ends, you must stop using ClubTools and delete it. Sections 3 to 5 and 8 to 12 continue to apply after it ends.
 
 ## 12. Governing law
-This agreement is governed by the laws of [the State of New York, USA], without regard to its conflict-of-law rules. This doesn't affect mandatory consumer protections in your country of residence.
+This agreement is governed by the laws of the State of New York, USA, without regard to its conflict-of-law rules. This doesn't affect mandatory consumer protections in your country of residence.
 
 ## 13. Contact
-[support email / website]
+Email n3yung@gmail.com or visit https://n3yung-debug.github.io/ClubTools/.

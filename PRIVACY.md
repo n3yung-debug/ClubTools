@@ -1,6 +1,6 @@
 # ClubTools privacy notice
 
-**DRAFT. Review before selling.** Last updated: [DATE]. Contact: [support email].
+Last updated: 13 October 2026. Contact: n3yung@gmail.com.
 
 ClubTools runs on your computer. It has no user accounts, no analytics and no tracking, and it sends nothing about you to us.
 
@@ -20,11 +20,11 @@ Your squads, saved squads, blacklist, preferences and settings, the card databas
 As with any internet request, those services can see your IP address and the time of the request. Their own privacy policies apply. You can turn off the automatic update check in ⚙ → "Check for updates when ClubTools starts".
 
 ## Donations and ads
-- **Donations.** If you donate, the platform you use ([e.g. Ko-fi]) processes your payment under its own privacy policy. We see what that platform shares with creators (typically your name or nickname and any message you leave). ClubTools itself never sees payment details.
+- **Donations.** If you donate, the platform you use (for example Ko-fi) processes your payment under its own privacy policy. We see what that platform shares with creators (typically your name or nickname and any message you leave). ClubTools itself never sees payment details.
 - **Ads.** If ClubTools shows ads, this notice will be updated to name the ad provider and what it collects before those ads appear.
 
 ## Children
-ClubTools isn't directed at children under [13/16].
+ClubTools isn't directed at children under 13.
 
 ## Changes
 If this notice changes, the new version comes with the next update.

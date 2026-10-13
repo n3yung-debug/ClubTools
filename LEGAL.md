@@ -64,8 +64,8 @@ There is no official EA price API. The options:
 ## 🟡 5. Public repo and licence
 Free distribution means the public GitHub releases are fine as the download channel. The `LICENSE` stays proprietary freeware: anyone may use ClubTools free, but not resell or re-host it. That stops others from putting your app on their own ad-filled download sites. If you'd rather make it open source, that's a separate decision (MIT or GPL); tell me.
 
-## 🟡 6. Terms and owner details
-`EULA.md` (now a free licence, covering donations and ads) and `PRIVACY.md` are drafts, shown in the app under ⚙ → About & legal. Fill in the `[OWNER]` and `[support email]` placeholders and have a lawyer review them.
+## 🟢 6. Terms and owner details
+`EULA.md`, `PRIVACY.md` and `LICENSE` name the owner (nTre) and contact (n3yung@gmail.com), dated 13 Oct 2026; New York law; not directed at children under 13. They are shown in the app under ⚙ → About & legal and linked from the website. 🟡 Still worth a lawyer's review before monetising.
 
 ## 🟡 7. The "ClubTools" name
 A quick search found no software trademark called "ClubTools". A Brazilian hand-tool shop uses "Club Tools", and there are club-management software marks such as ClubConnect and ClubCount. Run a proper USPTO search before investing in the brand (a website, social accounts).
