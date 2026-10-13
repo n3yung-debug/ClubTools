@@ -600,8 +600,8 @@ def build_pool(opts):
     banned_cards = set(opts.get("blacklist_cards") or [])          # card ids: just that version
 
     no_promo = "promo" in excl
-    # rating caps for ICONs and Heroes: the higher-rated ones cost millions or are hardly on the market
-    caps = {t: int(opts.get(k) or 0) for t, k in (("icon", "icon_max"), ("hero", "hero_max"))}
+    # rating cap for ICONs: the higher-rated ones cost millions or are hardly on the market
+    caps = {"icon": int(opts.get("icon_max") or 0)}
     fav_cards = {s for s, _ in favs(opts)[0]}
 
     def allowed(c):

@@ -472,10 +472,10 @@ def test_server_cheap_versions_and_no_promo():
     assert "Rare" in rts and "Base Icon" in rts and not rts & {"Team of the week", "Future Stars", "Destined for Glory"}
 
 
-def test_icon_and_hero_rating_caps():
+def test_icon_rating_cap():
     cb.load_cache()
-    pool, _ = cb.build_pool({"icon_max": 87, "hero_max": 86})
-    assert max(c["ov"] for c in pool if c["ty"] == "icon") <= 87 and max(c["ov"] for c in pool if c["ty"] == "hero") <= 86
+    pool, _ = cb.build_pool({"icon_max": 90})
+    assert max(c["ov"] for c in pool if c["ty"] == "icon") == 90 and max(c["ov"] for c in pool if c["ty"] == "hero") == 89
     assert any(c["ty"] == "icon" for c in pool) and max(c["ov"] for c in pool if c["ty"] == "") > 87   # others untouched
     pele = next(c for c in cb.STATE["cards"] if c["n"] == "Pelé" and c["ty"] == "icon")
     kept, _ = cb.build_pool({"icon_max": 87, "favs": [{"s": pele["s"], "pos": "CAM"}]})
