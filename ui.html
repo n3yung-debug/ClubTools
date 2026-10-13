@@ -406,7 +406,8 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <div class="small mut" style="margin:10px 0 4px">Don't suggest women at:</div>
             <div id="noWomen" style="display:flex;flex-wrap:wrap;gap:4px 12px"></div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">
-              <label class="chk" title="ICONs rated above 90 usually cost millions or are hardly on the market. Favourites are always allowed."><input type="checkbox" id="iconCap" checked> ICONs up to 90 OVR only</label>
+              <label class="chk" title="Never suggest any ICON"><input type="checkbox" id="xIcon"> No ICONs</label>
+              <label class="chk" id="iconCapL" title="ICONs rated 90 and below can still be suggested; the ones above 90 usually cost millions or are hardly on the market. Favourites are always allowed."><input type="checkbox" id="iconCap" checked> Skip ICONs rated over 90</label>
               <label class="chk"><input type="checkbox" id="xHero"> No Heroes</label>
               <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
             </div>
@@ -1052,7 +1053,7 @@ const readNoWomen = () => [...document.querySelectorAll("#noWomen input:checked"
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
     max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), reqs:readReqs(), fill_max_ovr:+$("fillMaxOvr").value||0,
-    exclude_types:[$("xHero").checked&&"hero",$("xHof").checked&&"hof",$("xPromo").checked&&"promo"].filter(Boolean),
+    exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof",$("xPromo").checked&&"promo"].filter(Boolean),
     cheap_versions:$("cheapV").checked, icon_max:$("iconCap").checked ? 90 : 0,
     favs:FAV.map(x => ({s:x.s, pos:x.pos})), fav_mode:favMode(), fav_w:favMode()==="always"?100:($("favW").value===""?10:+$("favW").value),
     blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), pos_bans:PB.map(x => ({bp:x.bp, pos:x.pos})), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
@@ -1060,7 +1061,7 @@ function readOpts(){
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
   $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("favW").value=o.fav_mode==="points"?(o.fav_w??10):($("favW").value||10); document.querySelectorAll('[name="favmode"]').forEach(r => r.checked = r.value === (o.fav_mode || "always")); $("psW").value=o.ps_w??1;
-  const ex=o.exclude_types||[]; $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof"); $("xPromo").checked=ex.includes("promo"); $("cheapV").checked=o.cheap_versions ?? true; $("iconCap").checked = (o.icon_max ?? 90) > 0;
+  const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof"); $("xPromo").checked=ex.includes("promo"); $("cheapV").checked=o.cheap_versions ?? true; $("iconCap").checked = (o.icon_max ?? 90) > 0; iconCapState();
 }
 
 async function api(path, body){
@@ -1945,7 +1946,10 @@ $("rqClear").onclick = () => {
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 document.querySelectorAll('[name="favmode"]').forEach(r => r.addEventListener("change", save));
-for(const id of ["favW","upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","iconCap","xHero","xHof","xPromo","cheapV"]) $(id).addEventListener("change", save);
+for(const id of ["favW","upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","iconCap","xHero","xHof","xPromo","cheapV"]) $(id).addEventListener("change", save);
+// "Skip ICONs rated over 90" means nothing while every ICON is excluded
+function iconCapState(){ const off = $("xIcon").checked; $("iconCap").disabled = off; $("iconCapL").style.opacity = off ? .45 : ""; }
+$("xIcon").addEventListener("change", iconCapState);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
   const fb = e.target.closest("[data-fav]");
@@ -2468,9 +2472,9 @@ function updFiltSum(){
   const o = [];
   if(+$("minRating").value) o.push(`min ${$("minRating").value}`);
   if(+$("gender").value) o.push(+$("gender").value===1?"men only":"women only");
-  const x = ["xHero","xHof","xPromo"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
+  const x = ["xIcon","xHero","xHof","xPromo"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
   if($("cheapV").checked) o.push("cheapest versions");
-  if($("iconCap").checked) o.push("ICONs ≤90");
+  if($("iconCap").checked && !$("xIcon").checked) o.push("ICONs ≤90");
   if($("clubList").value.trim()) o.push("own cards only");
   updRqSum();
   $("filtSum").textContent = o.length ? "· "+o.join(" · ") : "";
