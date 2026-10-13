@@ -853,6 +853,7 @@ class Handler(BaseHTTPRequestHandler):
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values()), "version": app_version(),
                                     "support_url": support_url(),
+                                    "feedback": {"ready": feedback_ready(), "email": FEEDBACK_EMAIL},
                                     "has_wf": any(c.get("wf") for c in STATE["cards"]),
                                     "has_ar": any(c.get("ar") for c in STATE["cards"]),
                                     "accel_types": sorted({c["ar"] for c in STATE["cards"] if c.get("ar")})})
@@ -945,6 +946,8 @@ class Handler(BaseHTTPRequestHandler):
                 if os.path.dirname(f) == downloads_dir() and f.lower().endswith(".png") and os.path.exists(f) and os.name == "nt":
                     subprocess.Popen(["explorer", "/select,", f])
                 return self._send(200, {"ok": True})
+            if self.path == "/api/feedback":
+                return self._send(200, send_feedback(body))
             if self.path == "/api/club_ids":
                 return self._send(200, club_ids(body.get("ids") or []))
             if self.path == "/api/req_counts":   # how many cards still qualify per position with the stat requirements
@@ -1121,6 +1124,54 @@ SENT_PAGE = """<!doctype html><meta charset="utf-8"><title>Sent to ClubTools</ti
 SUPPORT_URL = os.environ.get("CLUBTOOLS_SUPPORT_URL") or ""
 SUPPORT_HOSTS = ("ko-fi.com", "www.ko-fi.com", "buymeacoffee.com", "www.buymeacoffee.com", "paypal.me", "www.paypal.me",
                  "github.com")
+
+
+# "Send feedback" posts to the owner's Google Form (answers land in their Google Sheet; no account needed).
+# FEEDBACK_FORM is the form's public id (docs.google.com/forms/d/e/<id>/viewform); FEEDBACK_FIELDS maps our
+# fields to the form's entry ids. Empty = the dialog offers email instead.
+FEEDBACK_FORM = ""
+FEEDBACK_FIELDS = {"type": "", "message": "", "contact": "", "version": ""}
+FEEDBACK_EMAIL = "n3yung@gmail.com"
+FEEDBACK_TYPES = ("Bug", "Feature request", "Other")
+FEEDBACK_LAST = {"t": 0.0}
+
+
+def feedback_ready():
+    return bool(re.fullmatch(r"[A-Za-z0-9_-]{20,120}", FEEDBACK_FORM or "")) and all(
+        re.fullmatch(r"entry\.\d{4,12}", v or "") for v in FEEDBACK_FIELDS.values())
+
+
+def send_feedback(body):
+    """Post one feedback message to the Google Form. Returns {"ok": True} or raises ValueError."""
+    if not feedback_ready():
+        raise ValueError("Feedback isn't set up in this version - please email " + FEEDBACK_EMAIL)
+    kind = str(body.get("type") or "")
+    msg = str(body.get("message") or "").strip()
+    if kind not in FEEDBACK_TYPES:
+        raise ValueError("Choose bug, feature request or other")
+    if len(msg) < 5:
+        raise ValueError("Please write a little more")
+    if time.time() - FEEDBACK_LAST["t"] < 20:
+        raise ValueError("Thanks - please wait a few seconds before sending more")
+    data = {FEEDBACK_FIELDS["type"]: kind, FEEDBACK_FIELDS["message"]: msg[:4000],
+            FEEDBACK_FIELDS["contact"]: str(body.get("contact") or "").strip()[:200],
+            FEEDBACK_FIELDS["version"]: (f"{current_version()} · {len(STATE['cards'])} cards · synced "
+                                         f"{STATE['meta'].get('synced_at', '?')}") if body.get("with_version", True) else ""}
+    url = f"https://docs.google.com/forms/d/e/{FEEDBACK_FORM}/formResponse"
+    req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode("utf-8"), method="POST",
+                                 headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "ClubTools"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            ok = 200 <= r.status < 400
+    except urllib.error.HTTPError as e:
+        ok = False
+        print(f"feedback: form answered {e.code}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"Couldn't reach Google Forms ({e}). Check your connection, or email {FEEDBACK_EMAIL}")
+    if not ok:
+        raise ValueError(f"The feedback form didn't accept it. Please email {FEEDBACK_EMAIL}")
+    FEEDBACK_LAST["t"] = time.time()
+    return {"ok": True}
 
 
 def support_url():

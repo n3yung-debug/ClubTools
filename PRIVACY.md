@@ -15,6 +15,7 @@ Your squads, saved squads, blacklist, preferences and settings, the card databas
 | You import a squad from a FUT.GG link | FUT.GG | The squad ID from the link you pasted |
 | ClubTools starts (if "Check for updates" is on), or you click "Check for updates" | GitHub (api.github.com) | A standard request for the latest release |
 | You click "Update now" | GitHub (github.com and its download servers) | A standard download request |
+| You send feedback (⚙ → Send feedback) | Google Forms (docs.google.com) | What you type, the contact you enter (optional), and the app version and card-data date (if ticked). It is stored in the developer's Google Form responses. |
 | You click a FUTBIN or fut.gg link | Your web browser opens that site | Whatever the site collects. Their privacy policies apply. |
 
 As with any internet request, those services can see your IP address and the time of the request. Their own privacy policies apply. You can turn off the automatic update check in ⚙ → "Check for updates when ClubTools starts".

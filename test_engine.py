@@ -501,6 +501,49 @@ def test_lock_hint_names_the_locked_players_that_block_chemistry():
     assert free["lock_hint"] is None
 
 
+def test_feedback_posts_to_the_google_form():
+    import urllib.request as ur
+    old = (cb.FEEDBACK_FORM, dict(cb.FEEDBACK_FIELDS), ur.urlopen)
+    sent = {}
+
+    class Resp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake(req, timeout=0):
+        sent["url"], sent["data"] = req.full_url, req.data.decode()
+        return Resp()
+    try:
+        cb.FEEDBACK_FORM = ""
+        assert not cb.feedback_ready()
+        try:
+            cb.send_feedback({"type": "Bug", "message": "hello there"}); raise AssertionError("should refuse")
+        except ValueError as e:
+            assert cb.FEEDBACK_EMAIL in str(e)
+        cb.FEEDBACK_FORM = "1FAIpQLSf" + "x" * 30
+        cb.FEEDBACK_FIELDS.update(type="entry.111111", message="entry.222222", contact="entry.333333", version="entry.444444")
+        assert cb.feedback_ready()
+        ur.urlopen = fake
+        cb.FEEDBACK_LAST["t"] = 0
+        for bad in ({"type": "Spam", "message": "hello there"}, {"type": "Bug", "message": "hi"}):
+            try:
+                cb.send_feedback(bad); raise AssertionError(bad)
+            except ValueError:
+                pass
+        assert cb.send_feedback({"type": "Feature request", "message": "Add a price filter please", "contact": "me@x.com"}) == {"ok": True}
+        assert sent["url"] == f"https://docs.google.com/forms/d/e/{cb.FEEDBACK_FORM}/formResponse"
+        assert "entry.111111=Feature+request" in sent["data"] and "entry.222222=Add+a+price+filter+please" in sent["data"]
+        assert "entry.333333=me%40x.com" in sent["data"] and "entry.444444=" in sent["data"]
+        try:   # too soon after the last one
+            cb.send_feedback({"type": "Bug", "message": "another one"}); raise AssertionError("rate limit")
+        except ValueError:
+            pass
+    finally:
+        cb.FEEDBACK_FORM, ur.urlopen = old[0], old[2]
+        cb.FEEDBACK_FIELDS.clear(); cb.FEEDBACK_FIELDS.update(old[1]); cb.FEEDBACK_LAST["t"] = 0
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
