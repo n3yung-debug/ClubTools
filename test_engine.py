@@ -393,6 +393,65 @@ def test_fill_squad_respects_required_stats():
     assert picks == {five["s"]}
 
 
+def test_favourite_wins_when_chemistry_is_equal():
+    # empty CM slot: two cards that link the same, the favourite is rated lower but is picked at CM only
+    fixed = [card(900 + i, p, ni=1, li=1, ck="A") for i, p in enumerate(SLOTS)]
+    squad = list(fixed)
+    squad[3] = None
+    fav = card(950, "CM", ni=1, li=1, ck="A", ov=84, alts=("CDM",))
+    big = card(951, "CM", ni=1, li=1, ck="A", ov=87, alts=("CDM",))
+    by_pos = eng.index_pool([fav, big])
+    plain = eng.fill_squad(SLOTS, squad, None, by_pos)
+    assert plain["options"][0]["fills"][0]["in"]["s"] == big["s"]
+    val = eng.make_value(favs={(fav["s"], "CM")}, w_fav=5)
+    assert val(fav, "CM") == 89 and val(fav, "CDM") == 84 and val(big, "CM") == 87
+    res = eng.fill_squad(SLOTS, squad, None, by_pos, val=val)
+    assert res["options"][0]["fills"][0]["in"]["s"] == fav["s"]
+    # chemistry still comes first: a favourite that links nothing loses to a linking card
+    lone = card(952, "CM", ni=9, li=9, ck="Z", ov=84)
+    res = eng.fill_squad(SLOTS, squad, None, eng.index_pool([lone, big]), val=eng.make_value(favs={(lone["s"], "CM")}, w_fav=5))
+    assert res["options"][0]["fills"][0]["in"]["s"] == big["s"]
+
+
+def test_favourite_counts_as_upgrade_and_within_rating_drop():
+    sq = squad_of(ni=[1] * 11, li=[1] * 11, ck=["A"] * 11, ov=86)
+    locks = [False] * 11
+    fav = card(960, "CB", ni=1, li=1, ck="A", ov=81)      # 5 lower: blocked by a 3-point rating drop on its own
+    by_pos = eng.index_pool([fav])
+    _, plain = eng.single_swaps(SLOTS, sq, locks, None, by_pos, max_drop=3)
+    assert not plain
+    val = eng.make_value(favs={(fav["s"], "CB")}, w_fav=6)
+    _, liked = eng.single_swaps(SLOTS, sq, locks, None, by_pos, max_drop=3, val=val)
+    assert {r["slot"] for r in liked} == {7, 8} and all(r["in"]["s"] == fav["s"] for r in liked)
+    # a favourite already in the squad can still be swapped out when that raises chemistry (it is not a lock)
+    sq2 = list(sq)
+    sq2[7] = card(961, "CB", ni=9, li=9, ck="Z", ov=86)                  # links nothing
+    by2 = eng.index_pool([card(962, "CB", ni=1, li=1, ck="A", ov=85)])
+    _, out = eng.single_swaps(SLOTS, sq2, locks, None, by2, max_drop=3, val=eng.make_value(favs={(sq2[7]["s"], "CB")}, w_fav=100))
+    assert any(r["slot"] == 7 and r["d"] > 0 for r in out)
+    # rating upgrades: 81 + 6 beats an 86 at CB
+    up = eng.upgrade_combos(SLOTS, sq, locks, None, by_pos, k_max=1, max_loss=3, val=val)
+    assert any(s["in"]["s"] == fav["s"] for o in up["by_k"].get(1, []) for s in o["swaps"])
+    assert not eng.upgrade_combos(SLOTS, sq, locks, None, by_pos, k_max=1, max_loss=3)["by_k"].get(1)
+
+
+def test_favourite_skips_required_stats_and_women_filter_but_not_blocks():
+    w = card(970, "CAM", wf=3, sm=4, g=2, alts=("CM",))
+    reqs = {"CAM": {"wf": 0, "sm": 5, "fs": []}, "CM": {"wf": 0, "sm": 5, "fs": []}}
+    assert "CAM" not in eng.index_pool([w], reqs=reqs)
+    by = eng.index_pool([w], no_women={"CAM", "CM"}, reqs=reqs, keep={(w["s"], "CAM")})
+    assert by.get("CAM") == [w] and "CM" not in by                      # only where it is a favourite
+    assert "CAM" not in eng.index_pool([w], pos_bans=[(970, "CAM")], keep={(w["s"], "CAM")})
+
+
+def test_server_reads_favourites():
+    o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
+    assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
+    assert cb.favs({})[1] == 10.0 and cb.favs({"fav_w": 999})[1] == 100.0
+    v = cb.value_fn(dict(o, ps_prefs={}))
+    assert v({"s": "27-271446", "ov": 84}, "CM") == 91 and v({"s": "27-271446", "ov": 84}, "ST") == 84
+
+
 def test_best_manager_finds_nation_and_league():
     # 4 from nation 5 and 2 from league 9: the best manager is nation 5 + league 9 (4 + 2 chemistry)
     sq = squad_of(ni=[5] * 4 + list(range(20, 27)), li=[9, 9] + list(range(30, 39)), ck=[None] * 11)

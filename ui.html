@@ -254,6 +254,13 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bo
 .tourbox{position:fixed;z-index:70;max-width:320px;background:var(--panel);border:1px solid var(--acc);border-radius:var(--r);box-shadow:0 12px 40px #000c;padding:12px 14px;font-size:13px}
 .tourbox .tb-h{font-weight:800;margin-bottom:4px} .tourbox .tb-f{display:flex;align-items:center;gap:6px;margin-top:10px}
 .tour-hl{outline:3px solid var(--acc)!important;outline-offset:3px;border-radius:10px;position:relative;z-index:69}
+/* favourites */
+button.fav{color:var(--mut)} button.fav .ic{width:13px;height:13px} button.fav.on{color:#ff8fb0;border-color:#ff8fb066;background:#ff8fb014}
+.card .favb{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:#ff8fb0;color:#3a0a19} .card .favb .ic{width:11px;height:11px;fill:currentColor}
+.card .favt{display:inline-grid;place-items:center;padding:0;width:20px;height:20px;border-radius:5px;background:#0006;border:1px solid #fff2;color:inherit;opacity:0;transition:opacity .12s}
+.card .favt .ic{width:11px;height:11px} .card:hover .favt,.card:focus-within .favt{opacity:.7} .card .favt:hover{opacity:1!important}
+.card .favt.on{opacity:1;background:#ff8fb0;border-color:#ff8fb0;color:#3a0a19} .card .favt.on .ic{fill:currentColor}
+.tag.fav{background:#ff8fb01c;color:#ff8fb0}
 /* motion (switched off when Windows asks for less animation) */
 @keyframes cardIn{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -420,6 +427,23 @@ dialog[open]{animation:dlgIn .2s ease-out}
               <input id="psW" type="number" min="0" max="10" step="0.5" value="1" style="width:56px;padding:3px 5px">.</div>
             <div id="psGroups" style="margin-top:8px;display:grid;gap:4px"></div>
             <button class="sm" id="psReset" style="margin-top:8px">Reset to defaults</button>
+          </div>
+        </details>
+        <details class="acc" id="fvDet"><summary id="fvSum">Favourites</summary>
+          <div class="accb">
+            <div class="small mut">Cards you'd rather play at a position, even over higher-rated ones. Chemistry still comes first: a favourite is picked when it gives the same chemistry as the alternatives. Required stats and the women filter don't apply to a favourite at its position (blocks and the blacklist still do). Use <i data-ic="heart"></i> on a card on the pitch, a search result or a suggestion, or add one here.</div>
+            <div class="rqmode" style="margin-top:8px">
+              <label class="chk"><input type="radio" name="favmode" value="always" checked> <span><b>Always</b> <span class="mut">pick a favourite over any other card with the same chemistry</span></span></label>
+              <label class="chk"><input type="radio" name="favmode" value="points"> <span><b>Boost</b> <span class="mut">count a favourite as</span>
+                <input id="favW" type="number" min="0" max="30" step="1" value="10" style="width:52px;padding:2px 4px"> <span class="mut">rating points higher, so a much better card can still beat it</span></span></label>
+            </div>
+            <div id="fvList" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1.5fr auto auto;gap:6px;margin-top:8px">
+              <input id="fvQ" placeholder="Player name…" autocomplete="off" style="min-width:0">
+              <select id="fvWho" style="min-width:0"><option value="">type a name first</option></select>
+              <select id="fvPos"></select>
+              <button class="sm" id="fvAdd">Add</button>
+            </div>
           </div>
         </details>
         <details class="acc" id="blDet"><summary id="blSum">Blacklist</summary>
@@ -758,6 +782,25 @@ function psHtml(c, pos){
 let BL = [];   // [{s, n, ov, rt}] cards never to suggest (that version only); older entries {bp, n} block every version
 function loadBL(){ try{ BL = JSON.parse(DB.get(KEY_BL) || "[]") || []; }catch(e){ BL = []; } }
 function saveBL(){ DB.set(KEY_BL, JSON.stringify(BL)); renderBL(); }
+let FAV = [];  // [{s, n, ov, rt, pos}] this exact card is preferred at that position
+const KEY_FAV = "chemBuilder.favs";
+function loadFAV(){ try{ FAV = JSON.parse(DB.get(KEY_FAV) || "[]") || []; }catch(e){ FAV = []; } }
+function saveFAV(){ DB.set(KEY_FAV, JSON.stringify(FAV)); renderFAV(); }
+const favMode = () => (document.querySelector('[name="favmode"]:checked') || {}).value || "always";
+const isFav = (c, pos) => !!c && !!pos && FAV.some(x => x.s === c.s && x.pos === pos);
+// add or remove a favourite; returns true when it is now a favourite
+function toggleFav(c, pos){
+  const k = FAV.findIndex(x => x.s === c.s && x.pos === pos);
+  if(k >= 0){ const gone = FAV.splice(k, 1)[0]; saveFAV(); undoToast(`${esc(gone.n)} is no longer a favourite at ${esc(pos)}`, () => { FAV.push(gone); saveFAV(); refresh(); }); return false; }
+  FAV.push({s:c.s, n:c.n, ov:c.ov, rt:c.rt || "", pos}); saveFAV(); return true;
+}
+function renderFAV(){
+  $("fvSum").innerHTML = `Favourites${FAV.length ? ` <span class="mut small" style="font-weight:400">· ${FAV.length}</span>` : ""}`;
+  $("fvList").innerHTML = FAV.length ? FAV.map((x,k) => `<span class="tag fav" style="font-size:12px;padding:2px 6px">${ic("heart")} ${x.ov} ${esc(x.n)} <span class="mut">· ${esc(x.rt)} · at</span> <b>${esc(x.pos)}</b> <button class="sm" data-unfav="${k}" title="Remove" style="padding:0 5px">✕</button></span>`).join("")
+                                 : `<span class="small mut">None yet.</span>`;
+}
+const favBtn = (c, pos) => !pos || !c.s || String(c.s).startsWith("custom:") ? "" :
+  ` <button class="sm fav ${isFav(c, pos) ? "on" : ""}" data-fav="${esc(c.s)}" data-pos="${esc(pos)}" title="${isFav(c, pos) ? `Favourite at ${esc(pos)} - click to remove` : `Prefer this card at ${esc(pos)}, even over higher-rated ones`}" aria-label="Favourite">${ic("heart")}${isFav(c, pos) ? ` ${esc(pos)}` : ""}</button>`;
 let PB = [];   // [{bp, n, pos}] player (every version) never suggested at that position
 function loadPB(){ try{ PB = JSON.parse(DB.get(KEY_PB) || "[]") || []; }catch(e){ PB = []; } }
 function savePB(){ DB.set(KEY_PB, JSON.stringify(PB)); renderBL(); }
@@ -996,11 +1039,12 @@ function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
     max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), reqs:readReqs(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof"].filter(Boolean),
+    favs:FAV.map(x => ({s:x.s, pos:x.pos})), fav_mode:favMode(), fav_w:favMode()==="always"?100:($("favW").value===""?10:+$("favW").value),
     blacklist:BL.filter(x => !x.s).map(x => x.bp), blacklist_cards:BL.filter(x => x.s).map(x => x.s), pos_bans:PB.map(x => ({bp:x.bp, pos:x.pos})), ps_prefs:PSP, ps_w_plus:$("psWPlus").value===""?3:+$("psWPlus").value, ps_w:$("psW").value===""?1:+$("psW").value};
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
-  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("psW").value=o.ps_w??1;
+  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("favW").value=o.fav_mode==="points"?(o.fav_w??10):($("favW").value||10); document.querySelectorAll('[name="favmode"]').forEach(r => r.checked = r.value === (o.fav_mode || "always")); $("psW").value=o.ps_w??1;
   const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof");
 }
 
@@ -1062,6 +1106,8 @@ function renderPitch(){
       const el = document.createElement("div"); el.className = "slot"; el.dataset.slot = i;
       const sel = `<select data-i="${i}" class="posSel" title="Position of this slot">${POS.map(p=>`<option ${p===S.slots[i]?"selected":""}>${p}</option>`).join("")}</select>`;
       const lock = `<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="${S.locks[i]?"Locked: never swapped by suggestions":"Lock this slot"}" aria-label="${S.locks[i]?"Unlock":"Lock"} slot">${ic(S.locks[i]?"lock":"lock-open")}</button>`;
+      const fv = c && isFav(c, S.slots[i]);
+      const favT = c && !String(c.s).startsWith("custom:") ? `<button class="favt ${fv?"on":""}" data-favslot="${i}" title="${fv?`Favourite at ${S.slots[i]} - click to remove`:`Favourite: prefer this card at ${S.slots[i]} in suggestions`}" aria-label="Favourite">${ic("heart")}</button>` : "";
       const id = c ? String(c.s) : "";
       if(SHOWN[i] !== undefined && SHOWN[i] !== id) CHANGED[i] = performance.now();
       SHOWN[i] = id;
@@ -1073,7 +1119,7 @@ function renderPitch(){
         const tip = ev && ev.inpos && !ev.full ? `club ${ev.club[0]} → +${ev.club[1]} · league ${ev.league[0]} → +${ev.league[1]} · nation ${ev.nation[0]} → +${ev.nation[1]} (counts include the manager)` : (ev&&ev.full?"full chemistry card":"");
         const tt = typeTag(c) || promoTag(c), th = cardTheme(c);
         el.innerHTML = `<div class="card ${th.shine?"shine":""} ${th.light?"lt":""} ${off?"off":""}${pop ? pop : '" style="'}${themeVars(th)}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""} · ${esc(c.rt||"")}\n${esc(c.nn||"?")} · ${esc(c.cn||"no club")} · ${esc(c.ln||"?")}${tip?"\n"+esc(tip):""}">
-          <div class="ctop"><span class="cov">${c.ov}</span>${sel}${lock}</div>
+          <div class="ctop"><span class="cov">${c.ov}</span>${sel}${favT}${lock}</div>
           <div class="cname">${esc(c.n)}</div>
           <div class="cl">${flagImg(c.nn) || `<span>${esc(c.nn||"?")} ·</span>`}<span>${esc(c.cn || c.ln || "?")}</span></div>${c.cn ? `<div class="cl cl2"><span>${esc(c.ln||"?")}</span></div>` : ""}
           <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${dupOf(i)?`<span class="dupb" title="${esc(c.n)} is in your squad more than once (also at ${esc(dupOf(i))}) - the game won't allow that">DUP</span>`:""}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
@@ -1230,7 +1276,8 @@ $("pitch").addEventListener("drop", e => {
 $("pitch").addEventListener("dragend", () => { dragFrom = -1; document.querySelectorAll(".slot.dragover").forEach(x=>x.classList.remove("dragover")); });
 
 /* ---------- optimizer ---------- */
-const banBtn = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "" :
+const banBtn = (c, pos) => favBtn(c, pos) + banBtn0(c, pos);
+const banBtn0 = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "" :
   ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)" aria-label="Blacklist this card">${ic("ban")}</button>`
   + (pos && !isPosBanned(c, pos) ? ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>` : "");
 function swapHtml(s){
@@ -1397,6 +1444,15 @@ async function runOptimize(){
     renderResults(r);
   }catch(e){ $("goMsg").textContent = e.message; }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+}
+// the card behind a ♥ button in the results (any swap or fill in the current results)
+function favFromResults(s){
+  const all = [];
+  const R = window.__R, F = window.__F;
+  if(R){ (R.singles||[]).forEach(x => all.push(x.in)); (R.chain||[]).forEach(st => st.swaps.forEach(w => all.push(w.in)));
+    for(const C of [R.combos, R.combosMgr, R.upgrades]) if(C && C.by_k) Object.values(C.by_k).forEach(l => l.forEach(o => o.swaps.forEach(w => all.push(w.in)))); }
+  if(F) F.options.forEach(o => o.fills.forEach(f => all.push(f.in)));
+  return all.find(c => c && c.s === s);
 }
 function applySwaps(list){ commit(); list.forEach(s => S.squad[s.slot] = s.in); $("results").innerHTML = ""; refresh(); }
 
@@ -1618,7 +1674,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await Promise.all([DB.load(), loadFlags()]); loadPS(); loadBL(); loadPB(); loadPresets(); loadEvos();
+  await Promise.all([DB.load(), loadFlags()]); loadPS(); loadBL(); loadPB(); loadFAV(); loadPresets(); loadEvos();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1641,7 +1697,7 @@ async function init(){
   if(!$("noWomen").children.length) writeNoWomen(NW_DEFAULT);
   if(!$("rqBody").children.length) renderRq(true);
   setMode(["up","fill"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
-  renderSaved(); renderBL(); renderPS(); updUndo(); refresh();
+  renderSaved(); renderBL(); renderFAV(); renderPS(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
 addEventListener("hashchange", handleHash);
@@ -1663,6 +1719,8 @@ addEventListener("keydown", e => {
 });
 $("pitch").addEventListener("click", e => {
   if(e.target.closest("[data-imp]")) return $("impBtn").click();
+  const fs = e.target.closest("[data-favslot]");
+  if(fs){ const i = +fs.dataset.favslot; if(S.squad[i]) toggleFav(S.squad[i], S.slots[i]); renderPitch(); return; }
   const lk = e.target.closest("[data-lock]"); if(lk){ commit(); const i=+lk.dataset.lock; S.locks[i]=!S.locks[i]; refresh(); return; }
   if(e.target.closest(".posSel")) return;
   const pk = e.target.closest("[data-pick]"); if(pk) openPicker(+pk.dataset.pick);
@@ -1687,6 +1745,8 @@ $("q").addEventListener("keydown", e => {
 });
 $("live").onchange = doSearch;
 $("hits").addEventListener("click", e => {
+  const fb = e.target.closest("[data-fav]");
+  if(fb){ const c = hitCache.find(x => x.s === fb.dataset.fav); if(c) toggleFav(c, fb.dataset.pos); renderHits(); renderPitch(); return; }
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt}); renderHits(); return; }
   const pb = e.target.closest("[data-posban]");
@@ -1734,6 +1794,33 @@ $("pbAdd").onclick = () => {
   const c = pbHits[+$("pbWho").value]; if(!c || $("pbWho").value==="") return;
   posBan({bp:c.bp, name:c.n, pos:$("pbPos").value});
   $("pbQ").value = ""; pbHits = []; $("pbWho").innerHTML = `<option value="">type a name first</option>`; pbPosOpts();
+};
+// favourites section: remove, and add by name -> exact card version -> position
+$("fvList").addEventListener("click", e => {
+  const b = e.target.closest("[data-unfav]"); if(!b) return;
+  const x = FAV[+b.dataset.unfav]; if(x) toggleFav({s:x.s}, x.pos); renderPitch();
+});
+let fvTimer = null, fvHits = [];
+$("fvQ").addEventListener("input", () => {
+  clearTimeout(fvTimer);
+  fvTimer = setTimeout(async () => {
+    const q = $("fvQ").value.trim(); fvHits = [];
+    if(q.length >= 2){ try{ fvHits = ((await api(`/api/search?q=${encodeURIComponent(q)}&live=0`)).hits || []).filter(c => c.s && !String(c.s).startsWith("custom:")).slice(0, 25); }catch(e){} }
+    $("fvWho").innerHTML = fvHits.length ? fvHits.map((c,k) => `<option value="${k}">${c.ov} ${esc(c.n)} — ${esc(c.rt||"")} · ${esc(c.p)}${c.a&&c.a.length?" / "+esc(c.a.join(", ")):""}</option>`).join("")
+                                         : `<option value="">${q.length>=2?"no card found":"type a name first"}</option>`;
+    fvPosOpts();
+  }, 200);
+});
+function fvPosOpts(){
+  const c = fvHits[+$("fvWho").value];
+  $("fvPos").innerHTML = (c ? [c.p, ...(c.a||[])] : CAP_POS).map(p => `<option>${p}</option>`).join("");
+}
+$("fvWho").addEventListener("change", fvPosOpts);
+fvPosOpts();
+$("fvAdd").onclick = () => {
+  const c = fvHits[+$("fvWho").value]; if(!c || $("fvWho").value==="") return;
+  if(!isFav(c, $("fvPos").value)) toggleFav(c, $("fvPos").value);
+  $("fvQ").value = ""; fvHits = []; $("fvWho").innerHTML = `<option value="">type a name first</option>`; fvPosOpts(); renderPitch();
 };
 $("blList").addEventListener("click", e => {
   const b = e.target.closest("[data-unban]"); if(!b) return;
@@ -1804,9 +1891,15 @@ $("rqClear").onclick = () => {
 };
 $("fillMaxOvr").addEventListener("change", save);
 document.querySelectorAll(".modetabs .mt").forEach(b => b.onclick = () => setMode(b.dataset.mode));
-for(const id of ["upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
+document.querySelectorAll('[name="favmode"]').forEach(r => r.addEventListener("change", save));
+for(const id of ["favW","upMaxOvr","psWPlus","psW","upLoss","maxDrop","minRating","gender","maxSteps","clubList","xIcon","xHero","xHof"]) $(id).addEventListener("change", save);
 $("go").onclick = runOptimize;
 $("results").addEventListener("click", e => {
+  const fb = e.target.closest("[data-fav]");
+  if(fb){ const c = favFromResults(fb.dataset.fav); if(c){ const on = toggleFav(c, fb.dataset.pos);
+      fb.classList.toggle("on", on); fb.innerHTML = ic("heart") + (on ? " " + esc(fb.dataset.pos) : "");
+      $("goMsg").textContent = on ? `${c.n} is a favourite at ${fb.dataset.pos} — search again to see the effect.` : ""; renderPitch(); }
+    return; }
   const bn = e.target.closest("[data-ban]");
   if(bn){ ban({s:bn.dataset.ban, name:bn.dataset.name, ov:bn.dataset.ov, rt:bn.dataset.rt});
     $("goMsg").textContent = `${bn.dataset.ov} ${bn.dataset.name} (${bn.dataset.rt}) blacklisted — searching again…`; runOptimize(); return; }
@@ -2006,7 +2099,7 @@ function undoToast(msg, undo){
 
 /* ---------- saved presets (#2) ---------- */
 const KEY_PRESETS = "chemBuilder.presets";
-const PRESET_SKIP = ["blacklist", "blacklist_cards", "pos_bans", "club_list"];   // global, not part of a preset
+const PRESET_SKIP = ["blacklist", "blacklist_cards", "pos_bans", "club_list", "favs"];   // global, not part of a preset
 let PRESETS = {};
 function loadPresets(){ try{ PRESETS = JSON.parse(DB.get(KEY_PRESETS) || "{}") || {}; }catch(e){ PRESETS = {}; } renderPresets(); }
 function savePresets(){ DB.set(KEY_PRESETS, JSON.stringify(PRESETS)); renderPresets(); }
@@ -2249,7 +2342,7 @@ addEventListener("keydown", e => {
 
 /* ---------- remember layout (#14): open sections, required-stats tab, "show all positions" ---------- */
 const KEY_UI = "chemBuilder.ui";
-const UI_SECTIONS = ["filtDet", "rqDet", "psDet", "blDet", "capDet"];
+const UI_SECTIONS = ["filtDet", "rqDet", "psDet", "fvDet", "blDet", "capDet"];
 function saveUiState(){
   DB.set(KEY_UI, JSON.stringify({open: UI_SECTIONS.filter(id => $(id) && $(id).open), rqTab: RQTAB, rqAll: $("rqAllPos").checked}));
 }

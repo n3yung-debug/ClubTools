@@ -524,6 +524,21 @@ def soft_reqs(opts):
     return _req_rows(opts), float(r.get("w", 3) or 0)
 
 
+def favs(opts):
+    """Favourite cards per position [{s, pos}, ...] -> ({(slug, pos)}, rating points each is worth). The UI's
+    "always" mode sends 100: more than any rating gap, so a favourite wins whenever the chemistry is equal."""
+    out = {(str(x["s"]), x["pos"]) for x in opts.get("favs") or []
+           if isinstance(x, dict) and x.get("s") and x.get("pos") in eng.POS_GROUP}
+    w = opts.get("fav_w")
+    return out, max(0.0, min(100.0, float(10 if w in (None, "") else w)))   # 100 = "always" in the UI
+
+
+def value_fn(opts):
+    """Card value for ranking: overall + wanted PlayStyles + preferred stats + favourites."""
+    return eng.make_value(opts.get("ps_prefs"), float(opts.get("ps_w_plus", 3) or 0), float(opts.get("ps_w", 1) or 0),
+                          *soft_reqs(opts), *favs(opts))
+
+
 def pos_bans(opts):
     """[{bp, pos}, ...] from the UI -> (bp, pos) pairs for eng.index_pool."""
     out = []
@@ -944,9 +959,8 @@ class Handler(BaseHTTPRequestHandler):
         slots, squad, mgr, o = b["slots"], b["squad"], b.get("mgr"), b.get("opts", {})
         pool, unmatched = build_pool(o)
         fixed, free = _mgr_modes(mgr)
-        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0),
-                             *soft_reqs(o))
-        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o)), int(o.get("min_rating", 0)),
+        val = value_fn(o)
+        res = eng.fill_squad(slots, squad, free, eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o), favs(o)[0]), int(o.get("min_rating", 0)),
                              max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         for opt in res["options"]:
             full = list(squad)
@@ -962,8 +976,7 @@ class Handler(BaseHTTPRequestHandler):
         ok = None
         max_drop, min_rating = int(o.get("max_drop", 3)), int(o.get("min_rating", 0))
         fixed, free = _mgr_modes(mgr)
-        val = eng.make_value(o.get("ps_prefs"), float(o.get("ps_w_plus", 3) or 0), float(o.get("ps_w", 1) or 0),
-                             *soft_reqs(o))
+        val = value_fn(o)
         base = eng.total_only(slots, squad, fixed)          # what the squad has right now
         base_free, li_now = eng.total_only(slots, squad, free), eng._manager_rows(slots, squad, free)[1]
         _, singles, _ = eng.top_singles(slots, squad, locks, free, by_pos, max_drop, min_rating, n=30, ok=ok, val=val)
@@ -1002,7 +1015,7 @@ def _search_setup(b):
         raise ValueError("Fill all 11 slots first.")
     o = b.get("opts", {})
     pool, unmatched = build_pool(o)
-    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o))
+    by_pos = eng.index_pool(pool, o.get("no_women"), pos_bans(o), reqs(o), favs(o)[0])
     return slots, squad, locks, mgr, o, by_pos, pool, unmatched
 
 

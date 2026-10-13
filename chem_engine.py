@@ -254,17 +254,35 @@ def plain_value(c, pos):
     return c["ov"]
 
 
-def make_value(prefs=None, w_plus=3, w_ps=1, soft=None, w_soft=0):
+def boost(val, c, pos):
+    """Rating points a favourite card gets at this position (0 for everything else)."""
+    b = getattr(val, "boost", None)
+    return b(c, pos) if b else 0
+
+
+def _with_favs(found, cands, val, pos, ok=None):
+    """Make sure every favourite for this position is on a shortlist, even if it would not have made the cut."""
+    seen = {c["s"] for c in found}
+    for c in cands:
+        if c["s"] not in seen and boost(val, c, pos) and (ok is None or ok(c)):
+            seen.add(c["s"])
+            found.append(c)
+    return found
+
+
+def make_value(prefs=None, w_plus=3, w_ps=1, soft=None, w_soft=0, favs=None, w_fav=0):
     """Card value used for ranking: overall + a bonus for the PlayStyles you want in that position.
     prefs = {"GK": [ids], "CDM": [...], "ST": [...], ...} per position (group keys DEF/MID/ATT are still
     understood for positions without their own entry); a wanted PlayStyle+ is worth w_plus rating points,
     a plain wanted PlayStyle w_ps. soft: preferred stats per position (see _checks), each criterion met is
-    worth w_soft rating points."""
+    worth w_soft rating points. favs: {(card slug, position)} the user prefers there, each worth w_fav rating
+    points; favourites also get that much leeway wherever a search filters on overall (rating drop, upgrades)."""
     want = {g: frozenset(ids) for g, ids in (prefs or {}).items() if ids}
     if not want or (not w_plus and not w_ps):
         want = {}
     soft = soft if soft and w_soft else None   # preferred stats: w_soft rating points per criterion met
-    if not want and not soft:
+    favs = frozenset(tuple(x) for x in favs or ()) if w_fav else frozenset()
+    if not want and not soft and not favs:
         return plain_value
     cache = {}
 
@@ -279,8 +297,12 @@ def make_value(prefs=None, w_plus=3, w_ps=1, soft=None, w_soft=0):
                 v += sum(w_plus if x in pp else w_ps if x in ps else 0 for x in w)
             if soft:
                 v += w_soft * pref_points(c, pos, soft)
+            if (c["s"], pos) in favs:
+                v += w_fav
             cache[key] = v
         return v
+    if favs:
+        value.boost = lambda c, pos: w_fav if (c["s"], pos) in favs else 0
     return value
 
 
@@ -318,31 +340,37 @@ def pref_points(c, pos, reqs):
     return sum(_checks(c, pos, r)) if r else 0
 
 
-def index_pool(pool, no_women=(), pos_bans=(), reqs=None):
+def index_pool(pool, no_women=(), pos_bans=(), reqs=None, keep=()):
     """Cards by every position they can play. no_women: positions where women's cards are never suggested
     (they can still play their other positions). pos_bans: (base player id, position) pairs - that player,
-    every version, is never suggested at that position (still fine at the others). reqs: see meets()."""
+    every version, is never suggested at that position (still fine at the others). reqs: see meets().
+    keep: (card slug, position) favourites the user picked by hand - the women filter and required stats
+    don't apply to them there (position blocks still do)."""
     no_women = set(no_women or ())
     banned = {(str(bp), pos) for bp, pos in pos_bans or ()}
+    keep = set(keep or ())
     by_pos = {}
     for c in pool:
         for p in prefs(c):
-            if c.get("g") == 2 and p in no_women:
-                continue
             if banned and (str(c.get("bp")), p) in banned:
                 continue
-            if reqs and not meets(c, p, reqs):
+            if (c["s"], p) in keep:
+                pass
+            elif c.get("g") == 2 and p in no_women:
+                continue
+            elif reqs and not meets(c, p, reqs):
                 continue
             by_pos.setdefault(p, []).append(c)
     return by_pos
 
 
-def _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating):
-    cur = squad[i]
-    floor = max(min_rating, cur["ov"] - max_drop)
+def _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating, val=plain_value):
+    cur, pos = squad[i], slots[i]
+    floor = cur["ov"] - max_drop   # a favourite coming in gets its bonus as leeway on the rating drop
     others = {c["bp"] for j, c in enumerate(squad) if j != i and c}
-    for cand in by_pos.get(slots[i], ()):
-        if cand["ov"] < floor or cand["bp"] in others or cand["s"] == cur["s"]:
+    for cand in by_pos.get(pos, ()):
+        if (cand["ov"] < min_rating or cand["ov"] + boost(val, cand, pos) < floor or cand["bp"] in others
+                or cand["s"] == cur["s"]):
             continue
         yield cand
 
@@ -357,7 +385,7 @@ def single_swaps(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, val
         if locks[i] or cur is None:
             continue
         keep = ts[i]
-        for cand in _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating):
+        for cand in _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating, val):
             ts[i] = _t(cand)
             t = _ttotal(slots, ts, mni, mli, free)
             out.append({"slot": i, "out": cur, "in": cand, "total": t, "d": t - base,
@@ -389,7 +417,7 @@ def top_singles(slots, squad, locks, mgr, by_pos, max_drop, min_rating, n=30, on
 
 
 def synergy_pairs(slots, squad, locks, mgr, by_pos, allsingles, base, max_drop, min_rating,
-                  per_slot=35, n=20, ok=None):
+                  per_slot=35, n=20, ok=None, val=plain_value):
     """Two swaps that only pay off together (each alone is worse than the pair)."""
     single_d = {(r["slot"], r["in"]["s"]): r["d"] for r in allsingles}
     mg = mgr or {}
@@ -397,7 +425,7 @@ def synergy_pairs(slots, squad, locks, mgr, by_pos, allsingles, base, max_drop, 
     for i, cur in enumerate(squad):
         if locks[i] or cur is None:
             continue
-        cands = list(_slot_candidates(i, slots, squad, by_pos, max_drop, min_rating))
+        cands = list(_slot_candidates(i, slots, squad, by_pos, max_drop, min_rating, val))
         leagues = Counter(c["li"] for c in squad if c)
         nations = Counter(c["ni"] for c in squad if c)
         clubs = Counter(c["ck"] for j, c in enumerate(squad) if c and c.get("ck") and j != i)
@@ -469,7 +497,7 @@ def plan_chain(slots, squad, locks, mgr, by_pos, max_drop=3, min_rating=0, max_s
             steps.append({"swaps": [{"slot": best["slot"], "out": best["out"], "in": best["in"]}],
                           "total": total})
             continue
-        pairs = synergy_pairs(slots, cur, locks, mgr, by_pos, allr, base, max_drop, min_rating, n=1, ok=ok)
+        pairs = synergy_pairs(slots, cur, locks, mgr, by_pos, allr, base, max_drop, min_rating, n=1, ok=ok, val=val)
         if not pairs:
             break
         best = pairs[0]
@@ -494,7 +522,7 @@ def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingle
         if locks[i] or cur is None:
             continue
         clubs = Counter(c["ck"] for j, c in enumerate(squad) if c and c.get("ck") and j != i)
-        cands = [c for c in _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating)]
+        cands = [c for c in _slot_candidates(i, slots, squad, by_pos, max_drop, min_rating, val)]
 
         def potential(c):
             return (leagues[c["li"]] + nations[c["ni"]] + 2 * clubs.get(c.get("ck"), 0)
@@ -508,7 +536,7 @@ def _shortlist(slots, squad, locks, mgr, by_pos, max_drop, min_rating, allsingle
             if c["s"] not in seen and (ok is None or ok(c)):
                 seen.add(c["s"])
                 merged.append(c)
-        out[i] = merged
+        out[i] = _with_favs(merged, cands, val, pos, ok)
     return out
 
 
@@ -651,7 +679,8 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
         pos, cur_v = slots[i], val(cur, slots[i])
         for c in by_pos.get(pos, ()):
             # an upgrade = a better card for this position: higher overall, or wanted PlayStyles worth more
-            if val(c, pos) <= cur_v or c["ov"] < cur["ov"] or c["ov"] < min_rating or c["bp"] in others:
+            if (val(c, pos) <= cur_v or c["ov"] + boost(val, c, pos) < cur["ov"] + boost(val, cur, pos)
+                    or c["ov"] < min_rating or c["bp"] in others):
                 continue
             n_higher += 1
             if cap and c["ov"] > cap:  # price stand-in: nothing above this overall
@@ -670,6 +699,7 @@ def upgrade_combos(slots, squad, locks, mgr, by_pos, min_rating=0, k_max=3, max_
             if c["s"] not in seen and (ok is None or ok(c)):
                 seen.add(c["s"])
                 merged.append(c)
+        _with_favs(merged, [c for _, c in scored], val, pos, ok)
         if merged:
             sl[i] = merged
     best = {}
@@ -760,6 +790,8 @@ def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=N
                 seen.add(c["s"])
                 merged.append(c)
                 tc[c["s"]] = _t(c)
+        for c in _with_favs(merged, cands, val, pos):
+            tc.setdefault(c["s"], _t(c))
         sl[i] = merged
     if any(not sl[i] for i in empty):
         return {"options": [], "empty": empty, "timed_out": False,

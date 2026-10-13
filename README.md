@@ -28,6 +28,8 @@ The workflow builds and self-tests the exe, publishes it as a pre-release (nobod
 
 ## Use
 
+**Favourites** (section above Blacklist): cards you'd rather play at a position even over higher-rated ones, e.g. the 84 Vicky López at CAM. Add them with the heart on a pitch card, a search result or a suggestion. Chemistry still comes first; among options with the same chemistry, **Always** picks the favourite, **Boost** counts it as N rating points higher. Required stats and the women filter don't apply to a favourite at its position; position blocks and the blacklist still do. A favourite already in your squad isn't locked: lock it if chemistry swaps shouldn't touch it.
+
 New in 1.3 (new look):
 - **Cards coloured by type**: gold, silver, bronze, TOTW, Icon, Hero, Hall of FUT, Evolution, and a fixed colour plus short label for each promo (FS, OTW, POTM…). Nation flags, full names that shrink to fit.
 - **Quieter pitch**: the position picker and lock show when you point at a card; a locked slot always shows its lock.
