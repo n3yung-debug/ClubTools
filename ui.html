@@ -291,6 +291,9 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .keys th{text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding-top:12px}
 .keys td:first-child{white-space:nowrap;color:var(--mut);width:42%}
 kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;background:var(--panel2);font:600 11px/1.5 inherit;color:var(--txt)}
+.whatsnew{max-height:60vh;overflow:auto;margin-top:8px;font-size:13.5px;line-height:1.5}
+.whatsnew h4{margin:12px 0 4px;font-size:14px} .whatsnew h4:first-child{margin-top:0}
+.whatsnew ul{margin:0;padding-left:18px} .whatsnew li{margin:3px 0}
 .tourbox{position:fixed;z-index:70;max-width:320px;background:var(--panel);border:1px solid var(--acc);border-radius:var(--r);box-shadow:0 12px 40px #000c;padding:12px 14px;font-size:13px}
 .tourbox .tb-h{font-weight:800;margin-bottom:4px} .tourbox .tb-f{display:flex;align-items:center;gap:6px;margin-top:10px}
 .tour-hl{outline:3px solid var(--acc)!important;outline-offset:3px;border-radius:10px;position:relative;z-index:69}
@@ -537,7 +540,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
     <div id="results"></div>
   </section>
 </main>
-<footer><span class="fb"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg2)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg>ClubTools</span><span>Squad chemistry, upgrades and fills for EA FC 27 Ultimate Team</span><span id="footVer"></span><span style="margin-left:auto">Card data: FUT.GG · Not affiliated with EA, FUT.GG or FUTBIN · <a href="#" id="footFb" style="color:inherit">Send feedback</a> · <a href="#" id="footAbout" style="color:inherit">About &amp; legal</a></span></footer>
+<footer><span class="fb"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="ctg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f8a5e"/><stop offset="1" stop-color="#0d3326"/></linearGradient></defs><path d="M16 2.5 27.5 6.5V15c0 7.2-5 12.2-11.5 14.5C9.5 27.2 4.5 22.2 4.5 15V6.5Z" fill="url(#ctg2)" stroke="#45b886" stroke-width="1.4"/><path d="M5 15.5h22" stroke="#cfeedd" stroke-opacity=".35" stroke-width="1"/><path d="M10 12.8 12.7 15.5 10 18.2 7.3 15.5Z" fill="#5fb4ff"/><path d="M16 11.6 19.9 15.5 16 19.4 12.1 15.5Z" fill="#9fd2ff"/><path d="M22 12.8 24.7 15.5 22 18.2 19.3 15.5Z" fill="#5fb4ff"/></svg>ClubTools</span><span>Squad chemistry, upgrades and fills for EA FC 27 Ultimate Team</span><span id="footVer"></span><span style="margin-left:auto">Card data: FUT.GG · Not affiliated with EA, FUT.GG or FUTBIN · <a href="#" id="footNew" style="color:inherit">What's new</a> · <a href="#" id="footFb" style="color:inherit">Send feedback</a> · <a href="#" id="footAbout" style="color:inherit">About &amp; legal</a></span></footer>
 
 <dialog id="impDlg" style="width:min(760px,96vw)">
   <div style="display:flex;gap:8px;align-items:center">
@@ -582,6 +585,15 @@ dialog[open]{animation:dlgIn .2s ease-out}
   </div>
   <div class="small mut" id="impMsg" style="margin-top:6px"></div>
   <div id="impOut"></div>
+</dialog>
+
+<dialog id="newDlg" style="width:min(620px,96vw)">
+  <div style="display:flex;gap:8px;align-items:center">
+    <strong style="flex:1" id="newTitle">What's new</strong>
+    <button id="newClose" class="sm">Close</button>
+  </div>
+  <div id="newBody" class="whatsnew"></div>
+  <div class="small mut" style="margin-top:10px">Shown once after each update. Open it again any time from <b>What's new</b> at the bottom of the page. <a href="#" id="newPage" target="_blank" rel="noopener">Release page ↗</a></div>
 </dialog>
 
 <dialog id="aboutDlg" style="width:min(820px,96vw)">
@@ -2810,6 +2822,35 @@ document.querySelectorAll("#rqTabs [data-rqtab]").forEach(b => b.addEventListene
 
 /* ---------- first-run tips (#16) ---------- */
 const KEY_TOUR = "chemBuilder.tourDone";
+/* ---------- What's new: shown once after an update ---------- */
+const KEY_SEEN = "chemBuilder.seenVersion";
+function notesHtml(t){   // release notes: "- " lines are bullets, other lines headings
+  let h = "", inList = false;
+  for(const raw of String(t).split(/\r?\n/)){
+    const ln = raw.trim(); if(!ln){ if(inList){ h += "</ul>"; inList = false; } continue; }
+    const li = ln.match(/^[-*•]\s+(.*)/);
+    if(li){ if(!inList){ h += "<ul>"; inList = true; } h += `<li>${esc(li[1])}</li>`; }
+    else { if(inList){ h += "</ul>"; inList = false; } h += `<h4>${esc(ln.replace(/^#+\s*/, ""))}</h4>`; }
+  }
+  return h + (inList ? "</ul>" : "");
+}
+async function whatsNew(force){
+  let r; try{ r = await api("/api/whatsnew"); }catch(e){ return; }
+  if(!force){
+    if(!r.version) return;   // a test build or running from the Python files
+    const seen = DB.get(KEY_SEEN);
+    if(seen === r.version) return;
+    DB.set(KEY_SEEN, r.version);
+    if(!seen && DB.get(KEY_TOUR) !== "1") return;   // brand-new install: the quick tips show instead
+    if(!r.notes) return;
+  }
+  $("newTitle").textContent = r.version ? `What's new in ClubTools ${r.version}` : "What's new";
+  $("newBody").innerHTML = r.notes ? notesHtml(r.notes) : `<div class="mut">${r.version ? "Couldn't load the release notes (no internet?)." : "This is a test build, so there are no release notes."} The release page has the full list.</div>`;
+  $("newPage").href = r.page || "https://github.com/n3yung-debug/ClubTools/releases"; $("newPage").hidden = !r.page && !r.version;
+  if(!$("newDlg").open) $("newDlg").showModal();
+}
+$("newClose").onclick = () => $("newDlg").close();
+$("footNew").onclick = e => { e.preventDefault(); whatsNew(true); };
 const TOUR = [
   ["#impBtn", "Bring your squad in", "Import it from a FUT.GG share link or with the FUTBIN bookmark, or click any slot on the pitch to add players one by one."],
   ["#pitch", "Your squad", "Click a card to replace it or Evolve it, drag cards to swap them, and the lock (point at a card) keeps a slot fixed. The ring on the right is your live chemistry."],
@@ -2873,7 +2914,7 @@ $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps())
 $("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
 $("filtDet").addEventListener("change", () => rqRefreshCounts());
 
-init().then(() => { loadUiState(); updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); checkDataAge(); if(DB.get(KEY_TOUR) !== "1") setTimeout(() => showTour(0), 600); });
+init().then(() => { loadUiState(); updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); checkDataAge(); if(DB.get(KEY_TOUR) !== "1") setTimeout(() => showTour(0), 600); setTimeout(() => whatsNew(false), 900); });
 </script>
 </body>
 </html>

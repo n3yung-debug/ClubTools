@@ -791,6 +791,29 @@ def test_ids_import_dedupes_and_seats():
     assert r["unmatched"] == ["card id 999999999"]
 
 
+def test_whats_new_uses_release_notes():
+    import os
+    real, old = cb._github_json, os.environ.get("CLUBTOOLS_FAKE_VERSION")
+    calls = []
+    cb._github_json = lambda url: calls.append(url) or {"body": "New\n- thing"}
+    cb.WHATSNEW.clear()
+    try:
+        os.environ["CLUBTOOLS_FAKE_VERSION"] = "1.7.3 · 2026-10-14 17:00 UTC (abc1234)"
+        r = cb.whats_new()
+        assert r["version"] == "1.7.3" and r["notes"] == "New\n- thing" and calls[0].endswith("/releases/tags/v1.7.3")
+        cb.whats_new()
+        assert len(calls) == 1   # cached
+        os.environ["CLUBTOOLS_FAKE_VERSION"] = "2026-10-14 17:00 UTC (abc1234)"   # test build: no popup
+        assert cb.whats_new()["version"] is None
+    finally:
+        cb._github_json = real
+        cb.WHATSNEW.clear()
+        if old is None:
+            os.environ.pop("CLUBTOOLS_FAKE_VERSION", None)
+        else:
+            os.environ["CLUBTOOLS_FAKE_VERSION"] = old
+
+
 def test_update_version_compare():
     assert cb.version_info("1.2.0 · 2026-10-11 11:20 UTC (abc1234)")[0] == (1, 2, 0)
     assert cb.version_info("2026-10-11 11:20 UTC (abc1234)")[0] is None

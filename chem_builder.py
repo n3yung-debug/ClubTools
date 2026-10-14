@@ -1032,6 +1032,8 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
             return self._send(200, {"name": name, "text": f"{name} is not included in this build."})
+        if u.path == "/api/whatsnew":
+            return self._send(200, whats_new())
         if u.path == "/api/update":
             return self._send(200, dict(UPDATE, current=current_version(), can_install=can_self_update(), auto=auto_update_on()))
         if u.path == "/api/diag":
@@ -1585,6 +1587,33 @@ def check_update():
     except Exception as e:  # noqa: BLE001
         UPDATE.update(state="error", error=f"couldn't reach GitHub ({e})"[:240])
     print(f"Update check: {UPDATE['state']} {UPDATE['error']}".rstrip(), flush=True)
+
+
+WHATSNEW = {}
+
+
+def whats_new():
+    """Release notes of the version that's running, for the 'What's new' window after an update
+    -> {version, notes, page}. version is None when running a test build or the Python files."""
+    sem, _ = version_info(current_version())
+    if not sem:
+        return {"version": None, "notes": "", "page": ""}
+    v = ".".join(str(x) for x in sem)
+    if v in WHATSNEW:
+        return WHATSNEW[v]
+    notes, page = "", f"https://github.com/{UPDATE_REPO}/releases/tag/v{v}"
+    latest = UPDATE.get("latest") or {}
+    if latest.get("version") == v:
+        notes = latest.get("notes") or ""
+    else:
+        try:
+            notes = str(_github_json(f"https://api.github.com/repos/{UPDATE_REPO}/releases/tags/v{v}").get("body") or "")[:5000]
+        except Exception:  # noqa: BLE001  (offline: the window links to the release page instead)
+            pass
+    r = {"version": v, "notes": notes.strip(), "page": page}
+    if notes:
+        WHATSNEW[v] = r
+    return r
 
 
 def download_verified(url, digest, dest, hosts=UPDATE_HOSTS, progress=None):
