@@ -423,7 +423,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           </details>
         </div>
         <div data-modepane="sbc" hidden>
-          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (your imported club), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.<br>The pitch is your SBC squad here: it starts empty, and any players you put on it stay while the helper builds around them. Your main squad comes back when you switch to another mode. Filters from the other modes don't apply here; the blacklist does.</div>
+          <div class="small mut modedesc">Builds SBC squads from the lowest-rated cards that meet the requirements. Each option shows how many of your club cards could go in instead, with a button to swap them in. SBC chemistry counts no manager.<br>The pitch is your SBC squad here: it starts empty, and any players you put on it stay while the helper builds around them. Your main squad comes back when you switch to another mode. Filters from the other modes don't apply here; the blacklist does.</div>
           <div class="grid2">
             <label class="f">Challenge<select id="sbcPreset"><option value="">Custom</option></select></label>
             <label class="f">Formation<select id="sbcForm"><option value="any">Any (ClubTools picks)</option></select></label>
@@ -431,11 +431,12 @@ dialog[open]{animation:dlgIn .2s ease-out}
           <div class="small" id="sbcClub" style="margin:8px 0"></div>
           <div class="sbcgrid" id="sbcGrid"></div>
           <div id="sbcFrom"></div>
-          <button class="sm" id="sbcAddFrom" style="margin-top:6px">+ Players from a league / nation / club, or Bronze / Silver / Gold players</button>
+          <button class="sm" id="sbcAddFrom" style="margin-top:6px" title="For requirements like &quot;Premier League: Min. 3 Players&quot;, &quot;Liverpool OR Manchester City: Min. 2&quot; or &quot;Silver: Min. 1&quot;">+ Add a league / club / nation / quality requirement <span class="mut">(e.g. Premier League: Min. 3, Liverpool OR Man City: Min. 2)</span></button>
           <div class="rqmode" style="margin-top:10px">
             <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players from my main squad</label>
             <label class="chk"><input type="checkbox" id="sbcKeepFav" checked> Don't use my favourites</label>
             <label class="chk"><input type="checkbox" id="sbcKeepSpecial" checked> Don't use my ICONs, Heroes or promo cards</label>
+            <label class="chk"><input type="checkbox" id="sbcPreferOwn"> Build from my club first <span class="mut">(otherwise: the lowest-rated cards, and each option says how many of your cards fit)</span></label>
             <label class="chk"><input type="checkbox" id="sbcOwnOnly"> Only my club (don't suggest buying anything)</label>
             <label class="chk" style="align-items:center">Use my own cards rated up to <input id="sbcMaxOwn" type="number" min="45" max="99" placeholder="any" style="width:64px;padding:2px 6px"></label>
           </div>
@@ -2730,13 +2731,17 @@ async function runSbc(){
   watchProgress("Building SBC squads…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
   try{
-    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: sbcOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
+    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: sbcOpts(), avoid, own_only: $("sbcOwnOnly").checked, prefer_owned: $("sbcPreferOwn").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
     stopProgress(); $("goMsg").textContent = ""; renderSbc();
   }catch(e){ showError("SBC helper", e); }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
 }
-function sbcSquadHtml(s, j){
-  const owned = s.owned, buy = s.cards.length - owned;
+// an option as shown: the lowest-rated build, or (after "Use my cards") the same squad with your cards swapped in
+const sbcShown = s => s.useClub && s.with_club ? Object.assign({}, s, s.with_club) : s;
+function sbcSquadHtml(s0, j){
+  const s = sbcShown(s0), owned = s.owned, buy = s.cards.length - owned, W = s0.with_club;
+  const clubBtn = !s0.valid ? "" : W ? `<span class="tag" style="color:var(--ok)">${W.swapped} of your club card${W.swapped===1?"":"s"} fit${W.swapped===1?"s":""}</span><button class="sm${s0.useClub?"":" primary"}" data-sbcclub="${j}">${s0.useClub ? "Show the lowest-rated build" : "Use my cards"}</button>`
+    : (window.__SBC && window.__SBC.owned && !window.__SBC.prefer_owned ? `<span class="small mut">none of your club cards fit without breaking a requirement</span>` : "");
   const rows = s.cards.map((c, i) => {
     const mine = s.own && s.own[i], placed = s.placed && s.placed[i];
     return `<div class="sbcrow"><span class="tag">${esc(s.slots[i])}</span><span>${flagImg(c.nn)} <b>${c.ov}</b> ${esc(c.n)} <span class="mut small">· ${esc(c.rt||"")} · ${esc(c.cn || c.ln || "")}</span></span>
@@ -2744,7 +2749,7 @@ function sbcSquadHtml(s, j){
   }).join("");
   return `<div class="res" style="display:block"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
       <b>${s.valid ? `Option ${j + 1}` : "Closest attempt"}</b><span class="small mut">${esc(s.formation)} · ${owned} of your cards · ${buy ? `${buy} to buy` : "nothing to buy"} · rating ${s.rating ?? "–"} · chemistry ${s.chem}</span>
-      <span style="flex:1"></span>${s.valid ? `<button class="sm" data-sbcshow="${j}">Show on pitch</button>` : ""}</div>
+      <span style="flex:1"></span>${clubBtn}${s.valid ? `<button class="sm" data-sbcshow="${j}">Show on pitch</button>` : ""}</div>
     <div class="sbcchecks">${s.checks.map(x => `<span class="${x.ok?"":"no"}">${x.ok ? "✓" : "✗"} ${esc(x.label)} <span class="mut">(${x.have})</span></span>`).join("")}</div>${rows}</div>`;
 }
 function renderSbc(){
@@ -2759,8 +2764,10 @@ function renderSbc(){
   $("results").innerHTML = h + `</div>`;
 }
 $("results").addEventListener("click", e => {
+  const u = e.target.closest("[data-sbcclub]");
+  if(u && window.__SBC){ const x = window.__SBC.solutions[+u.dataset.sbcclub]; x.useClub = !x.useClub; renderSbc(); return; }
   const b = e.target.closest("[data-sbcshow]"); if(!b || !window.__SBC) return;
-  const s = window.__SBC.solutions[+b.dataset.sbcshow];
+  const s = sbcShown(window.__SBC.solutions[+b.dataset.sbcshow]);
   commit(); S.formation = FORMATIONS[s.formation] ? s.formation : ""; S.slots = s.slots.slice(); S.squad = s.cards.slice(); S.locks = Array(11).fill(false);
   $("formation").value = S.formation; refresh(); scrollTo({top:0, behavior:"smooth"});
   undoToast("SBC squad shown on the pitch", () => undo());

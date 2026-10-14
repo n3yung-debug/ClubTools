@@ -1306,9 +1306,11 @@ SBC_FORMATIONS = ("4-4-2", "4-3-3", "4-2-3-1", "4-1-2-1-2", "3-5-2", "4-5-1", "5
 
 
 def sbc_build(b):
-    """SBC helper: build squads that meet the requirements from the user's club first (the "Only use cards I
-    own" list), then the cheapest cards. b: {req, formation ("any" or a name), opts, avoid: [slugs], max_own,
-    own_only}. SBC squads have no manager, so chemistry is counted without one."""
+    """SBC helper: build squads that meet the requirements with the lowest-rated cards, owned or not, then
+    say per squad how many of the user's club cards (the "Only use cards I own" list) could be swapped in
+    (with_club). prefer_owned: build from the club first instead. b: {req, formation ("any" or a name), opts,
+    avoid: [slugs], max_own, own_only, prefer_owned, fixed}. SBC squads have no manager, so chemistry is
+    counted without one."""
     o = dict(b.get("opts") or {})
     club_text = o.pop("club_list", "") or ""
     o.pop("cheap_versions", None)                       # every version counts; cost decides
@@ -1340,19 +1342,30 @@ def sbc_build(b):
         names = [pf.get("formation") if pf.get("formation") in FORMATIONS else "Your pitch"]
     if not names:
         raise ValueError("Unknown formation")
+    prefer = bool(b.get("prefer_owned")) or bool(b.get("own_only"))
     budget, results = (8.0 if len(names) > 1 else 6.0), []
     for k, fname in enumerate(names):
         progress(f"SBC: trying {fname}…", k + 1, len(names)) if len(names) > 1 else progress("SBC: building squads…")
         slots = pitch_slots or FORMATIONS[fname]["slots"]
         r = eng.sbc_solve(slots, by_pos, owned, req, time_limit=budget / len(names), avoid=b.get("avoid") or (),
-                          fixed=fixed)   # no manager in SBCs
+                          fixed=fixed, prefer_owned=prefer)   # no manager in SBCs
         for s in r["solutions"] + ([r["closest"]] if not r["solutions"] and r.get("closest") else []):
             results.append(dict(s, formation=fname, slots=slots, own=[c["s"] in owned for c in s["cards"]],
                                 placed=[i in fixed for i in range(len(slots))]))
     progress("")
-    valid = sorted((x for x in results if x["valid"]), key=lambda x: x["cost"])
+    valid = sorted((x for x in results if x["valid"]), key=lambda x: x["cost"])[:5]
+    if owned:   # how many of your club cards could go into each squad, and that squad
+        avoid = set(b.get("avoid") or ())
+        for x in valid:
+            cards, n = eng.sbc_use_owned(x["slots"], x["cards"], by_pos, owned, req, fixed=fixed, avoid=avoid)
+            if n:
+                rows, _ = eng.sbc_check(x["slots"], cards, req)
+                x["with_club"] = {"cards": cards, "swapped": n, "checks": rows, "own": [c["s"] in owned for c in cards],
+                                  "owned": sum(1 for c in cards if c["s"] in owned),
+                                  "rating": (eng.squad_rating(cards) or {}).get("rating"),
+                                  "chem": eng._ttotal(x["slots"], [eng._t(c) for c in cards], None, None, False)}
     closest = None if valid else min(results, key=lambda x: sum(not c["ok"] for c in x["checks"]), default=None)
-    return {"solutions": valid[:5], "closest": closest, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
+    return {"solutions": valid, "closest": closest, "prefer_owned": prefer, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
             "unmatched": unmatched[:20], "n_unmatched": len(unmatched), "formations": names,
             "low": len(STATE["low"]), "need_low": not STATE["low"] and sbc_needs_low(req)}
 

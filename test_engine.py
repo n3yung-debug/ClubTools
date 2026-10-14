@@ -603,8 +603,12 @@ def test_sbc_build_uses_your_club_first():
     rows, short = eng.sbc_check(s["slots"], s["cards"], req)
     assert short == 0 and len({c["li"] for c in s["cards"]}) == 3 and len({c["ni"] for c in s["cards"]}) == 2
     club = "\n".join(c["s"] + "  " + c["n"] for c in s["cards"][:6])            # own six of those cards
-    r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
+    r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}, "prefer_owned": True})
     assert r2["owned"] == 6 and r2["solutions"][0]["valid"] and sum(r2["solutions"][0]["own"]) >= 5
+    # default: lowest-rated build, and each option says how many club cards can be swapped in (still valid)
+    r4 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
+    w = [x.get("with_club") for x in r4["solutions"] if x.get("with_club")]
+    assert w and all(all(c["ok"] for c in x["checks"]) and x["owned"] >= x["swapped"] >= 1 for x in w)
     # protected cards (e.g. your squad) are never used
     avoid = [c["s"] for c in s["cards"]]
     r3 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {}, "avoid": avoid})
@@ -649,7 +653,7 @@ def test_sbc_build_uses_bronze_and_silver_cards():
         s = r["solutions"][0]
         assert s["valid"] and all(c["ov"] < 75 for c in s["cards"]) and not r["need_low"]
         club = "\n".join(c["s"] for c in low[::2])
-        r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
+        r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}, "prefer_owned": True})
         assert r2["solutions"][0]["valid"] and sum(r2["solutions"][0]["own"]) >= 9   # bronze/silver club cards recognised and used
         cb.STATE["low"] = []
         assert cb.sbc_needs_low(req) and not cb.sbc_needs_low({"quality": {"op": "min", "tier": "silver"}})

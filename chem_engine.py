@@ -1022,12 +1022,15 @@ def sbc_check(slots, cards, req, mgr=None):
     return rows, short
 
 
-def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=(), fixed=None):
+def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=(), fixed=None,
+              prefer_owned=True):
     """Build SBC squads that meet req (see sbc_check) as cheaply as possible: as many cards you own as
     possible (owned: set of card slugs), then the lowest-rated cards that work. Simulated annealing over the
     11 slots, players always in position; besides random cheap picks it tries cards that link to a teammate
     (same league / nation / club, for chemistry) and cards a 'players from ...' rule asks for.
     fixed: {slot index: card} already placed by the user; they stay, the rest is built around them.
+    prefer_owned False: every card is costed as if bought (lowest overall first), owned or not; use
+    sbc_use_owned afterwards to swap your own cards in.
     Returns up to n distinct valid squads [{cards, cost, owned, checks}], best first, or the closest attempt
     (valid False) when none meets everything in time."""
     import random
@@ -1041,13 +1044,13 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
     def cost(c):
         v = cost_of.get(c["s"])
         if v is None:
-            v = cost_of[c["s"]] = sbc_card_cost(c, c["s"] in owned)
+            v = cost_of[c["s"]] = sbc_card_cost(c, prefer_owned and c["s"] in owned)
         return v
     cands, links = {}, {}
     for pos in set(slots):
         cs = sorted((c for c in by_pos.get(pos, ()) if c["s"] not in avoid and quality_ok(c, q)), key=cost)
-        own = [c for c in cs if c["s"] in owned]
-        cands[pos] = (own, [c for c in cs if c["s"] not in owned], cs)
+        own = [c for c in cs if c["s"] in owned] if prefer_owned else []
+        cands[pos] = (own, [c for c in cs if c["s"] not in owned] if prefer_owned else cs, cs)
         idx = {}
         for c in cs:   # cheapest first, so yours come first
             for f in ("li", "ni", "ck"):
@@ -1140,6 +1143,32 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
         if len(sols) >= n:
             break
     return {"solutions": sols, "closest": None if sols else (pack(*best_any) if best_any else None), "reason": ""}
+
+
+def sbc_use_owned(slots, cards, by_pos, owned, req, fixed=(), avoid=(), rounds=3):
+    """Swap your own cards into a finished SBC squad wherever the squad still meets every requirement:
+    slot by slot, your lowest-rated card that fits that position and keeps the squad valid. Returns
+    (new cards, number of cards swapped in). Slots in fixed (placed by you) are left alone."""
+    sq, fixed, avoid = list(cards), set(fixed), set(avoid)
+    swapped = 0
+    for _ in range(rounds):
+        changed = False
+        for i, pos in enumerate(slots):
+            if i in fixed or sq[i]["s"] in owned:
+                continue
+            bps = {c["bp"] for j, c in enumerate(sq) if j != i}
+            for c in sorted((c for c in by_pos.get(pos, ()) if c["s"] in owned and c["s"] not in avoid and c["bp"] not in bps),
+                            key=lambda c: (c["ov"], c["s"])):
+                old = sq[i]
+                sq[i] = c
+                if sbc_check(slots, sq, req)[1] == 0:
+                    swapped += 1
+                    changed = True
+                    break
+                sq[i] = old
+        if not changed:
+            break
+    return sq, swapped
 
 
 def squad_rating(cards):
