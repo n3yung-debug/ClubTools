@@ -419,7 +419,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           </details>
         </div>
         <div data-modepane="sbc" hidden>
-          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (Filters → Only use cards I own, or the FUTBIN club import), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.</div>
+          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (Filters → Only use cards I own, or the FUTBIN club import), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.<br>The pitch is your SBC squad here: it starts empty, and any players you put on it stay while the helper builds around them. Your main squad comes back when you switch to another mode.</div>
           <div class="grid2">
             <label class="f">Challenge<select id="sbcPreset"><option value="">Custom</option></select></label>
             <label class="f">Formation<select id="sbcForm"><option value="any">Any (ClubTools picks)</option></select></label>
@@ -429,7 +429,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           <div id="sbcFrom"></div>
           <button class="sm" id="sbcAddFrom" style="margin-top:6px">+ Players from a league / nation / club, or Bronze / Silver / Gold players</button>
           <div class="rqmode" style="margin-top:10px">
-            <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players in my squad on the pitch</label>
+            <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players from my main squad</label>
             <label class="chk"><input type="checkbox" id="sbcKeepFav" checked> Don't use my favourites</label>
             <label class="chk"><input type="checkbox" id="sbcKeepSpecial" checked> Don't use my ICONs, Heroes or promo cards</label>
             <label class="chk"><input type="checkbox" id="sbcOwnOnly"> Only my club (don't suggest buying anything)</label>
@@ -462,6 +462,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
               <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
             </div>
             <details><summary>Only use cards I own (optional)</summary>
+              <div class="small" style="margin:2px 0 6px"><button class="sm" data-ggclub>Import my club from FUT.GG</button> <span class="mut">or use the FUTBIN bookmark (Import squad → FUTBIN)</span></div>
               <textarea id="clubList" rows="5" style="width:100%" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card."></textarea>
             </details>
           </div>
@@ -544,12 +545,24 @@ dialog[open]{animation:dlgIn .2s ease-out}
   </div>
   <div class="tabs">
     <button class="sm on" data-tab="fgg">FUT.GG link</button>
+    <button class="sm" data-tab="ggclub">FUT.GG club</button>
     <button class="sm" data-tab="futbin">FUTBIN</button>
     <button class="sm" data-tab="text">Paste text</button>
   </div>
   <div data-pane="fgg">
     <div class="small mut">On FUT.GG: link your EA account (Club → Import), load your squad into the Squad Builder, press <b>Share</b>, and paste the link here. Formation and manager come across too.</div>
-    <div style="display:flex;gap:8px;margin-top:8px"><input id="fggUrl" style="flex:1" placeholder="https://www.fut.gg/27/squad-builder/…"><button class="primary" id="fggGo">Load</button></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><input id="fggUrl" style="flex:1" placeholder="FUT.GG squad link (long or short share link)"><button class="primary" id="fggGo">Load</button></div>
+  </div>
+  <div data-pane="ggclub" hidden>
+    <div class="small mut">Imports every card in your club (for <b>Only use cards I own</b> and the SBC helper):</div>
+    <ol class="small" style="margin:6px 0;padding-left:18px">
+      <li>On <b>fut.gg</b>, sign in and open <b>GG Club</b>. Link your EA account and let it sync your club (sync again whenever your club changes).</li>
+      <li>Make sure your GG Club isn't set to <b>private</b> (GG Club settings).</li>
+      <li>Open your club page and copy its address from the browser bar, e.g. <code>https://club.fut.gg/yourname</code> or <code>https://www.fut.gg/gg-club/yourname/players/</code>. Just your GG Club name works too.</li>
+      <li>Paste it here and press <b>Import club</b>, then choose <b>Add</b> or <b>Replace</b>.</li>
+    </ol>
+    <div style="display:flex;gap:8px;margin-top:8px"><input id="ggClubUrl" style="flex:1" placeholder="https://club.fut.gg/yourname"><button class="primary" id="ggClubGo">Import club</button></div>
+    <div class="small mut" style="margin-top:6px">Evolved players are left out (their club card differs from the base card); add them with the evolution editor. Cards under 75 need the bronze &amp; silver download in the SBC tab.</div>
   </div>
   <div data-pane="futbin" hidden>
     <div class="small mut">FUTBIN blocks programs from reading its pages, so this works through your browser instead:</div>
@@ -939,7 +952,33 @@ function undo(){ if(!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop())
 function redo(){ if(!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
 function updUndo(){ $("undo").disabled = !UNDO.length; $("redo").disabled = !REDO.length; }
 
-function save(){ DB.set(KEY, JSON.stringify({S, opts:readOpts()})); }
+function save(){
+  // in SBC mode the pitch is the SBC squad; the main squad is kept aside and saved as it was
+  DB.set(KEY, JSON.stringify({S: MAIN_STASH ? Object.assign({}, S, MAIN_STASH) : S, opts:readOpts()}));
+  if(MAIN_STASH) DB.set(KEY_SBCP, JSON.stringify(snap()));
+}
+/* SBC mode has its own pitch: entering it sets the main squad (and its undo history) aside, leaving brings it back */
+const KEY_SBCP = "chemBuilder.sbcPitch";
+let MAIN_STASH = null, SBC_HIST = null, MAIN_HIST = null;
+function pitchUi(){ syncMgrInputs(); $("formation").value = FORMATIONS[S.formation] ? S.formation : ""; updUndo(); }
+function enterSbcPitch(){
+  MAIN_STASH = snap(); MAIN_HIST = [UNDO.splice(0), REDO.splice(0)];
+  let p = null; try{ p = JSON.parse(DB.get(KEY_SBCP) || "null"); }catch(e){}
+  if(!p || !Array.isArray(p.slots) || p.slots.length !== 11){
+    const f = FORMATIONS[S.formation] ? S.formation : FORMATIONS[DEFAULT_FORMATION] ? DEFAULT_FORMATION : Object.keys(FORMATIONS)[0];
+    p = {formation:f, slots:FORMATIONS[f].slots.slice(), squad:Array(11).fill(null), locks:Array(11).fill(false)};
+  }
+  Object.assign(S, p, {mgr:{ni:null, li:null}});   // SBCs have no manager
+  if(SBC_HIST){ UNDO.push(...SBC_HIST[0]); REDO.push(...SBC_HIST[1]); }
+  pitchUi();
+}
+function leaveSbcPitch(){
+  try{ DB.set(KEY_SBCP, JSON.stringify(snap())); }catch(e){}
+  SBC_HIST = [UNDO.splice(0), REDO.splice(0)];
+  Object.assign(S, MAIN_STASH); MAIN_STASH = null;
+  if(MAIN_HIST){ UNDO.push(...MAIN_HIST[0]); REDO.push(...MAIN_HIST[1]); MAIN_HIST = null; }
+  pitchUi();
+}
 function load(){
   try{
     let d = JSON.parse(DB.get(KEY)||"null");
@@ -1443,7 +1482,9 @@ function updFillInfo(){
   if($("fillEmpty")) $("fillEmpty").textContent = n ? `${n} empty slot${n===1?"":"s"} to fill.` : "No empty slots yet — remove the players you don't want first.";
 }
 function setMode(m, rerender=true){
+  const prev = MODE, swap = (m === "sbc") !== (prev === "sbc") && FORMATIONS && Object.keys(FORMATIONS).length;
   MODE = m;
+  if(swap){ if(m === "sbc") enterSbcPitch(); else leaveSbcPitch(); if(rerender){ lastEval = null; refresh(); } }
   document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
   $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : m === "sbc" ? "layers" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : m === "sbc" ? " Build SBC squads" : " Find chemistry upgrades");
@@ -1737,9 +1778,33 @@ $("fggGo").onclick = () => {
   const u = $("fggUrl").value.trim(); if(!u) return;
   const shared = u.match(/[?#&]squad=([A-Za-z0-9_-]+)/);   // a ClubTools share link works here too
   if(shared){ $("impDlg").close(); return openShared(shared[1]); }
+  if(isGgClubLink(u)) return importGgClub(u);   // a club link pasted in the squad box: import the club
   runPreview({mode:"fgg", url:u});
 };
 $("fggUrl").addEventListener("keydown", e => { if(e.key==="Enter") $("fggGo").click(); });
+const isGgClubLink = u => /^(https?:\/\/)?(club\.fut\.gg\/|(www\.)?fut\.gg\/gg-club\/)/i.test(u) && !/[0-9a-f]{8}-[0-9a-f]{4}-/i.test(u);
+async function importGgClub(u){
+  u = u.trim(); if(!u) return;
+  if(!/[\/.]/.test(u)) u = "https://club.fut.gg/" + u;   // just the club name
+  openImport("ggclub"); $("ggClubUrl").value = u; $("ggClubGo").disabled = true;
+  $("impMsg").textContent = "Reading your club from FUT.GG…"; watchProgress("Reading your club…");
+  try{
+    const r = await api("/api/gg_club", {url:u});
+    stopProgress(); $("impMsg").textContent = "";
+    try{ DB.set("chemBuilder.ggClub", u); }catch(e){}
+    $("impDlg").close();
+    await clubChoice(r.ids);
+    $("clubInfo").textContent = `${r.ids.length} cards found in ${r.user}'s FUT.GG club` + (r.evolutions ? ` (${r.evolutions} evolved player${r.evolutions===1?"":"s"} left out)` : "") + ".";
+  }catch(e){
+    stopProgress();
+    $("impMsg").innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span> <button class="sm" id="impReport">Report this</button>`;
+    $("impReport").onclick = () => { $("impDlg").close(); reportProblem("Importing a FUT.GG club", e.message); };
+  }
+  $("ggClubGo").disabled = false;
+}
+document.addEventListener("click", e => { if(e.target.closest("[data-ggclub]")){ openImport("ggclub"); try{ $("ggClubUrl").value = DB.get("chemBuilder.ggClub") || ""; }catch(err){} } });
+$("ggClubGo").onclick = () => importGgClub($("ggClubUrl").value);
+$("ggClubUrl").addEventListener("keydown", e => { if(e.key==="Enter") $("ggClubGo").click(); });
 $("impGo").onclick = () => { const t = $("impText").value; if(t.trim()) runPreview({mode:"text", text:t}); };
 function bookmarklet(){
   // runs on the FUTBIN / FUT.GG page in the user's own browser. FUTBIN card images are named after the
@@ -1879,6 +1944,7 @@ async function init(){
     fillSelect($("cNat"), m.nations); fillSelect($("cLg"), m.leagues); fillSelect($("cClub"), m.clubs, "— no club —");
   }catch(e){ $("dataInfo").textContent = "card data unavailable: "+e.message; return; }
   $("formation").innerHTML = `<option value="" disabled>Custom</option>` + Object.keys(FORMATIONS).map(f=>`<option>${esc(f)}</option>`).join("");
+  MAIN_STASH = null; MODE = "chem";   // (re)start from the main squad; SBC mode swaps its own pitch in below
   load();
   $("formation").value = FORMATIONS[S.formation] ? S.formation : "";
   $("gameTotal").value = S.game || ""; $("gameWrap").hidden = !S.game; $("gameTog").hidden = !!S.game;
@@ -2417,7 +2483,7 @@ async function clubImport(replace){
   const have = new Set(lines.map(l => l.trim().split(/\s+/)[0]));
   let added = 0;
   for(const c of r.cards) if(!have.has(c.s)){ lines.push(`${c.s}  ${c.n} ${c.ov} (${c.rt})`); have.add(c.s); added++; }
-  $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts();
+  $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts(); sbcClubInfo();
   $("clubDlg").close();
   const skipped = r.unknown ? (r.low ? ` ${r.unknown} not in the card data were skipped (update the card data and try again).`
     : ` ${r.unknown} rated under 75 were skipped: download the bronze & silver cards in the SBC tab, then click the bookmark again.`) : "";
@@ -2587,7 +2653,8 @@ const sbcIds = f => { const ids = Array.isArray(f.ids) ? f.ids : f.id ? [f.id] :
 function sbcClubInfo(){
   const lines = $("clubList").value.split(/\n/).filter(l => l.trim()).length, low = META.low || {};
   $("sbcClub").innerHTML = (lines ? `${ic("check")} Using your club: <b>${lines}</b> cards (Filters → Only use cards I own).`
-    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>) or paste it in Filters → <b>Only use cards I own</b>.`)
+    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it from your FUT.GG club, with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>), or paste it in Filters → <b>Only use cards I own</b>.`)
+    + ` <button class="sm" data-ggclub>${lines ? "Re-import" : "Import"} my club from FUT.GG</button>`
     + `<div style="margin-top:6px">${low.n ? `${ic("check")} Bronze &amp; silver cards: <b>${low.n.toLocaleString()}</b> <span class="mut">(downloaded ${esc(String(low.synced_at || "").slice(0, 10))})</span> <button class="sm ghost" id="sbcLowGo">Update</button>`
       : `<span class="mut">Bronze &amp; silver cards aren't downloaded yet, so only gold cards are used and club cards under 75 aren't recognised.</span> <button class="sm" id="sbcLowGo">Download bronze &amp; silver cards</button> <span class="small mut">(one-time, about 17,000 cards, takes several minutes)</span>`}
       <span class="small" id="sbcLowMsg"></span></div>`;
@@ -2630,7 +2697,9 @@ $("sbcAddFrom").onclick = () => { readSbcForm(); SBC.from.push({kind:"league", i
 async function runSbc(){
   readSbcForm();
   const avoid = [];
-  if($("sbcKeepSquad").checked) S.squad.forEach(c => c && avoid.push(c.s));
+  if($("sbcKeepSquad").checked) (MAIN_STASH || S).squad.forEach(c => c && avoid.push(c.s));
+  // players already on the SBC pitch stay; the rest is built around them
+  const fixed = MAIN_STASH && S.squad.some(Boolean) ? {formation:S.formation, slots:S.slots, cards:S.squad} : null;
   if($("sbcKeepFav").checked) FAV.forEach(x => avoid.push(x.s));
   const named = list => id => (list.find(c => String(c[0]) === String(id)) || [, id])[1];
   const nameOf = {league: named(META.leagues), nation: named(META.nations), club: named(META.clubs), quality: tierName};
@@ -2642,7 +2711,7 @@ async function runSbc(){
   watchProgress("Building SBC squads…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
   try{
-    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
+    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
     stopProgress(); $("goMsg").textContent = ""; renderSbc();
   }catch(e){ showError("SBC helper", e); }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
@@ -2650,9 +2719,9 @@ async function runSbc(){
 function sbcSquadHtml(s, j){
   const owned = s.owned, buy = s.cards.length - owned;
   const rows = s.cards.map((c, i) => {
-    const mine = s.own && s.own[i];
+    const mine = s.own && s.own[i], placed = s.placed && s.placed[i];
     return `<div class="sbcrow"><span class="tag">${esc(s.slots[i])}</span><span>${flagImg(c.nn)} <b>${c.ov}</b> ${esc(c.n)} <span class="mut small">· ${esc(c.rt||"")} · ${esc(c.cn || c.ln || "")}</span></span>
-      <span>${mine ? `<span class="own">yours</span>` : `<span class="buy">buy</span>${cardLink(c)}`}</span></div>`;
+      <span>${placed ? `<span class="mut small">placed by you</span> ` : ""}${mine ? `<span class="own">yours</span>` : placed ? "" : `<span class="buy">buy</span>${cardLink(c)}`}</span></div>`;
   }).join("");
   return `<div class="res" style="display:block"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
       <b>${s.valid ? `Option ${j + 1}` : "Closest attempt"}</b><span class="small mut">${esc(s.formation)} · ${owned} of your cards · ${buy ? `${buy} to buy` : "nothing to buy"} · rating ${s.rating ?? "–"} · chemistry ${s.chem}</span>

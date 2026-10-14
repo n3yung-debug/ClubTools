@@ -783,18 +783,136 @@ def parse_fgg_squad(d):
     return fname, field, mgr, sq.get("title") or "", str(sq.get("gameSlug") or "")
 
 
-def preview_fgg(url):
-    m = UUID_RE.search(url or "")
-    if not m:
-        raise ValueError("That doesn't look like a FUT.GG squad link (it should contain a long id like "
-                         "1a2b3c4d-....). On FUT.GG open the squad, press Share, and copy the link.")
+SHORT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{4,64}$")
+
+
+def _fgg_squad_json(sid):
+    """FUT.GG squad by id -> response dict, or None if FUT.GG has no squad with that id."""
     try:
-        d = fetch_json(FGG_SQUAD_API.format(uuid=m.group(0).lower()), tries=2)
+        return fetch_json(FGG_SQUAD_API.format(uuid=urllib.parse.quote(sid, safe="")), tries=2)
     except RuntimeError as e:
-        if "404" in str(e):
-            raise ValueError("FUT.GG says this squad doesn't exist. Check the link, and make sure the squad "
-                             "is saved on FUT.GG (press Share there, then copy the link).") from None
+        if "HTTP 404" in str(e) or "HTTP 400" in str(e):
+            return None
         raise
+
+
+def open_link(url, limit=2_000_000):
+    """Follow a (short) link the way a browser would -> (final url, page text). Errors say what went wrong."""
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/json;q=0.9,*/*;q=0.8"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.geturl(), r.read(limit).decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):
+            raise ValueError(f"That link leads to a page that doesn't exist (HTTP {e.code}). Check it was copied in "
+                             "full; on FUT.GG open the squad, press Share, and copy the link again.") from None
+        raise ValueError(f"Couldn't open that link: {explain_error(e)}") from None
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"Couldn't open that link: {explain_error(e)}") from None
+
+
+def fetch_fgg_squad(url):
+    """A FUT.GG squad link of any shape -> the squad API response. Long links carry the squad id (a UUID);
+    short / share links are opened and the squad id is taken from where they lead (or from the page);
+    failing that, the link's own id is tried as a squad id. Raises ValueError saying what failed."""
+    url = (url or "").strip()
+    if gg_club_user(url) and not UUID_RE.search(url):
+        raise ValueError("That's a FUT.GG club link, not a squad link. Use \"Import my club\" for it.")
+    m = UUID_RE.search(url)
+    if m:
+        d = _fgg_squad_json(m.group(0).lower())
+        if d is None:
+            raise ValueError("FUT.GG says this squad doesn't exist. Check the link, and make sure the squad "
+                             "is saved on FUT.GG (press Share there, then copy the link).")
+        return d
+    if not re.match(r"^https?://", url, re.I):
+        url = "https://" + url.lstrip("/")
+    u = urllib.parse.urlsplit(url)
+    if u.scheme.lower() not in ("http", "https") or not u.hostname or "." not in u.hostname:
+        raise ValueError("That isn't a link. On FUT.GG open the squad, press Share, and copy the link.")
+    final, page = open_link(url)
+    tried = set()
+    # 1) the squad id in the address the link leads to, then any squad ids in the page itself
+    ids = [x.group(0).lower() for x in UUID_RE.finditer(final)]
+    near = [x.group(1).lower() for x in re.finditer(r"squad[^\n]{0,200}?(" + UUID_RE.pattern + ")", page, re.I)]
+    ids += near + [x.group(0).lower() for x in UUID_RE.finditer(page)]
+    # 2) the link's own short id (last part of the path, or ?id= / ?squad=)
+    for link in (final, url):
+        parts = urllib.parse.urlsplit(link)
+        q = urllib.parse.parse_qs(parts.query)
+        for v in [*(q.get("squad") or []), *(q.get("id") or []), (parts.path.rstrip("/").split("/") or [""])[-1]]:
+            if SHORT_ID_RE.match(v or "") and v.lower() not in ("squad-builder", "squads", "27", "app"):
+                ids.append(v)
+    for sid in ids:
+        if sid in tried:
+            continue
+        tried.add(sid)
+        if len(tried) > 8:
+            break
+        d = _fgg_squad_json(sid)
+        if d is not None:
+            return d
+    where = final if final != url else url
+    raise ValueError(f"Opened the link ({where}) but couldn't find a FUT.GG squad in it"
+                     + (f" (tried {len(tried)} possible squad id{'s' if len(tried) != 1 else ''})" if tried else "")
+                     + ". On FUT.GG open the squad in the Squad Builder, press Share, and copy that link.")
+
+
+GG_CLUB_API = "https://www.fut.gg/api/gg-club/{user}/players/?page={page}"
+GG_CLUB_RE = re.compile(r"^(?:https?://)?(?:club\.fut\.gg/|(?:www\.)?fut\.gg/gg-club/)([A-Za-z0-9_.-]+)", re.I)
+GG_CLUB_STEPS = ("On fut.gg: sign in, open GG Club and link / sync your EA club, and make sure the club isn't set to private. "
+                 "Then open your club page and copy its address (like https://club.fut.gg/yourname or "
+                 "https://www.fut.gg/gg-club/yourname/players/) and paste it here.")
+
+
+def gg_club_user(url):
+    """A FUT.GG GG Club link (club.fut.gg/<name>, fut.gg/gg-club/<name>/...) -> the club's user name, else None."""
+    m = GG_CLUB_RE.match((url or "").strip())
+    return m.group(1) if m and m.group(1).lower() not in ("my",) else None
+
+
+def gg_club_ids(url, max_pages=100):
+    """Every card in a public FUT.GG GG Club, read from the same player list the club page shows (30 per page,
+    paced). Returns {user, ids: [eaId...], total, evolutions}. Evolved players are left out: their club card
+    differs from the base card, so they'd be wrong in ClubTools (add them with the evolution editor)."""
+    user = gg_club_user(url)
+    if not user:
+        raise ValueError("That isn't a FUT.GG club link. " + GG_CLUB_STEPS)
+    ids, evolutions, total, page = [], 0, 0, 1
+    while page and page <= max_pages:
+        progress(f"Reading your FUT.GG club, page {page}…", page, max(1, -(-total // 30)) if total else 0)
+        try:
+            d = fetch_json(GG_CLUB_API.format(user=urllib.parse.quote(user), page=page), tries=3)
+        except RuntimeError as e:
+            progress("")
+            msg = str(e)
+            if "HTTP 404" in msg:
+                raise ValueError(f"FUT.GG has no GG Club called '{user}'. " + GG_CLUB_STEPS) from None
+            if "HTTP 401" in msg or ("HTTP 403" in msg and "Cloudflare" not in msg):
+                raise ValueError(f"FUT.GG says the club '{user}' is private. On fut.gg open GG Club → settings and "
+                                 "make the club public, then try again.") from None
+            raise ValueError(f"Couldn't read the club from FUT.GG: {msg}") from None
+        total = int(d.get("total") or 0)
+        for it in d.get("data") or []:
+            pd_ = it.get("playerDef") or {}
+            if it.get("playerType") == "evolution" or pd_.get("playerType") == "evolutions":
+                evolutions += 1
+                continue
+            ea = pd_.get("eaId") or it.get("eaId")
+            if ea:
+                ids.append(str(ea))
+        page = d.get("next")
+        if page:
+            time.sleep(0.5)
+    progress("")
+    if not ids and not evolutions:
+        raise ValueError(f"FUT.GG shows no players in the club '{user}'. Sync your club on fut.gg (GG Club) first, "
+                         "then try again.")
+    return {"user": user, "ids": list(dict.fromkeys(ids)), "total": total, "evolutions": evolutions}
+
+
+def preview_fgg(url):
+    d = fetch_fgg_squad(url)
     fname, field, mgr, title, game = parse_fgg_squad(d)
     notes = []
     if game and game not in ("27", "fc27", "fc-27"):
@@ -971,6 +1089,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, sbc_build(body))
             if self.path == "/api/feedback":
                 return self._send(200, send_feedback(body))
+            if self.path == "/api/gg_club":
+                return self._send(200, gg_club_ids(body.get("url") or ""))
             if self.path == "/api/club_ids":
                 return self._send(200, club_ids(body.get("ids") or []))
             if self.path == "/api/req_counts":   # how many cards still qualify per position with the stat requirements
@@ -1185,15 +1305,29 @@ def sbc_build(b):
     req = b.get("req") or {}
     name = b.get("formation") or "any"
     names = [n for n in SBC_FORMATIONS if n in FORMATIONS] if name == "any" else [name]
+    # players already on the SBC pitch stay where they are; the squad is built around them
+    fixed, pitch_slots = {}, None
+    pf = b.get("fixed") or {}
+    if pf.get("cards") and any(pf["cards"]):
+        pitch_slots = [str(x) for x in pf.get("slots") or []]
+        if len(pitch_slots) != 11 or any(p not in set(UNIQUE_POS.values()) for p in pitch_slots):
+            raise ValueError("The SBC pitch needs a full 11-slot formation")
+        for i, c in enumerate(pf["cards"][:11]):
+            if isinstance(c, dict) and c.get("s"):
+                known = STATE["by_slug"].get(c["s"])
+                fixed[i] = known if known else {k: c.get(k) for k in ("s", "n", "ov", "rt", "p", "a", "ni", "nn", "li", "ln", "ck", "cn", "ty", "bp", "g")}
+        names = [pf.get("formation") if pf.get("formation") in FORMATIONS else "Your pitch"]
     if not names:
         raise ValueError("Unknown formation")
     budget, results = (8.0 if len(names) > 1 else 6.0), []
     for k, fname in enumerate(names):
         progress(f"SBC: trying {fname}…", k + 1, len(names)) if len(names) > 1 else progress("SBC: building squads…")
-        slots = FORMATIONS[fname]["slots"]
-        r = eng.sbc_solve(slots, by_pos, owned, req, time_limit=budget / len(names), avoid=b.get("avoid") or ())   # no manager in SBCs
+        slots = pitch_slots or FORMATIONS[fname]["slots"]
+        r = eng.sbc_solve(slots, by_pos, owned, req, time_limit=budget / len(names), avoid=b.get("avoid") or (),
+                          fixed=fixed)   # no manager in SBCs
         for s in r["solutions"] + ([r["closest"]] if not r["solutions"] and r.get("closest") else []):
-            results.append(dict(s, formation=fname, slots=slots, own=[c["s"] in owned for c in s["cards"]]))
+            results.append(dict(s, formation=fname, slots=slots, own=[c["s"] in owned for c in s["cards"]],
+                                placed=[i in fixed for i in range(len(slots))]))
     progress("")
     valid = sorted((x for x in results if x["valid"]), key=lambda x: x["cost"])
     closest = None if valid else min(results, key=lambda x: sum(not c["ok"] for c in x["checks"]), default=None)

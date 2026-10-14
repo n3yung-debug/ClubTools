@@ -13,6 +13,7 @@ Your squads, saved squads, blacklist, preferences and settings, the card databas
 |---|---|---|
 | You click "Update card data", or start ClubTools with no card data | FUT.GG (fut.gg) | Standard web requests for public card data |
 | You import a squad from a FUT.GG link | FUT.GG | The squad ID from the link you pasted |
+| You import your club from FUT.GG (GG Club) | FUT.GG | The GG Club name from the link you pasted (reads that club's public player list) |
 | ClubTools starts (if "Check for updates" is on), or you click "Check for updates" | GitHub (api.github.com) | A standard request for the latest release |
 | You click "Update now" | GitHub (github.com and its download servers) | A standard download request |
 | You send feedback (⚙ → Send feedback) | Google Forms (docs.google.com) | What you type, the contact you enter (optional), and the app version and card-data date (if ticked). It is stored in the developer's Google Form responses. |

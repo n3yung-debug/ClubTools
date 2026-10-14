@@ -1022,16 +1022,19 @@ def sbc_check(slots, cards, req, mgr=None):
     return rows, short
 
 
-def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=()):
+def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=(), fixed=None):
     """Build SBC squads that meet req (see sbc_check) as cheaply as possible: as many cards you own as
     possible (owned: set of card slugs), then the lowest-rated cards that work. Simulated annealing over the
     11 slots, players always in position; besides random cheap picks it tries cards that link to a teammate
     (same league / nation / club, for chemistry) and cards a 'players from ...' rule asks for.
+    fixed: {slot index: card} already placed by the user; they stay, the rest is built around them.
     Returns up to n distinct valid squads [{cards, cost, owned, checks}], best first, or the closest attempt
     (valid False) when none meets everything in time."""
     import random
     rnd = random.Random(seed)
-    avoid = set(avoid)
+    fixed = {int(i): c for i, c in (fixed or {}).items() if c is not None and 0 <= int(i) < len(slots)}
+    avoid = set(avoid) | {c["s"] for c in fixed.values()}
+    free = [i for i in range(len(slots)) if i not in fixed]
     q = req.get("quality")
     cost_of = {}
 
@@ -1082,13 +1085,16 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
         _, short = sbc_check(slots, sq, req, mgr)
         return short * 100 + sum(cost(c) for c in sq), short
 
-    if any(not cands[p][2] for p in slots):
-        return {"solutions": [], "closest": None, "reason": "no cards for " + ", ".join(sorted({p for p in slots if not cands[p][2]}))}
+    if any(not cands[slots[i]][2] for i in free):
+        return {"solutions": [], "closest": None, "reason": "no cards for " + ", ".join(sorted({slots[i] for i in free if not cands[slots[i]][2]}))}
     started = time.time()
     found, best_any = {}, None
     while time.time() - started < time_limit:
-        sq, used = [], set()
+        sq, used = [], {c["bp"] for c in fixed.values()}
         for i, pos in enumerate(slots):
+            if i in fixed:
+                sq.append(fixed[i])
+                continue
             for _ in range(20):
                 c = pick(i, sq)
                 if c and c["bp"] not in used:
@@ -1097,8 +1103,8 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
             used.add(c["bp"])
         cur, cur_short = score(sq)
         temp = 60.0
-        for it in range(2500):
-            i = rnd.randrange(11)
+        for it in range(2500 if free else 0):
+            i = rnd.choice(free)
             c = pick(i, sq)
             if c is None or c["s"] == sq[i]["s"] or any(j != i and x["bp"] == c["bp"] for j, x in enumerate(sq)):
                 continue

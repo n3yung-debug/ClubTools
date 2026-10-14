@@ -751,11 +751,32 @@ def test_fgg_squad_import():
     assert r["formation"] == "4-4-2" and r["mgr"] == {"ni": 18, "li": 53} and r["title"] == "Weekend League"
     assert r["rows"][9]["card"]["s"] == "27-231747" and r["rows"][10]["card"]["s"] == "27-37576"
     assert r["rows"][1]["card"] is None  # empty slot stays empty
+    # short / share links: opened, and the squad id taken from where they lead, the page, or the link itself
+    U = "0a1b2c3d-1111-2222-3333-444455556666"
+    real_open = cb.open_link
+    pages = {"https://fut.gg/s/Ab12": (f"https://www.fut.gg/27/squad-builder/{U}/", ""),
+             "https://www.fut.gg/s/Cd34": ("https://www.fut.gg/s/Cd34", f'<script>{{"squadUuid":"{U}"}}</script>'),
+             "https://www.fut.gg/27/squad-builder/Xy9Z": ("https://www.fut.gg/27/squad-builder/Xy9Z", "<html></html>"),
+             "https://www.fut.gg/s/none": ("https://www.fut.gg/s/none", "<html>nothing here</html>")}
+    cb.open_link = lambda url, limit=0: pages[url]
+    cb.fetch_json = lambda url, tries=4: calls.append(url) or (
+        fake_resp if url.endswith((f"/squads/{U}/", "/squads/Xy9Z/")) else
+        (_ for _ in ()).throw(RuntimeError("HTTP 404 Not Found")) if "/squads/" in url else {"data": []})
     try:
-        cb.preview_fgg("https://www.fut.gg/27/squad-builder/")
-        assert False
-    except ValueError:
-        pass
+        for link in ("fut.gg/s/Ab12", "https://www.fut.gg/s/Cd34", "https://www.fut.gg/27/squad-builder/Xy9Z"):
+            assert cb.preview_fgg(link)["formation"] == "4-4-2", link
+        try:
+            cb.preview_fgg("https://www.fut.gg/s/none")
+            assert False
+        except ValueError as e:
+            assert "couldn't find a FUT.GG squad" in str(e)
+        try:
+            cb.preview_fgg("not a link")
+            assert False
+        except ValueError:
+            pass
+    finally:
+        cb.fetch_json, cb.open_link = real, real_open
 
 
 def test_ids_import_dedupes_and_seats():
