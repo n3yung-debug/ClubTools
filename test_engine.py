@@ -607,8 +607,13 @@ def test_sbc_build_uses_your_club_first():
     assert r2["owned"] == 6 and r2["solutions"][0]["valid"] and sum(r2["solutions"][0]["own"]) >= 5
     # default: lowest-rated build, and each option says how many club cards can be swapped in (still valid)
     r4 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
-    w = [x.get("with_club") for x in r4["solutions"] if x.get("with_club")]
-    assert w and all(all(c["ok"] for c in x["checks"]) and x["owned"] >= x["swapped"] >= 1 for x in w)
+    w = [x.get("with_club") for x in r4["solutions"] if x.get("with_club")]   # (whether any fit depends on the build)
+    assert all(all(c["ok"] for c in x["checks"]) and x["owned"] >= x["swapped"] >= 1 for x in w)
+    # a card you own that's identical to one in the squad (another player, lower rated) always swaps in
+    twin = dict(s["cards"][3], s="27-own-twin", bp=-424242, ov=s["cards"][3]["ov"] - 1)
+    by_pos = {s["slots"][3]: [twin]}
+    cards, n = eng.sbc_use_owned(s["slots"], s["cards"], by_pos, {twin["s"]}, req)
+    assert n == 1 and twin["s"] in {c["s"] for c in cards} and eng.sbc_check(s["slots"], cards, req)[1] == 0   # (either CB slot)
     # protected cards (e.g. your squad) are never used
     avoid = [c["s"] for c in s["cards"]]
     r3 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {}, "avoid": avoid})
