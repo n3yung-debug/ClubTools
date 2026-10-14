@@ -1152,9 +1152,16 @@ def sbc_build(b):
     o.pop("cheap_versions", None)                       # every version counts; cost decides
     owned_pool, unmatched = build_pool(dict(o, club_list=club_text)) if club_text.strip() else ([], [])
     max_own = int(b.get("max_own") or 0)
-    owned = {c["s"] for c in owned_pool if not max_own or c["ov"] <= max_own}
+
+    def special(c):   # ICONs, Heroes, Hall of FUT and promo versions
+        rt = str(c.get("rt") or "").lower()
+        return c.get("ty") in ("icon", "hero", "hof") or not (rt in eng.BASE_RARITY or rt.startswith("base "))
+    # your cards that stay out of SBCs: ICONs / Heroes / promos (unless allowed) and any above your rating cap
+    protected = {c["s"] for c in owned_pool
+                 if (b.get("keep_special", True) and special(c)) or (max_own and c["ov"] > max_own)}
+    owned = {c["s"] for c in owned_pool} - protected
     pool = owned_pool if b.get("own_only") else build_pool(o)[0]
-    pool = [c for c in pool if not (c["s"] in {x["s"] for x in owned_pool} and c["s"] not in owned)]
+    pool = [c for c in pool if c["s"] not in protected]
     by_pos = eng.index_pool(pool, (), pos_bans(o))
     req = b.get("req") or {}
     name = b.get("formation") or "any"

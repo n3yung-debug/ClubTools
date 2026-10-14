@@ -429,6 +429,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           <div class="rqmode" style="margin-top:10px">
             <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players in my squad on the pitch</label>
             <label class="chk"><input type="checkbox" id="sbcKeepFav" checked> Don't use my favourites</label>
+            <label class="chk"><input type="checkbox" id="sbcKeepSpecial" checked> Don't use my ICONs, Heroes or promo cards</label>
             <label class="chk"><input type="checkbox" id="sbcOwnOnly"> Only my club (don't suggest buying anything)</label>
             <label class="chk" style="align-items:center">Use my own cards rated up to <input id="sbcMaxOwn" type="number" min="45" max="99" placeholder="any" style="width:64px;padding:2px 6px"></label>
           </div>
@@ -2600,7 +2601,7 @@ async function runSbc(){
   watchProgress("Building SBC squads…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
   try{
-    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, max_own: +$("sbcMaxOwn").value || 0});
+    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
     stopProgress(); $("goMsg").textContent = ""; renderSbc();
   }catch(e){ showError("SBC helper", e); }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";

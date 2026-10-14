@@ -913,10 +913,12 @@ def sbc_card_cost(c, owned):
     the better, to keep your good ones), bought cards cost more the higher they are rated, promos and
     ICONs/Heroes much more."""
     over = max(0, c["ov"] - 75)
-    if owned:   # your low cards are nearly free; a good one only gets used when it saves buying an expensive card
-        return 0.2 + 0.35 * over ** 1.3
     special = str(c.get("rt") or "").lower() not in BASE_RARITY and not str(c.get("rt") or "").lower().startswith("base ")
-    return 3 + 2 * over ** 1.6 + (8 if special else 0) + (25 if c.get("ty") in ("icon", "hero") else 0)
+    star = c.get("ty") in ("icon", "hero")
+    if owned:   # your low cards are nearly free; a good one only gets used when it saves buying an expensive card,
+        # and your ICONs / Heroes / promos only as a last resort
+        return 0.2 + 0.35 * over ** 1.3 + (30 if special else 0) + (60 if star else 0)
+    return 3 + 2 * over ** 1.6 + (8 if special else 0) + (25 if star else 0)
 
 
 def _sbc_counts(cards, key):
