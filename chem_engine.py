@@ -906,6 +906,159 @@ def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=N
     return {"options": out, "empty": empty, "timed_out": timed_out}
 
 
+# --------------------------------------------------------------------------- SBC helper
+
+def sbc_card_cost(c, owned):
+    """What using a card in an SBC 'costs' without price data: cards you own are nearly free (the lower rated
+    the better, to keep your good ones), bought cards cost more the higher they are rated, promos and
+    ICONs/Heroes much more."""
+    over = max(0, c["ov"] - 75)
+    if owned:   # your low cards are nearly free; a good one only gets used when it saves buying an expensive card
+        return 0.2 + 0.35 * over ** 1.3
+    special = str(c.get("rt") or "").lower() not in BASE_RARITY and not str(c.get("rt") or "").lower().startswith("base ")
+    return 3 + 2 * over ** 1.6 + (8 if special else 0) + (25 if c.get("ty") in ("icon", "hero") else 0)
+
+
+def _sbc_counts(cards, key):
+    n = Counter(c[key] for c in cards if c.get(key) is not None)
+    return len(n), (max(n.values()) if n else 0), n
+
+
+def sbc_check(slots, cards, req, mgr=None):
+    """Every requirement of an SBC against a full squad -> (list of {label, ok, have}, shortfall score).
+    req keys: leagues/nations/clubs {op: exactly|min|max, n}, same_league/same_nation/same_club {op, n},
+    rating (min), chem (min), rare (min), special (min), from: [{kind: league|nation|club, id, n}]."""
+    rows, short = [], 0.0
+    def cmp(label, have, rule):
+        nonlocal short
+        if not rule or rule.get("n") in (None, ""):
+            return
+        n, op = int(rule["n"]), rule.get("op", "min")
+        miss = abs(have - n) if op == "exactly" else max(0, n - have) if op == "min" else max(0, have - n)
+        short += miss
+        rows.append({"label": f"{label}: {'Exactly' if op == 'exactly' else 'Min.' if op == 'min' else 'Max.'} {n}",
+                     "ok": miss == 0, "have": have})
+    for key, field, same in (("leagues", "li", "same_league"), ("nations", "ni", "same_nation"), ("clubs", "ck", "same_club")):
+        count, top, _ = _sbc_counts(cards, field)
+        cmp({"leagues": "Leagues", "nations": "Nations", "clubs": "Clubs"}[key], count, req.get(key))
+        cmp({"same_league": "Same league", "same_nation": "Same nation", "same_club": "Same club"}[same], top, req.get(same))
+    for f in req.get("from") or []:
+        field = {"league": "li", "nation": "ni", "club": "ck"}.get(f.get("kind"))
+        if field and f.get("n"):
+            have = sum(1 for c in cards if str(c.get(field)) == str(f.get("id")))
+            cmp(f"From {f.get('name') or f.get('id')}", have, {"op": f.get("op", "min"), "n": f["n"]})
+    if req.get("rating"):
+        r = squad_rating(cards)
+        exact = r["exact"] if r else 0
+        rows.append({"label": f"Team rating: Min. {int(req['rating'])}", "ok": bool(r) and r["rating"] >= int(req["rating"]),
+                     "have": r["rating"] if r else 0})
+        if not (r and r["rating"] >= int(req["rating"])):
+            short += max(0.25, int(req["rating"]) - exact) * 3
+    if req.get("chem"):
+        m = mgr or {}
+        chem = _ttotal(slots, [_t(c) for c in cards], m.get("ni"), m.get("li"), False)
+        rows.append({"label": f"Chemistry: Min. {int(req['chem'])}", "ok": chem >= int(req["chem"]), "have": chem})
+        short += max(0, int(req["chem"]) - chem) * 0.6
+    for key, label, test in (("rare", "Rare players", lambda c: str(c.get("rt") or "").lower() != "common"),
+                             ("special", "Special (promo) cards", lambda c: str(c.get("rt") or "").lower() not in BASE_RARITY
+                              and not str(c.get("rt") or "").lower().startswith("base "))):
+        if req.get(key):
+            have = sum(1 for c in cards if test(c))
+            rows.append({"label": f"{label}: Min. {int(req[key])}", "ok": have >= int(req[key]), "have": have})
+            short += max(0, int(req[key]) - have)
+    return rows, short
+
+
+def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=()):
+    """Build SBC squads that meet req (see sbc_check) as cheaply as possible: cards you own first (owned:
+    set of card slugs), then the lowest-rated cards that work. Simulated annealing over the 11 slots, players
+    always in position. Returns up to n distinct valid squads [{cards, cost, owned, checks}], best first,
+    or the closest attempt (valid False) when none meets everything in time."""
+    import random
+    rnd = random.Random(seed)
+    avoid = set(avoid)
+    cands = {}
+    for pos in set(slots):
+        cs = [c for c in by_pos.get(pos, ()) if c["s"] not in avoid]
+        own = [c for c in cs if c["s"] in owned]
+        cheap = sorted((c for c in cs if c["s"] not in owned), key=lambda c: sbc_card_cost(c, False))
+        cands[pos] = (own, cheap)
+    cost_of = {}
+
+    def cost(c):
+        v = cost_of.get(c["s"])
+        if v is None:
+            v = cost_of[c["s"]] = sbc_card_cost(c, c["s"] in owned)
+        return v
+
+    def pick(pos, rnd_):
+        own, cheap = cands[pos]
+        if own and rnd_.random() < 0.55:
+            return rnd_.choice(own)
+        if not cheap:
+            return rnd_.choice(own) if own else None
+        # mostly cheap cards, sometimes anything (needed for rating / rare leagues)
+        k = int(len(cheap) * (rnd_.random() ** 3))
+        return cheap[min(k, len(cheap) - 1)]
+
+    def score(sq):
+        _, short = sbc_check(slots, sq, req, mgr)
+        return short * 100 + sum(cost(c) for c in sq), short
+
+    if any(not (cands[p][0] or cands[p][1]) for p in slots):
+        return {"solutions": [], "closest": None, "reason": "no cards for " + ", ".join(sorted({p for p in slots if not (cands[p][0] or cands[p][1])}))}
+    started = time.time()
+    found, best_any = {}, None
+    while time.time() - started < time_limit:
+        sq, used = [], set()
+        for pos in slots:
+            for _ in range(20):
+                c = pick(pos, rnd)
+                if c and c["bp"] not in used:
+                    break
+            sq.append(c)
+            used.add(c["bp"])
+        cur, cur_short = score(sq)
+        temp = 60.0
+        for it in range(2500):
+            i = rnd.randrange(11)
+            c = pick(slots[i], rnd)
+            if c is None or c["s"] == sq[i]["s"] or any(j != i and x["bp"] == c["bp"] for j, x in enumerate(sq)):
+                continue
+            old = sq[i]
+            sq[i] = c
+            new, new_short = score(sq)
+            if new <= cur or rnd.random() < math.exp((cur - new) / max(temp, 0.01)):
+                cur, cur_short = new, new_short
+            else:
+                sq[i] = old
+            temp *= 0.997
+            if cur_short == 0:
+                key = frozenset(x["s"] for x in sq)
+                if key not in found or found[key][0] > cur:
+                    found[key] = (cur, list(sq))
+        if best_any is None or cur < best_any[0]:
+            best_any = (cur, list(sq))
+        if len(found) >= 40 and time.time() - started > time_limit / 2:
+            break
+    def pack(cost_, sq):
+        rows, short = sbc_check(slots, sq, req, mgr)
+        return {"cards": sq, "cost": round(sum(cost(c) for c in sq), 1), "owned": sum(1 for c in sq if c["s"] in owned),
+                "checks": rows, "valid": short == 0, "rating": (squad_rating(sq) or {}).get("rating"),
+                "chem": _ttotal(slots, [_t(c) for c in sq], (mgr or {}).get("ni"), (mgr or {}).get("li"), False)}
+    ranked = sorted(found.values(), key=lambda x: x[0])
+    sols, seen = [], []
+    for cost_, sq in ranked:   # keep answers that differ by at least two cards
+        ids = {c["s"] for c in sq}
+        if any(len(ids ^ s) < 4 for s in seen):
+            continue
+        seen.append(ids)
+        sols.append(pack(cost_, sq))
+        if len(sols) >= n:
+            break
+    return {"solutions": sols, "closest": None if sols else (pack(*best_any) if best_any else None), "reason": ""}
+
+
 def squad_rating(cards):
     """Squad rating of a full starting eleven as SBCs count it (community formula; EA hasn't published one):
     total of the ratings, plus how far each player is above the average, rounded, divided by 11 and rounded

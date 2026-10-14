@@ -949,6 +949,8 @@ class Handler(BaseHTTPRequestHandler):
                 if os.path.dirname(f) == downloads_dir() and f.lower().endswith(".png") and os.path.exists(f) and os.name == "nt":
                     subprocess.Popen(["explorer", "/select,", f])
                 return self._send(200, {"ok": True})
+            if self.path == "/api/sbc":
+                return self._send(200, sbc_build(body))
             if self.path == "/api/feedback":
                 return self._send(200, send_feedback(body))
             if self.path == "/api/club_ids":
@@ -1136,6 +1138,41 @@ def merge_options(items, key, order, n):
         if len(out) >= n:
             break
     return out
+
+
+SBC_FORMATIONS = ("4-4-2", "4-3-3", "4-2-3-1", "4-1-2-1-2", "3-5-2", "4-5-1", "5-3-2")
+
+
+def sbc_build(b):
+    """SBC helper: build squads that meet the requirements from the user's club first (the "Only use cards I
+    own" list), then the cheapest cards. b: {req, formation ("any" or a name), opts, avoid: [slugs], max_own,
+    own_only}. SBC squads have no manager, so chemistry is counted without one."""
+    o = dict(b.get("opts") or {})
+    club_text = o.pop("club_list", "") or ""
+    o.pop("cheap_versions", None)                       # every version counts; cost decides
+    owned_pool, unmatched = build_pool(dict(o, club_list=club_text)) if club_text.strip() else ([], [])
+    max_own = int(b.get("max_own") or 0)
+    owned = {c["s"] for c in owned_pool if not max_own or c["ov"] <= max_own}
+    pool = owned_pool if b.get("own_only") else build_pool(o)[0]
+    pool = [c for c in pool if not (c["s"] in {x["s"] for x in owned_pool} and c["s"] not in owned)]
+    by_pos = eng.index_pool(pool, (), pos_bans(o))
+    req = b.get("req") or {}
+    name = b.get("formation") or "any"
+    names = [n for n in SBC_FORMATIONS if n in FORMATIONS] if name == "any" else [name]
+    if not names:
+        raise ValueError("Unknown formation")
+    budget, results = (8.0 if len(names) > 1 else 6.0), []
+    for k, fname in enumerate(names):
+        progress(f"SBC: trying {fname}…", k + 1, len(names)) if len(names) > 1 else progress("SBC: building squads…")
+        slots = FORMATIONS[fname]["slots"]
+        r = eng.sbc_solve(slots, by_pos, owned, req, time_limit=budget / len(names), avoid=b.get("avoid") or ())   # no manager in SBCs
+        for s in r["solutions"] + ([r["closest"]] if not r["solutions"] and r.get("closest") else []):
+            results.append(dict(s, formation=fname, slots=slots, own=[c["s"] in owned for c in s["cards"]]))
+    progress("")
+    valid = sorted((x for x in results if x["valid"]), key=lambda x: x["cost"])
+    closest = None if valid else min(results, key=lambda x: sum(not c["ok"] for c in x["checks"]), default=None)
+    return {"solutions": valid[:5], "closest": closest, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
+            "unmatched": unmatched[:20], "formations": names}
 
 
 def _mgr_modes(mgr):

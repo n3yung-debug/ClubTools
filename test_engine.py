@@ -582,6 +582,35 @@ def test_squad_rating_community_formula():
     assert eng.squad_rating(mk([84] * 10)) is None and eng.squad_rating(mk([84] * 10) + [None]) is None
 
 
+def test_sbc_check_counts_requirements():
+    sq = squad_of(ni=[1] * 6 + [2] * 5, li=[1] * 4 + [2] * 4 + [3] * 3, ck=["A"] * 3 + [None] * 8, ov=80)
+    rows, short = eng.sbc_check(SLOTS, sq, {"leagues": {"op": "exactly", "n": 3}, "nations": {"op": "exactly", "n": 2},
+                                            "same_league": {"op": "max", "n": 4}, "same_club": {"op": "max", "n": 2},
+                                            "rating": 80})
+    by = {r["label"]: r for r in rows}
+    assert by["Leagues: Exactly 3"]["ok"] and by["Nations: Exactly 2"]["ok"] and by["Same league: Max. 4"]["ok"]
+    assert not by["Same club: Max. 2"]["ok"] and by["Same club: Max. 2"]["have"] == 3 and short == 1
+    assert by["Team rating: Min. 80"]["ok"]
+
+
+def test_sbc_build_uses_your_club_first():
+    cb.load_cache()
+    req = {"leagues": {"op": "exactly", "n": 3}, "nations": {"op": "exactly", "n": 2},
+           "same_league": {"op": "max", "n": 6}, "same_nation": {"op": "max", "n": 6}, "chem": 30}
+    r = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {}})
+    s = r["solutions"][0]
+    assert s["valid"] and s["chem"] >= 30 and not any(s["own"])                 # nothing owned: all to buy
+    rows, short = eng.sbc_check(s["slots"], s["cards"], req)
+    assert short == 0 and len({c["li"] for c in s["cards"]}) == 3 and len({c["ni"] for c in s["cards"]}) == 2
+    club = "\n".join(c["s"] + "  " + c["n"] for c in s["cards"][:6])            # own six of those cards
+    r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
+    assert r2["owned"] == 6 and r2["solutions"][0]["valid"] and sum(r2["solutions"][0]["own"]) >= 5
+    # protected cards (e.g. your squad) are never used
+    avoid = [c["s"] for c in s["cards"]]
+    r3 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {}, "avoid": avoid})
+    assert not ({c["s"] for c in r3["solutions"][0]["cards"]} & set(avoid))
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)

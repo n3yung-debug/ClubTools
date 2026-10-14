@@ -142,7 +142,7 @@ main{display:grid;grid-template-columns:minmax(540px,1.25fr) minmax(380px,1fr);g
 .chemmeta{flex:1;display:grid;gap:6px}
 .chemmeta .t1{font-size:15px;font-weight:700}
 /* tabs */
-.modetabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
+.modetabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
 .modetabs .mt{border:0;border-radius:9px;padding:10px 6px;font-weight:700;background:transparent;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:7px}
 .modetabs .mt:hover{background:var(--panel2);color:var(--txt)}
 .modetabs .mt.on{background:linear-gradient(180deg,#1d3a66,#16304f);color:var(--txt);box-shadow:inset 0 0 0 1px #4da3ff55}
@@ -256,6 +256,15 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .pvbox .links .fb{background:linear-gradient(180deg,#5fb0ff,#3b8fe8);color:#04101f}
 .pvbox .links .fg{border:1px solid var(--line2);color:var(--txt)}
 @media(max-width:620px){.pvbox{grid-template-columns:1fr}.pvbox .links{flex-direction:row}}
+.sbcgrid{display:grid;grid-template-columns:1fr 92px 64px;gap:6px 8px;align-items:center;font-size:13px}
+.sbcgrid select,.sbcgrid input{padding:5px 6px;min-width:0;width:100%}
+.sbcfrom{display:grid;grid-template-columns:96px 1fr 92px 64px auto;gap:6px;margin-top:6px}
+.sbcfrom select,.sbcfrom input{padding:5px 6px;min-width:0;width:100%}
+.sbcchecks{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.sbcchecks span{font-size:11.5px;padding:2px 8px;border-radius:99px;background:#143d2c;color:var(--ok)}
+.sbcchecks span.no{background:#3f1d1d;color:var(--bad)}
+.sbcrow{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;padding:4px 0;border-top:1px solid #ffffff08;font-size:13px}
+.sbcrow .own{color:var(--ok);font-weight:700;font-size:11px} .sbcrow .buy{color:var(--warn);font-weight:700;font-size:11px}
 .verbox{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
 .verbox .vh{font-size:12px;color:var(--mut);margin-bottom:6px;display:flex;gap:6px;align-items:center}
 .verbox .vl{display:flex;flex-wrap:wrap;gap:6px}
@@ -362,6 +371,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
         <button class="mt" data-mode="chem"><i data-ic="flask-conical"></i> Chemistry</button>
         <button class="mt" data-mode="up"><i data-ic="trending-up"></i> Upgrades</button>
         <button class="mt" data-mode="fill"><i data-ic="users"></i> Fill squad</button>
+        <button class="mt" data-mode="sbc"><i data-ic="layers"></i> SBC</button>
       </div>
       <div class="chemhead">
         <div class="gauge" id="gauge">
@@ -405,6 +415,23 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <div class="accb"><div class="small mut">Overrides the limit above for that position; blank = use it.</div>
             <div id="capGrid" style="margin-top:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div></div>
           </details>
+        </div>
+        <div data-modepane="sbc" hidden>
+          <div class="small mut modedesc">Builds SBC squads from your club first (Filters → Only use cards I own, or the FUTBIN club import), then the lowest-rated cards that work. SBC chemistry counts no manager.</div>
+          <div class="grid2">
+            <label class="f">Challenge<select id="sbcPreset"><option value="">Custom</option></select></label>
+            <label class="f">Formation<select id="sbcForm"><option value="any">Any (ClubTools picks)</option></select></label>
+          </div>
+          <div class="small" id="sbcClub" style="margin:8px 0"></div>
+          <div class="sbcgrid" id="sbcGrid"></div>
+          <div id="sbcFrom"></div>
+          <button class="sm" id="sbcAddFrom" style="margin-top:6px">+ Players from a league / nation / club</button>
+          <div class="rqmode" style="margin-top:10px">
+            <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players in my squad on the pitch</label>
+            <label class="chk"><input type="checkbox" id="sbcKeepFav" checked> Don't use my favourites</label>
+            <label class="chk"><input type="checkbox" id="sbcOwnOnly"> Only my club (don't suggest buying anything)</label>
+            <label class="chk" style="align-items:center">Use my own cards rated up to <input id="sbcMaxOwn" type="number" min="45" max="99" placeholder="any" style="width:64px;padding:2px 6px"></label>
+          </div>
         </div>
         <div class="presetbar" title="A preset saves your required stats, filters, PlayStyle preferences and tab settings under a name">
           <span class="lbl">Preset</span>
@@ -1407,7 +1434,7 @@ function ratingLine(after, now){
 }
 function chip(d){ return `<span class="chip ${d>=0?"pos":"neg"}">${d>=0?"+":""}${d}</span>`; }
 let VIEW = "plan", COMBO_MGR = true, MODE = "chem";
-const LAST_VIEW = {chem:"plan", up:"u1", fill:"f"};
+const LAST_VIEW = {chem:"plan", up:"u1", fill:"f", sbc:"s"};
 function updFillInfo(){
   const n = S.squad.filter(c => !c).length;
   if($("fillEmpty")) $("fillEmpty").textContent = n ? `${n} empty slot${n===1?"":"s"} to fill.` : "No empty slots yet — remove the players you don't want first.";
@@ -1416,12 +1443,13 @@ function setMode(m, rerender=true){
   MODE = m;
   document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
-  $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : " Find chemistry upgrades");
+  $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : m === "sbc" ? "layers" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : m === "sbc" ? " Build SBC squads" : " Find chemistry upgrades");
   VIEW = LAST_VIEW[m];
   try{ DB.set("chemBuilder.mode", m); }catch(e){}
   updFillInfo();
   if(!rerender) return;
   if(m === "fill"){ if(window.__F) renderFill(); else $("results").innerHTML = ""; return; }
+  if(m === "sbc"){ sbcClubInfo(); if(window.__SBC) renderSbc(); else $("results").innerHTML = ""; return; }
   if(window.__R) renderResults(); else $("results").innerHTML = "";
 }
 const mgrText = o => {
@@ -1593,6 +1621,7 @@ function reqsDataWarning(){
 async function runOptimize(){
   if(reqsDataWarning()) return;
   if(MODE === "fill") return runFill();
+  if(MODE === "sbc") return runSbc();
   if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first (or use the Fill squad tab)."; return; }
   watchProgress("Searching…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";   // old results are out of date now
@@ -1834,7 +1863,7 @@ async function init(){
     document.body.insertAdjacentHTML("afterbegin", `<div class="banner">This page was opened as a file. The app needs its local server: double-click <b>start.bat</b> and it opens the right address for you (normally http://127.0.0.1:8765/).</div>`);
     return;
   }
-  await Promise.all([DB.load(), loadFlags()]); loadPS(); loadBL(); loadPB(); loadFAV(); loadPresets(); loadEvos();
+  await Promise.all([DB.load(), loadFlags()]); loadPS(); loadBL(); loadPB(); loadFAV(); loadSbc(); loadPresets(); loadEvos();
   if(new URLSearchParams(location.search).has("migrate")) return migratePage();
   if(APP){ $("quit").hidden = true; $("migrate").hidden = DB.get("chemBuilder.migrated") === "1"; }
   try{
@@ -1856,8 +1885,8 @@ async function init(){
   if(!$("capGrid").children.length) writeCaps({});
   if(!$("noWomen").children.length) writeNoWomen(NW_DEFAULT);
   if(!$("rqBody").children.length) renderRq(true);
-  setMode(["up","fill"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
-  renderSaved(); renderBL(); renderFAV(); renderPS(); updUndo(); refresh();
+  setMode(["up","fill","sbc"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
+  renderSaved(); renderBL(); renderFAV(); renderPS(); renderSbcForm(); sbcClubInfo(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
 addEventListener("hashchange", handleHash);
@@ -2497,6 +2526,114 @@ function checkDataAge(){
   $("dataGo").onclick = () => { bar.hidden = true; $("sync").click(); };
   $("dataLater").onclick = () => { DB.set(KEY_DATA_SNOOZE, String(Date.now() + 3*864e5)); bar.hidden = true; };
 }
+
+/* ---------- SBC helper ---------- */
+const KEY_SBC = "chemBuilder.sbc";
+const SBC_FIELDS = [   // [key, label, ops]
+  ["leagues", "Leagues in squad", ["exactly","min","max"]], ["nations", "Nations in squad", ["exactly","min","max"]],
+  ["clubs", "Clubs in squad", ["exactly","min","max"]], ["same_league", "Players from the same league", ["max","min"]],
+  ["same_nation", "Players from the same nation", ["max","min"]], ["same_club", "Players from the same club", ["max","min"]],
+  ["rating", "Team rating", ["min"]], ["chem", "Squad total chemistry", ["min"]],
+  ["rare", "Rare players", ["min"]], ["special", "Special (promo) cards", ["min"]]];
+const sbcX = n => ({op:"exactly", n}), sbcMax = n => ({op:"max", n});
+// FC 27 "League & Nation Advanced" (FUT.GG, checked 14 Oct 2026); all gold, which every card in ClubTools is
+const SBC_PRESETS = {
+  "ln3": ["League & Nation Advanced · 3 Leagues & 2 Nations", {leagues:sbcX(3), nations:sbcX(2), same_league:sbcMax(6), same_nation:sbcMax(6), chem:30}],
+  "ln4": ["League & Nation Advanced · 4 Leagues & 5 Nations", {leagues:sbcX(4), nations:sbcX(5), same_league:sbcMax(4), same_nation:sbcMax(3), rating:78, chem:25}],
+  "ln5": ["League & Nation Advanced · 5 Leagues & 6 Nations", {leagues:sbcX(5), nations:sbcX(6), same_club:sbcMax(2), rating:81, chem:25}]};
+let SBC = {req:{}, from:[], preset:"", formation:"any"};
+function loadSbc(){ try{ SBC = Object.assign(SBC, JSON.parse(DB.get(KEY_SBC) || "{}")); }catch(e){} }
+function saveSbc(){ DB.set(KEY_SBC, JSON.stringify(SBC)); }
+const opLabel = {exactly:"Exactly", min:"Min.", max:"Max."};
+function renderSbcForm(){
+  $("sbcPreset").innerHTML = `<option value="">Custom</option>` + Object.entries(SBC_PRESETS).map(([k,[l]]) => `<option value="${k}">${esc(l)}</option>`).join("");
+  $("sbcPreset").value = SBC.preset || "";
+  $("sbcForm").innerHTML = `<option value="any">Any (ClubTools picks)</option>` + Object.keys(FORMATIONS).map(f => `<option>${esc(f)}</option>`).join("");
+  $("sbcForm").value = SBC.formation || "any";
+  $("sbcGrid").innerHTML = SBC_FIELDS.map(([k, label, ops]) => {
+    const r = SBC.req[k], v = r == null ? "" : typeof r === "object" ? r.n : r, op = r && typeof r === "object" ? r.op : ops[0];
+    return `<span>${label}</span><select data-sop="${k}" ${ops.length < 2 ? "disabled" : ""}>${ops.map(o => `<option value="${o}" ${o===op?"selected":""}>${opLabel[o]}</option>`).join("")}</select><input type="number" min="0" max="99" data-sn="${k}" value="${v}" placeholder="–">`;
+  }).join("");
+  const lists = {league: META.leagues, nation: META.nations, club: META.clubs};
+  $("sbcFrom").innerHTML = SBC.from.map((f, i) => `<div class="sbcfrom">
+    <select data-fk="${i}">${["league","nation","club"].map(k => `<option value="${k}" ${k===f.kind?"selected":""}>${k[0].toUpperCase()+k.slice(1)}</option>`).join("")}</select>
+    <select data-fid="${i}">${(lists[f.kind] || []).slice().sort((a,b) => String(a[1]).localeCompare(String(b[1]))).map(([id,n]) => `<option value="${esc(id)}" ${String(id)===String(f.id)?"selected":""}>${esc(n)}</option>`).join("")}</select>
+    <select data-fop="${i}">${["min","exactly","max"].map(o => `<option value="${o}" ${o===f.op?"selected":""}>${opLabel[o]}</option>`).join("")}</select>
+    <input type="number" min="0" max="11" data-fn="${i}" value="${f.n ?? ""}">
+    <button class="sm ghost" data-fdel="${i}" title="Remove">✕</button></div>`).join("");
+}
+function readSbcForm(){
+  const req = {};
+  for(const [k, , ops] of SBC_FIELDS){
+    const n = $("sbcGrid").querySelector(`[data-sn="${k}"]`).value, op = $("sbcGrid").querySelector(`[data-sop="${k}"]`).value;
+    if(n === "") continue;
+    req[k] = ["rating","chem","rare","special"].includes(k) ? +n : {op, n:+n};
+  }
+  SBC.req = req; SBC.formation = $("sbcForm").value;
+  SBC.from = SBC.from.map((f, i) => ({kind: $("sbcFrom").querySelector(`[data-fk="${i}"]`).value, id: $("sbcFrom").querySelector(`[data-fid="${i}"]`).value,
+    op: $("sbcFrom").querySelector(`[data-fop="${i}"]`).value, n: $("sbcFrom").querySelector(`[data-fn="${i}"]`).value}));
+  saveSbc();
+}
+function sbcClubInfo(){
+  const lines = $("clubList").value.split(/\n/).filter(l => l.trim()).length;
+  $("sbcClub").innerHTML = lines ? `${ic("check")} Using your club: <b>${lines}</b> cards (Filters → Only use cards I own).`
+    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>) or paste it in Filters → <b>Only use cards I own</b>.`;
+}
+$("sbcPreset").onchange = () => {
+  const k = $("sbcPreset").value; SBC.preset = k;
+  if(k){ SBC.req = JSON.parse(JSON.stringify(SBC_PRESETS[k][1])); SBC.from = []; }
+  saveSbc(); renderSbcForm();
+};
+$("sbcGrid").addEventListener("change", () => { readSbcForm(); SBC.preset = ""; $("sbcPreset").value = ""; saveSbc(); });
+$("sbcForm").onchange = readSbcForm;
+$("sbcFrom").addEventListener("change", e => { const k = e.target.closest("[data-fk]"); readSbcForm(); if(k){ SBC.from[+k.dataset.fk].id = ""; renderSbcForm(); } });
+$("sbcFrom").addEventListener("click", e => { const d = e.target.closest("[data-fdel]"); if(!d) return; readSbcForm(); SBC.from.splice(+d.dataset.fdel, 1); saveSbc(); renderSbcForm(); });
+$("sbcAddFrom").onclick = () => { readSbcForm(); SBC.from.push({kind:"league", id:"", op:"min", n:1}); saveSbc(); renderSbcForm(); };
+async function runSbc(){
+  readSbcForm();
+  const avoid = [];
+  if($("sbcKeepSquad").checked) S.squad.forEach(c => c && avoid.push(c.s));
+  if($("sbcKeepFav").checked) FAV.forEach(x => avoid.push(x.s));
+  const req = Object.assign({}, SBC.req, {from: SBC.from.filter(f => f.id && f.n !== "").map(f => Object.assign({}, f, {
+    name: ({league: leagueName, nation: nationName, club: id => (META.clubs.find(c => String(c[0]) === String(id)) || [, id])[1]})[f.kind](f.id)}))});
+  if(!Object.keys(req).some(k => k !== "from") && !req.from.length){ $("goMsg").textContent = "Set at least one requirement (or pick a challenge)."; return; }
+  watchProgress("Building SBC squads…"); $("go").disabled = true;
+  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
+  try{
+    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, max_own: +$("sbcMaxOwn").value || 0});
+    stopProgress(); $("goMsg").textContent = ""; renderSbc();
+  }catch(e){ showError("SBC helper", e); }
+  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+}
+function sbcSquadHtml(s, j){
+  const owned = s.owned, buy = s.cards.length - owned;
+  const rows = s.cards.map((c, i) => {
+    const mine = s.own && s.own[i];
+    return `<div class="sbcrow"><span class="tag">${esc(s.slots[i])}</span><span>${flagImg(c.nn)} <b>${c.ov}</b> ${esc(c.n)} <span class="mut small">· ${esc(c.rt||"")} · ${esc(c.cn || c.ln || "")}</span></span>
+      <span>${mine ? `<span class="own">yours</span>` : `<span class="buy">buy</span>${cardLink(c)}`}</span></div>`;
+  }).join("");
+  return `<div class="res" style="display:block"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+      <b>${s.valid ? `Option ${j + 1}` : "Closest attempt"}</b><span class="small mut">${esc(s.formation)} · ${owned} of your cards · ${buy ? `${buy} to buy` : "nothing to buy"} · rating ${s.rating ?? "–"} · chemistry ${s.chem}</span>
+      <span style="flex:1"></span>${s.valid ? `<button class="sm" data-sbcshow="${j}">Show on pitch</button>` : ""}</div>
+    <div class="sbcchecks">${s.checks.map(x => `<span class="${x.ok?"":"no"}">${x.ok ? "✓" : "✗"} ${esc(x.label)} <span class="mut">(${x.have})</span></span>`).join("")}</div>${rows}</div>`;
+}
+function renderSbc(){
+  const R = window.__SBC; if(!R) return;
+  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+    <strong>${ic("layers")} SBC squads</strong><span class="small mut">${R.owned ? `${R.owned} club cards available` : "no club imported"}${R.formations.length > 1 ? ` · tried ${R.formations.length} formations` : ""}</span></div>`;
+  if(R.unmatched && R.unmatched.length) h += `<div class="note warn">Club lines not found in the card database (cards under 75 aren't in it): ${R.unmatched.slice(0, 8).map(esc).join(", ")}${R.unmatched.length > 8 ? "…" : ""}</div>`;
+  if(R.solutions.length) h += R.solutions.map((s, j) => sbcSquadHtml(s, j)).join("");
+  else if(R.closest) h += `<div class="note warn">No squad met every requirement in time. Here's the closest one; the red ones are missed. Try "Any" formation, fewer protections, or allow buying.</div>` + sbcSquadHtml(R.closest, 0);
+  else h += `<div class="mut small">No squad found.</div>`;
+  $("results").innerHTML = h + `</div>`;
+}
+$("results").addEventListener("click", e => {
+  const b = e.target.closest("[data-sbcshow]"); if(!b || !window.__SBC) return;
+  const s = window.__SBC.solutions[+b.dataset.sbcshow];
+  commit(); S.formation = FORMATIONS[s.formation] ? s.formation : ""; S.slots = s.slots.slice(); S.squad = s.cards.slice(); S.locks = Array(11).fill(false);
+  $("formation").value = S.formation; refresh(); scrollTo({top:0, behavior:"smooth"});
+  undoToast("SBC squad shown on the pitch", () => undo());
+});
 
 /* ---------- send feedback (Google Form via /api/feedback) ---------- */
 let FB_TYPE = "Feature request";
