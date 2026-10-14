@@ -908,17 +908,29 @@ def fill_squad(slots, squad, mgr, by_pos, min_rating=0, max_ovr=None, pos_caps=N
 
 # --------------------------------------------------------------------------- SBC helper
 
+TIERS = ("bronze", "silver", "gold")
+
+
+def tier(c):
+    """Card quality the way SBCs count it: bronze up to 64, silver 65-74, gold 75+."""
+    ov = int(c["ov"])
+    return "gold" if ov >= 75 else "silver" if ov >= 65 else "bronze"
+
+
+def _special(c):
+    rt = str(c.get("rt") or "").lower()
+    return c.get("ty") in ("icon", "hero", "hof") or not (rt in BASE_RARITY or rt.startswith("base ") or rt == "custom")
+
+
 def sbc_card_cost(c, owned):
-    """What using a card in an SBC 'costs' without price data: cards you own are nearly free (the lower rated
-    the better, to keep your good ones), bought cards cost more the higher they are rated, promos and
-    ICONs/Heroes much more."""
-    over = max(0, c["ov"] - 75)
-    special = str(c.get("rt") or "").lower() not in BASE_RARITY and not str(c.get("rt") or "").lower().startswith("base ")
-    star = c.get("ty") in ("icon", "hero")
-    if owned:   # your low cards are nearly free; a good one only gets used when it saves buying an expensive card,
-        # and your ICONs / Heroes / promos only as a last resort
-        return 0.2 + 0.35 * over ** 1.3 + (30 if special else 0) + (60 if star else 0)
-    return 3 + 2 * over ** 1.6 + (8 if special else 0) + (25 if star else 0)
+    """What using a card in an SBC 'costs' without price data. Any card you own costs less than any card
+    you'd buy (so the helper uses as many of yours as it can, your lowest-rated first); bought cards cost
+    more the higher they are rated (lowest overall = cheapest), promos and ICONs/Heroes more again."""
+    ov = int(c["ov"])
+    special, star = _special(c), c.get("ty") in ("icon", "hero")
+    if owned:   # 0.5 .. under 20
+        return 0.5 + 0.05 * max(0, ov - 40) + (6 if special else 0) + (10 if star else 0)
+    return 20 + 0.5 * max(0, ov - 40) + 2 * max(0, ov - 75) ** 1.6 + (15 if special else 0) + (25 if star else 0)
 
 
 def _sbc_counts(cards, key):
@@ -926,10 +938,41 @@ def _sbc_counts(cards, key):
     return len(n), (max(n.values()) if n else 0), n
 
 
+FROM_FIELD = {"league": "li", "nation": "ni", "club": "ck"}
+
+
+def _from_ids(f):
+    ids = f.get("ids")
+    if ids is None:
+        ids = [f.get("id")]
+    return {str(x) for x in (ids if isinstance(ids, (list, tuple)) else [ids]) if x not in (None, "")}
+
+
+def _from_test(f):
+    """A 'players from ...' rule -> test(card). kind league/nation/club (any of ids = 'X OR Y') or quality
+    (ids: bronze/silver/gold)."""
+    kind, ids = f.get("kind"), _from_ids(f)
+    if kind == "quality":
+        return lambda c: tier(c) in ids
+    field = FROM_FIELD.get(kind)
+    if not field:
+        return None
+    return lambda c: str(c.get(field)) in ids
+
+
+def quality_ok(c, rule):
+    """'Player Quality: Min./Max./Exactly <tier>' for one card."""
+    if not rule or rule.get("tier") not in TIERS:
+        return True
+    have, want, op = TIERS.index(tier(c)), TIERS.index(rule["tier"]), rule.get("op", "min")
+    return have >= want if op == "min" else have <= want if op == "max" else have == want
+
+
 def sbc_check(slots, cards, req, mgr=None):
     """Every requirement of an SBC against a full squad -> (list of {label, ok, have}, shortfall score).
     req keys: leagues/nations/clubs {op: exactly|min|max, n}, same_league/same_nation/same_club {op, n},
-    rating (min), chem (min), rare (min), special (min), from: [{kind: league|nation|club, id, n}]."""
+    rating (min), chem (min), rare (min), special (min), quality {op, tier: bronze|silver|gold},
+    from: [{kind: league|nation|club|quality, ids: [...] (any of them), op, n, name}]."""
     rows, short = [], 0.0
     def cmp(label, have, rule):
         nonlocal short
@@ -945,10 +988,18 @@ def sbc_check(slots, cards, req, mgr=None):
         cmp({"leagues": "Leagues", "nations": "Nations", "clubs": "Clubs"}[key], count, req.get(key))
         cmp({"same_league": "Same league", "same_nation": "Same nation", "same_club": "Same club"}[same], top, req.get(same))
     for f in req.get("from") or []:
-        field = {"league": "li", "nation": "ni", "club": "ck"}.get(f.get("kind"))
-        if field and f.get("n"):
-            have = sum(1 for c in cards if str(c.get(field)) == str(f.get("id")))
-            cmp(f"From {f.get('name') or f.get('id')}", have, {"op": f.get("op", "min"), "n": f["n"]})
+        test = _from_test(f)
+        if test and f.get("n") not in (None, ""):
+            have = sum(1 for c in cards if test(c))
+            name = f.get("name") or " or ".join(sorted(_from_ids(f)))
+            cmp(name.title() if f.get("kind") == "quality" else f"From {name}", have, {"op": f.get("op", "min"), "n": f["n"]})
+    q = req.get("quality")
+    if q and q.get("tier") in TIERS:
+        bad = sum(1 for c in cards if not quality_ok(c, q))
+        op = q.get("op", "min")
+        rows.append({"label": f"Player quality: {'Exactly' if op == 'exactly' else 'Min.' if op == 'min' else 'Max.'} {q['tier'].title()}",
+                     "ok": bad == 0, "have": len(cards) - bad})
+        short += bad
     if req.get("rating"):
         r = squad_rating(cards)
         exact = r["exact"] if r else 0
@@ -972,19 +1023,16 @@ def sbc_check(slots, cards, req, mgr=None):
 
 
 def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=None, avoid=()):
-    """Build SBC squads that meet req (see sbc_check) as cheaply as possible: cards you own first (owned:
-    set of card slugs), then the lowest-rated cards that work. Simulated annealing over the 11 slots, players
-    always in position. Returns up to n distinct valid squads [{cards, cost, owned, checks}], best first,
-    or the closest attempt (valid False) when none meets everything in time."""
+    """Build SBC squads that meet req (see sbc_check) as cheaply as possible: as many cards you own as
+    possible (owned: set of card slugs), then the lowest-rated cards that work. Simulated annealing over the
+    11 slots, players always in position; besides random cheap picks it tries cards that link to a teammate
+    (same league / nation / club, for chemistry) and cards a 'players from ...' rule asks for.
+    Returns up to n distinct valid squads [{cards, cost, owned, checks}], best first, or the closest attempt
+    (valid False) when none meets everything in time."""
     import random
     rnd = random.Random(seed)
     avoid = set(avoid)
-    cands = {}
-    for pos in set(slots):
-        cs = [c for c in by_pos.get(pos, ()) if c["s"] not in avoid]
-        own = [c for c in cs if c["s"] in owned]
-        cheap = sorted((c for c in cs if c["s"] not in owned), key=lambda c: sbc_card_cost(c, False))
-        cands[pos] = (own, cheap)
+    q = req.get("quality")
     cost_of = {}
 
     def cost(c):
@@ -992,30 +1040,57 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
         if v is None:
             v = cost_of[c["s"]] = sbc_card_cost(c, c["s"] in owned)
         return v
+    cands, links = {}, {}
+    for pos in set(slots):
+        cs = sorted((c for c in by_pos.get(pos, ()) if c["s"] not in avoid and quality_ok(c, q)), key=cost)
+        own = [c for c in cs if c["s"] in owned]
+        cands[pos] = (own, [c for c in cs if c["s"] not in owned], cs)
+        idx = {}
+        for c in cs:   # cheapest first, so yours come first
+            for f in ("li", "ni", "ck"):
+                if c.get(f) is not None:
+                    idx.setdefault((f, c[f]), []).append(c)
+        links[pos] = idx
+    wants = [(t, f) for f in req.get("from") or [] for t in [_from_test(f)] if t and f.get("op", "min") != "max"]
+    want_lists = [{pos: [c for c in cands[pos][2] if t(c)] for pos in cands} for t, _ in wants]
 
-    def pick(pos, rnd_):
-        own, cheap = cands[pos]
-        if own and rnd_.random() < 0.55:
-            return rnd_.choice(own)
+    def biased(lst, power):
+        return lst[min(int(len(lst) * (rnd.random() ** power)), len(lst) - 1)] if lst else None
+
+    def pick(i, sq):
+        pos = slots[i]
+        own, cheap, every = cands[pos]
+        r = rnd.random()
+        if r < 0.35 and sq:   # link to a teammate (chemistry, 'same league' rules)
+            mate = sq[rnd.randrange(len(sq))]
+            if mate is not None:
+                f = rnd.choice(("li", "li", "ni", "ck"))
+                c = biased(links[pos].get((f, mate.get(f)), []), 2)
+                if c is not None:
+                    return c
+        if r < 0.47 and want_lists:
+            c = biased(rnd.choice(want_lists)[pos], 2)
+            if c is not None:
+                return c
+        if own and r < 0.75:
+            return rnd.choice(own)
         if not cheap:
-            return rnd_.choice(own) if own else None
-        # mostly cheap cards, sometimes anything (needed for rating / rare leagues)
-        k = int(len(cheap) * (rnd_.random() ** 3))
-        return cheap[min(k, len(cheap) - 1)]
+            return rnd.choice(own) if own else None
+        return biased(cheap, 3)   # mostly the cheapest, sometimes anything (rating, rare leagues)
 
     def score(sq):
         _, short = sbc_check(slots, sq, req, mgr)
         return short * 100 + sum(cost(c) for c in sq), short
 
-    if any(not (cands[p][0] or cands[p][1]) for p in slots):
-        return {"solutions": [], "closest": None, "reason": "no cards for " + ", ".join(sorted({p for p in slots if not (cands[p][0] or cands[p][1])}))}
+    if any(not cands[p][2] for p in slots):
+        return {"solutions": [], "closest": None, "reason": "no cards for " + ", ".join(sorted({p for p in slots if not cands[p][2]}))}
     started = time.time()
     found, best_any = {}, None
     while time.time() - started < time_limit:
         sq, used = [], set()
-        for pos in slots:
+        for i, pos in enumerate(slots):
             for _ in range(20):
-                c = pick(pos, rnd)
+                c = pick(i, sq)
                 if c and c["bp"] not in used:
                     break
             sq.append(c)
@@ -1024,7 +1099,7 @@ def sbc_solve(slots, by_pos, owned, req, mgr=None, time_limit=6.0, n=3, seed=Non
         temp = 60.0
         for it in range(2500):
             i = rnd.randrange(11)
-            c = pick(slots[i], rnd)
+            c = pick(i, sq)
             if c is None or c["s"] == sq[i]["s"] or any(j != i and x["bp"] == c["bp"] for j, x in enumerate(sq)):
                 continue
             old = sq[i]

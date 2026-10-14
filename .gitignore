@@ -7,3 +7,5 @@ dist/
 version.txt
 THIRD_PARTY_NOTICES.txt
 .venv/
+cards_low.json
+cards_low.json.tmp

@@ -44,6 +44,7 @@ _HOME = os.environ.get("APPDATA") or os.path.expanduser("~")
 DATA_DIR = os.path.join(_HOME, "ClubTools" if os.environ.get("APPDATA") else ".clubtools")
 OLD_DATA_DIR = os.path.join(_HOME, "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")   # before the rename
 CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards.json")   # the .exe keeps updatable card data in AppData
+LOW_CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards_low.json")   # bronze + silver cards (SBC helper; optional download)
 UI = os.path.join(BUNDLE, "ui.html")
 STATE_FILE = os.path.join(DATA_DIR, "state.json")
 
@@ -75,7 +76,7 @@ def migrate_data_dir():
                 pass
 PSEUDO_CLUBS = {"ICON", "HERO", "HALL OF FUT"}
 
-STATE = {"cards": [], "meta": {}, "by_slug": {}, "by_bp": {}, "sync": {"running": False, "msg": "", "done": 0, "total": 0}}
+STATE = {"cards": [], "low": [], "low_meta": {}, "meta": {}, "by_slug": {}, "by_bp": {}, "sync": {"running": False, "msg": "", "done": 0, "total": 0}}
 
 # ------------------------------------------------------------------ formations
 # FC 27 Ultimate Team formations, copied from FUT.GG's squad-builder data (8 Oct 2026). The list matches
@@ -250,13 +251,17 @@ def diagnose():
     return steps
 
 
-def sync_cards(min_rating=75, status=None):
+def sync_cards(min_rating=75, status=None, max_rating=None, path=None):
+    """Download the card database from FUT.GG's player feed (one page at a time, paced). The main data is
+    rating 75+ (cards.json); the SBC helper's bronze and silver cards (max_rating 74) go to cards_low.json."""
     status = status if status is not None else STATE["sync"]
+    path = path or CACHE
     status.update(running=True, msg="starting", done=0, total=0)
     cards, page = [], 1
+    rng = f"overall__gte={min_rating}" + (f"&overall__lte={max_rating}" if max_rating else "")
     try:
         while True:
-            d = fetch_json(f"{API}?page={page}&overall__gte={min_rating}")
+            d = fetch_json(f"{API}?page={page}&{rng}")
             for r in d.get("data", []):
                 try:
                     cards.append(normalize_card(r))
@@ -274,10 +279,12 @@ def sync_cards(min_rating=75, status=None):
                 uniq.append(c)
         meta = {"synced_at": time.strftime("%Y-%m-%d %H:%M:%S"), "min_rating": min_rating,
                 "source": "fut.gg", "game": "FC 27", "count": len(uniq)}
-        tmp = CACHE + ".tmp"
+        if max_rating:
+            meta["max_rating"] = max_rating
+        tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"meta": meta, "cards": uniq}, f, ensure_ascii=False, separators=(",", ":"))
-        os.replace(tmp, CACHE)
+        os.replace(tmp, path)
         load_cache()
         status.update(running=False, msg=f"done: {len(uniq)} cards")
     except Exception as e:  # noqa: BLE001
@@ -348,12 +355,21 @@ def load_cache():
     with open(CACHE, encoding="utf-8") as f:
         d = json.load(f)
     cards = d["cards"]
-    for c in cards:
+    low, low_meta = [], {}
+    try:   # bronze + silver cards, if downloaded (SBC helper); never in the chemistry / upgrade searches
+        with open(LOW_CACHE, encoding="utf-8") as f:
+            dl = json.load(f)
+        low, low_meta = [c for c in dl["cards"] if c["ov"] < 75], dl.get("meta", {})
+    except Exception:  # noqa: BLE001
+        pass
+    for c in cards + low:
         c["_k"] = fold(c.get("fn") or c["n"]) + " " + fold(c["n"])
     by_bp = {}
-    for c in cards:
+    for c in cards + low:
         by_bp.setdefault(c["bp"], []).append(c)
-    STATE.update(cards=cards, meta=d.get("meta", {}), by_slug={c["s"]: c for c in cards}, by_bp=by_bp)
+    by_slug = {c["s"]: c for c in low}
+    by_slug.update((c["s"], c) for c in cards)
+    STATE.update(cards=cards, low=low, low_meta=low_meta, meta=d.get("meta", {}), by_slug=by_slug, by_bp=by_bp)
 
 
 def public(c):
@@ -369,7 +385,7 @@ def versions(card, limit=12):
 
 def meta_lists():
     nations, leagues, clubs = {}, {}, {}
-    for c in STATE["cards"]:
+    for c in STATE["cards"] + STATE["low"]:
         if c["ni"] is not None:
             nations[c["ni"]] = c["nn"]
         if c["li"] is not None:
@@ -584,16 +600,17 @@ def save_png(data_url):
 
 def club_ids(ids):
     """Card ids collected by the bookmark on a club page -> known cards (no live lookups: a club can be
-    hundreds of cards, and the card database only holds rating 75+)."""
+    hundreds of cards). Cards under 75 are only known once the bronze + silver data is downloaded."""
     ids = list(dict.fromkeys(str(i) for i in ids if str(i).isdigit()))[:2000]
     cards, unknown = [], []
     for i in ids:
         c = STATE["by_slug"].get(f"27-{i}")
         (cards.append({"s": c["s"], "n": c["n"], "ov": c["ov"], "rt": c.get("rt", ""), "p": c["p"]}) if c else unknown.append(i))
-    return {"cards": cards, "unknown": len(unknown)}
+    return {"cards": cards, "unknown": len(unknown), "low": bool(STATE["low"])}
 
 
-def build_pool(opts):
+def build_pool(opts, low=False):
+    """Cards a search may use. low: also the bronze + silver cards (SBC helper only)."""
     gender = int(opts.get("gender") or 0)
     excl = set(opts.get("exclude_types") or [])
     banned = {str(x) for x in opts.get("blacklist") or []}        # base player ids: every version (older lists)
@@ -613,7 +630,7 @@ def build_pool(opts):
         if no_promo and rt not in eng.BASE_RARITY and not rt.startswith("base ") and rt != "custom":
             return False   # promo / special versions (TOTW, Future Stars, ...): usually the expensive ones
         return str(c["bp"]) not in banned and c["s"] not in banned_cards
-    pool = [c for c in STATE["cards"] if (not gender or c["g"] == gender) and c["ty"] not in excl and allowed(c)]
+    pool = [c for c in STATE["cards"] + (STATE["low"] if low else []) if (not gender or c["g"] == gender) and c["ty"] not in excl and allowed(c)]
     unmatched = []
     lines = [ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()]
     if lines:
@@ -850,6 +867,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, fh.read(), ASSET_TYPES[os.path.splitext(f)[1]], cache=True)
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
+                                    "low": {"n": len(STATE["low"]), "synced_at": STATE["low_meta"].get("synced_at")},
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values()), "version": app_version(),
                                     "support_url": support_url(),
@@ -981,7 +999,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/sync":
                 if STATE["sync"]["running"]:
                     return self._send(200, STATE["sync"])
-                threading.Thread(target=sync_cards, args=(int(body.get("min_rating") or 75),), daemon=True).start()
+                if body.get("low"):   # bronze + silver cards for the SBC helper
+                    threading.Thread(target=sync_cards, args=(0, None, 74, LOW_CACHE), daemon=True).start()
+                else:
+                    threading.Thread(target=sync_cards, args=(int(body.get("min_rating") or 75),), daemon=True).start()
                 return self._send(200, {"running": True})
         except Exception as e:  # noqa: BLE001
             return self._send(400, {"error": str(e)})
@@ -1153,14 +1174,12 @@ def sbc_build(b):
     owned_pool, unmatched = build_pool(dict(o, club_list=club_text)) if club_text.strip() else ([], [])
     max_own = int(b.get("max_own") or 0)
 
-    def special(c):   # ICONs, Heroes, Hall of FUT and promo versions
-        rt = str(c.get("rt") or "").lower()
-        return c.get("ty") in ("icon", "hero", "hof") or not (rt in eng.BASE_RARITY or rt.startswith("base "))
+    special = eng._special   # ICONs, Heroes, Hall of FUT and promo versions
     # your cards that stay out of SBCs: ICONs / Heroes / promos (unless allowed) and any above your rating cap
     protected = {c["s"] for c in owned_pool
                  if (b.get("keep_special", True) and special(c)) or (max_own and c["ov"] > max_own)}
     owned = {c["s"] for c in owned_pool} - protected
-    pool = owned_pool if b.get("own_only") else build_pool(o)[0]
+    pool = owned_pool if b.get("own_only") else build_pool(o, low=True)[0]
     pool = [c for c in pool if c["s"] not in protected]
     by_pos = eng.index_pool(pool, (), pos_bans(o))
     req = b.get("req") or {}
@@ -1179,7 +1198,17 @@ def sbc_build(b):
     valid = sorted((x for x in results if x["valid"]), key=lambda x: x["cost"])
     closest = None if valid else min(results, key=lambda x: sum(not c["ok"] for c in x["checks"]), default=None)
     return {"solutions": valid[:5], "closest": closest, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
-            "unmatched": unmatched[:20], "formations": names}
+            "unmatched": unmatched[:20], "n_unmatched": len(unmatched), "formations": names,
+            "low": len(STATE["low"]), "need_low": not STATE["low"] and sbc_needs_low(req)}
+
+
+def sbc_needs_low(req):
+    """True if the SBC asks for bronze or silver cards (which only the optional bronze + silver data has)."""
+    q = req.get("quality") or {}
+    if q.get("tier") in ("bronze", "silver") and q.get("op") in ("max", "exactly"):
+        return True
+    return any(f.get("kind") == "quality" and set(eng._from_ids(f)) & {"bronze", "silver"} and f.get("op", "min") != "max"
+               for f in req.get("from") or [])
 
 
 def _mgr_modes(mgr):

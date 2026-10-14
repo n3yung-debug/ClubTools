@@ -256,9 +256,11 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 .pvbox .links .fb{background:linear-gradient(180deg,#5fb0ff,#3b8fe8);color:#04101f}
 .pvbox .links .fg{border:1px solid var(--line2);color:var(--txt)}
 @media(max-width:620px){.pvbox{grid-template-columns:1fr}.pvbox .links{flex-direction:row}}
-.sbcgrid{display:grid;grid-template-columns:1fr 92px 64px;gap:6px 8px;align-items:center;font-size:13px}
+.sbcgrid{display:grid;grid-template-columns:1fr 92px 82px;gap:6px 8px;align-items:center;font-size:13px}
 .sbcgrid select,.sbcgrid input{padding:5px 6px;min-width:0;width:100%}
-.sbcfrom{display:grid;grid-template-columns:96px 1fr 92px 64px auto;gap:6px;margin-top:6px}
+.sbcfrom{display:grid;grid-template-columns:96px 1fr 92px 64px auto;gap:6px;margin-top:6px;align-items:start}
+.sbcids{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sbcids .or{font-size:11px;color:var(--mut);margin:-2px 0}
 .sbcfrom select,.sbcfrom input{padding:5px 6px;min-width:0;width:100%}
 .sbcchecks{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
 .sbcchecks span{font-size:11.5px;padding:2px 8px;border-radius:99px;background:#143d2c;color:var(--ok)}
@@ -417,7 +419,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           </details>
         </div>
         <div data-modepane="sbc" hidden>
-          <div class="small mut modedesc">Builds SBC squads from your club first (Filters → Only use cards I own, or the FUTBIN club import), then the lowest-rated cards that work. SBC chemistry counts no manager.</div>
+          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (Filters → Only use cards I own, or the FUTBIN club import), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.</div>
           <div class="grid2">
             <label class="f">Challenge<select id="sbcPreset"><option value="">Custom</option></select></label>
             <label class="f">Formation<select id="sbcForm"><option value="any">Any (ClubTools picks)</option></select></label>
@@ -425,7 +427,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           <div class="small" id="sbcClub" style="margin:8px 0"></div>
           <div class="sbcgrid" id="sbcGrid"></div>
           <div id="sbcFrom"></div>
-          <button class="sm" id="sbcAddFrom" style="margin-top:6px">+ Players from a league / nation / club</button>
+          <button class="sm" id="sbcAddFrom" style="margin-top:6px">+ Players from a league / nation / club, or Bronze / Silver / Gold players</button>
           <div class="rqmode" style="margin-top:10px">
             <label class="chk"><input type="checkbox" id="sbcKeepSquad" checked> Don't use players in my squad on the pitch</label>
             <label class="chk"><input type="checkbox" id="sbcKeepFav" checked> Don't use my favourites</label>
@@ -2417,7 +2419,8 @@ async function clubImport(replace){
   for(const c of r.cards) if(!have.has(c.s)){ lines.push(`${c.s}  ${c.n} ${c.ov} (${c.rt})`); have.add(c.s); added++; }
   $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts();
   $("clubDlg").close();
-  const skipped = r.unknown ? ` ${r.unknown} below the 75-rated card database were skipped.` : "";
+  const skipped = r.unknown ? (r.low ? ` ${r.unknown} not in the card data were skipped (update the card data and try again).`
+    : ` ${r.unknown} rated under 75 were skipped: download the bronze & silver cards in the SBC tab, then click the bookmark again.`) : "";
   undoToast(`${replace ? "Club list replaced" : "Added to your club"}: ${added} new card${added===1?"":"s"} (${clubLines().length} total).${skipped}`, () => { $("clubList").value = before; save(); updFiltSum(); });
 }
 $("clubAdd").onclick = () => clubImport(false);
@@ -2534,10 +2537,10 @@ const SBC_FIELDS = [   // [key, label, ops]
   ["leagues", "Leagues in squad", ["exactly","min","max"]], ["nations", "Nations in squad", ["exactly","min","max"]],
   ["clubs", "Clubs in squad", ["exactly","min","max"]], ["same_league", "Players from the same league", ["max","min"]],
   ["same_nation", "Players from the same nation", ["max","min"]], ["same_club", "Players from the same club", ["max","min"]],
-  ["rating", "Team rating", ["min"]], ["chem", "Squad total chemistry", ["min"]],
+  ["quality", "Player quality", ["min","max","exactly"]], ["rating", "Team rating", ["min"]], ["chem", "Squad total chemistry", ["min"]],
   ["rare", "Rare players", ["min"]], ["special", "Special (promo) cards", ["min"]]];
 const sbcX = n => ({op:"exactly", n}), sbcMax = n => ({op:"max", n});
-// FC 27 "League & Nation Advanced" (FUT.GG, checked 14 Oct 2026); all gold, which every card in ClubTools is
+// FC 27 "League & Nation Advanced" (FUT.GG, checked 14 Oct 2026); all gold
 const SBC_PRESETS = {
   "ln3": ["League & Nation Advanced · 3 Leagues & 2 Nations", {leagues:sbcX(3), nations:sbcX(2), same_league:sbcMax(6), same_nation:sbcMax(6), chem:30}],
   "ln4": ["League & Nation Advanced · 4 Leagues & 5 Nations", {leagues:sbcX(4), nations:sbcX(5), same_league:sbcMax(4), same_nation:sbcMax(3), rating:78, chem:25}],
@@ -2553,12 +2556,14 @@ function renderSbcForm(){
   $("sbcForm").value = SBC.formation || "any";
   $("sbcGrid").innerHTML = SBC_FIELDS.map(([k, label, ops]) => {
     const r = SBC.req[k], v = r == null ? "" : typeof r === "object" ? r.n : r, op = r && typeof r === "object" ? r.op : ops[0];
+    if(k === "quality") return `<span>${label}</span><select data-sop="${k}">${ops.map(o => `<option value="${o}" ${o===op?"selected":""}>${opLabel[o]}</option>`).join("")}</select><select data-sn="${k}"><option value="">–</option>${SBC_TIERS.map(t => `<option value="${t}" ${r && r.tier===t?"selected":""}>${tierName(t)}</option>`).join("")}</select>`;
     return `<span>${label}</span><select data-sop="${k}" ${ops.length < 2 ? "disabled" : ""}>${ops.map(o => `<option value="${o}" ${o===op?"selected":""}>${opLabel[o]}</option>`).join("")}</select><input type="number" min="0" max="99" data-sn="${k}" value="${v}" placeholder="–">`;
   }).join("");
-  const lists = {league: META.leagues, nation: META.nations, club: META.clubs};
+  const lists = {league: META.leagues, nation: META.nations, club: META.clubs, quality: SBC_TIERS.map(t => [t, tierName(t)])};
+  const idSel = (i, k, kind, id) => `<select data-fid="${i}" data-fix="${k}">${k ? `<option value="">(remove)</option>` : ""}${(lists[kind] || []).slice().sort((a,b) => kind === "quality" ? 0 : String(a[1]).localeCompare(String(b[1]))).map(([v,n]) => `<option value="${esc(v)}" ${String(v)===String(id)?"selected":""}>${esc(n)}</option>`).join("")}</select>`;
   $("sbcFrom").innerHTML = SBC.from.map((f, i) => `<div class="sbcfrom">
-    <select data-fk="${i}">${["league","nation","club"].map(k => `<option value="${k}" ${k===f.kind?"selected":""}>${k[0].toUpperCase()+k.slice(1)}</option>`).join("")}</select>
-    <select data-fid="${i}">${(lists[f.kind] || []).slice().sort((a,b) => String(a[1]).localeCompare(String(b[1]))).map(([id,n]) => `<option value="${esc(id)}" ${String(id)===String(f.id)?"selected":""}>${esc(n)}</option>`).join("")}</select>
+    <select data-fk="${i}">${[["league","League"],["nation","Nation"],["club","Club"],["quality","Quality"]].map(([k,l]) => `<option value="${k}" ${k===f.kind?"selected":""}>${l}</option>`).join("")}</select>
+    <div class="sbcids">${sbcIds(f).map((id, k) => (k ? `<span class="or">or</span>` : "") + idSel(i, k, f.kind, id)).join("")}${f.kind !== "quality" ? `<button class="sm ghost" data-for="${i}" style="align-self:flex-start;padding:1px 8px">+ or</button>` : ""}</div>
     <select data-fop="${i}">${["min","exactly","max"].map(o => `<option value="${o}" ${o===f.op?"selected":""}>${opLabel[o]}</option>`).join("")}</select>
     <input type="number" min="0" max="11" data-fn="${i}" value="${f.n ?? ""}">
     <button class="sm ghost" data-fdel="${i}" title="Remove">✕</button></div>`).join("");
@@ -2568,18 +2573,36 @@ function readSbcForm(){
   for(const [k, , ops] of SBC_FIELDS){
     const n = $("sbcGrid").querySelector(`[data-sn="${k}"]`).value, op = $("sbcGrid").querySelector(`[data-sop="${k}"]`).value;
     if(n === "") continue;
-    req[k] = ["rating","chem","rare","special"].includes(k) ? +n : {op, n:+n};
+    req[k] = k === "quality" ? {op, tier:n} : ["rating","chem","rare","special"].includes(k) ? +n : {op, n:+n};
   }
   SBC.req = req; SBC.formation = $("sbcForm").value;
-  SBC.from = SBC.from.map((f, i) => ({kind: $("sbcFrom").querySelector(`[data-fk="${i}"]`).value, id: $("sbcFrom").querySelector(`[data-fid="${i}"]`).value,
+  SBC.from = SBC.from.map((f, i) => ({kind: $("sbcFrom").querySelector(`[data-fk="${i}"]`).value,
+    ids: [...$("sbcFrom").querySelectorAll(`[data-fid="${i}"]`)].map(x => x.value).filter(Boolean),
     op: $("sbcFrom").querySelector(`[data-fop="${i}"]`).value, n: $("sbcFrom").querySelector(`[data-fn="${i}"]`).value}));
   saveSbc();
 }
+const SBC_TIERS = ["bronze","silver","gold"], tierName = t => t[0].toUpperCase() + t.slice(1);
+// a "players from" rule's choices: ids (any of them, "Leipzig OR Frankfurt"); older saves had a single id
+const sbcIds = f => { const ids = Array.isArray(f.ids) ? f.ids : f.id ? [f.id] : []; return ids.length ? ids : [""]; };
 function sbcClubInfo(){
-  const lines = $("clubList").value.split(/\n/).filter(l => l.trim()).length;
-  $("sbcClub").innerHTML = lines ? `${ic("check")} Using your club: <b>${lines}</b> cards (Filters → Only use cards I own).`
-    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>) or paste it in Filters → <b>Only use cards I own</b>.`;
+  const lines = $("clubList").value.split(/\n/).filter(l => l.trim()).length, low = META.low || {};
+  $("sbcClub").innerHTML = (lines ? `${ic("check")} Using your club: <b>${lines}</b> cards (Filters → Only use cards I own).`
+    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>) or paste it in Filters → <b>Only use cards I own</b>.`)
+    + `<div style="margin-top:6px">${low.n ? `${ic("check")} Bronze &amp; silver cards: <b>${low.n.toLocaleString()}</b> <span class="mut">(downloaded ${esc(String(low.synced_at || "").slice(0, 10))})</span> <button class="sm ghost" id="sbcLowGo">Update</button>`
+      : `<span class="mut">Bronze &amp; silver cards aren't downloaded yet, so only gold cards are used and club cards under 75 aren't recognised.</span> <button class="sm" id="sbcLowGo">Download bronze &amp; silver cards</button> <span class="small mut">(one-time, about 17,000 cards, takes several minutes)</span>`}
+      <span class="small" id="sbcLowMsg"></span></div>`;
 }
+$("sbcClub").addEventListener("click", async e => {
+  if(!e.target.closest("#sbcLowGo")) return;
+  e.target.disabled = true; $("sbcLowMsg").textContent = "starting…";
+  try{ await api("/api/sync", {low:true}); }catch(err){ $("sbcLowMsg").textContent = err.message; e.target.disabled = false; return; }
+  const t = setInterval(async () => {
+    let st; try{ st = await api("/api/sync_status"); }catch(err){ return; }
+    if($("sbcLowMsg")) $("sbcLowMsg").textContent = st.running ? ` ${st.done.toLocaleString()} / ${(st.total||0).toLocaleString()}` : " " + st.msg;
+    if(!st.running){ clearInterval(t); if(st.msg.startsWith("done")){ META = Object.assign(META, await api("/api/meta")); sbcClubInfo(); renderSbcForm();
+      undoToast("Bronze & silver cards downloaded. Click the club bookmark on FUTBIN again to add your cards under 75.", null); } }
+  }, 1500);
+});
 $("sbcPreset").onchange = () => {
   const k = $("sbcPreset").value; SBC.preset = k;
   if(k){ SBC.req = JSON.parse(JSON.stringify(SBC_PRESETS[k][1])); SBC.from = []; }
@@ -2587,16 +2610,34 @@ $("sbcPreset").onchange = () => {
 };
 $("sbcGrid").addEventListener("change", () => { readSbcForm(); SBC.preset = ""; $("sbcPreset").value = ""; saveSbc(); });
 $("sbcForm").onchange = readSbcForm;
-$("sbcFrom").addEventListener("change", e => { const k = e.target.closest("[data-fk]"); readSbcForm(); if(k){ SBC.from[+k.dataset.fk].id = ""; renderSbcForm(); } });
-$("sbcFrom").addEventListener("click", e => { const d = e.target.closest("[data-fdel]"); if(!d) return; readSbcForm(); SBC.from.splice(+d.dataset.fdel, 1); saveSbc(); renderSbcForm(); });
-$("sbcAddFrom").onclick = () => { readSbcForm(); SBC.from.push({kind:"league", id:"", op:"min", n:1}); saveSbc(); renderSbcForm(); };
+$("sbcFrom").addEventListener("change", e => {
+  const k = e.target.closest("[data-fk]"), x = e.target.closest("[data-fix]");
+  readSbcForm(); SBC.preset = ""; $("sbcPreset").value = "";
+  if(k){ SBC.from[+k.dataset.fk].ids = []; renderSbcForm(); }
+  else if(x && +x.dataset.fix > 0 && !x.value) renderSbcForm();   // "(remove)" picked on an "or" choice
+  saveSbc();
+});
+$("sbcFrom").addEventListener("click", e => {
+  const d = e.target.closest("[data-fdel]"), o = e.target.closest("[data-for]");
+  if(!d && !o) return;
+  readSbcForm();
+  if(d) SBC.from.splice(+d.dataset.fdel, 1);
+  else { const f = SBC.from[+o.dataset.for], ids = sbcIds(f).filter(Boolean); f.ids = ids.concat([""]); }
+  saveSbc(); renderSbcForm();
+  if(o){ const sels = $("sbcFrom").querySelectorAll(`[data-fid="${o.dataset.for}"]`); const last = sels[sels.length - 1]; last.value = ""; last.focus(); }
+});
+$("sbcAddFrom").onclick = () => { readSbcForm(); SBC.from.push({kind:"league", ids:[], op:"min", n:1}); saveSbc(); renderSbcForm(); };
 async function runSbc(){
   readSbcForm();
   const avoid = [];
   if($("sbcKeepSquad").checked) S.squad.forEach(c => c && avoid.push(c.s));
   if($("sbcKeepFav").checked) FAV.forEach(x => avoid.push(x.s));
-  const req = Object.assign({}, SBC.req, {from: SBC.from.filter(f => f.id && f.n !== "").map(f => Object.assign({}, f, {
-    name: ({league: leagueName, nation: nationName, club: id => (META.clubs.find(c => String(c[0]) === String(id)) || [, id])[1]})[f.kind](f.id)}))});
+  const named = list => id => (list.find(c => String(c[0]) === String(id)) || [, id])[1];
+  const nameOf = {league: named(META.leagues), nation: named(META.nations), club: named(META.clubs), quality: tierName};
+  const req = Object.assign({}, SBC.req, {from: SBC.from.filter(f => sbcIds(f).some(Boolean) && f.n !== "").map(f => {
+    const ids = sbcIds(f).filter(Boolean);
+    return {kind: f.kind, ids, op: f.op, n: f.n, name: ids.map(id => nameOf[f.kind](id)).join(" or ")};
+  })});
   if(!Object.keys(req).some(k => k !== "from") && !req.from.length){ $("goMsg").textContent = "Set at least one requirement (or pick a challenge)."; return; }
   watchProgress("Building SBC squads…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
@@ -2622,7 +2663,8 @@ function renderSbc(){
   const R = window.__SBC; if(!R) return;
   let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
     <strong>${ic("layers")} SBC squads</strong><span class="small mut">${R.owned ? `${R.owned} club cards available` : "no club imported"}${R.formations.length > 1 ? ` · tried ${R.formations.length} formations` : ""}</span></div>`;
-  if(R.unmatched && R.unmatched.length) h += `<div class="note warn">Club lines not found in the card database (cards under 75 aren't in it): ${R.unmatched.slice(0, 8).map(esc).join(", ")}${R.unmatched.length > 8 ? "…" : ""}</div>`;
+  if(R.need_low) h += `<div class="note warn">This SBC asks for bronze or silver players, and the bronze &amp; silver cards aren't downloaded yet. Use <b>Download bronze &amp; silver cards</b> above, then build again.</div>`;
+  if(R.unmatched && R.unmatched.length) h += `<div class="note warn">${R.n_unmatched || R.unmatched.length} club line${(R.n_unmatched || R.unmatched.length) === 1 ? "" : "s"} not found in the card data${R.low ? "" : " (cards under 75 need the bronze &amp; silver download above)"}: ${R.unmatched.slice(0, 8).map(esc).join(", ")}${R.unmatched.length > 8 ? "…" : ""}</div>`;
   if(R.solutions.length) h += R.solutions.map((s, j) => sbcSquadHtml(s, j)).join("");
   else if(R.closest) h += `<div class="note warn">No squad met every requirement in time. Here's the closest one; the red ones are missed. Try "Any" formation, fewer protections, or allow buying.</div>` + sbcSquadHtml(R.closest, 0);
   else h += `<div class="mut small">No squad found.</div>`;

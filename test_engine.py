@@ -611,6 +611,52 @@ def test_sbc_build_uses_your_club_first():
     assert not ({c["s"] for c in r3["solutions"][0]["cards"]} & set(avoid))
 
 
+def test_sbc_quality_and_or_rules():
+    sq = squad_of(ni=1, li=1, ck=["A", "B"] + [None] * 9, ov=[60, 70] + [80] * 9)
+    assert [eng.tier(c) for c in sq[:3]] == ["bronze", "silver", "gold"]
+    req = {"quality": {"op": "min", "tier": "silver"},
+           "from": [{"kind": "club", "ids": ["A", "B"], "op": "min", "n": 2, "name": "A or B"},
+                    {"kind": "quality", "ids": ["silver"], "op": "min", "n": 1}]}
+    rows, short = eng.sbc_check(SLOTS, sq, req)
+    by = {r["label"]: r for r in rows}
+    assert by["From A or B: Min. 2"]["ok"] and by["Silver: Min. 1"]["ok"]
+    assert not by["Player quality: Min. Silver"]["ok"] and short == 1        # the 60 is a bronze
+    assert eng.quality_ok(sq[0], {"op": "max", "tier": "silver"}) and not eng.quality_ok(sq[2], {"op": "max", "tier": "silver"})
+    assert eng.quality_ok(sq[1], {"op": "exactly", "tier": "silver"})
+
+
+def test_sbc_cost_prefers_any_owned_card_then_lowest_rated():
+    hi, lo, promo = {"s": "a", "ov": 90, "rt": "Rare"}, {"s": "b", "ov": 50, "rt": "Rare"}, {"s": "c", "ov": 99, "rt": "TOTY", "ty": "icon"}
+    assert max(eng.sbc_card_cost(c, True) for c in (hi, lo, promo)) < min(eng.sbc_card_cost(c, False) for c in (hi, lo))
+    assert eng.sbc_card_cost(lo, True) < eng.sbc_card_cost(hi, True)
+    costs = [eng.sbc_card_cost({"s": str(o), "ov": o, "rt": "Rare"}, False) for o in range(45, 95)]
+    assert costs == sorted(costs) and len(set(costs)) == len(costs)      # buying: lowest overall is cheapest
+
+
+def test_sbc_build_uses_bronze_and_silver_cards():
+    cb.load_cache()
+    gold = [c for c in cb.STATE["cards"] if c["ty"] == "" and c["rt"] == "Rare"]
+    low = []
+    for i, c in enumerate(gold[:900]):   # silver / bronze copies of real players (same league, nation, club)
+        low.append(dict(c, s=f"27-9{i:06d}", bp=-1 - i, ov=55 + i % 20, rt="Rare"))
+    saved = cb.STATE["low"], cb.STATE["by_slug"]
+    try:
+        cb.STATE["low"] = low
+        cb.STATE["by_slug"] = dict(saved[1], **{c["s"]: c for c in low})
+        req = {"quality": {"op": "max", "tier": "silver"}, "from": [{"kind": "quality", "ids": ["silver"], "op": "min", "n": 1}],
+               "clubs": {"op": "min", "n": 4}, "chem": 10}
+        r = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {}})
+        s = r["solutions"][0]
+        assert s["valid"] and all(c["ov"] < 75 for c in s["cards"]) and not r["need_low"]
+        club = "\n".join(c["s"] for c in low[::2])
+        r2 = cb.sbc_build({"req": req, "formation": "4-4-2", "opts": {"club_list": club}})
+        assert r2["solutions"][0]["valid"] and sum(r2["solutions"][0]["own"]) >= 9   # bronze/silver club cards recognised and used
+        cb.STATE["low"] = []
+        assert cb.sbc_needs_low(req) and not cb.sbc_needs_low({"quality": {"op": "min", "tier": "silver"}})
+    finally:
+        cb.STATE["low"], cb.STATE["by_slug"] = saved
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
