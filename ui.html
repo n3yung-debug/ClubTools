@@ -18,6 +18,7 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+.sbcmode [data-notsbc]{display:none!important}   /* SBC mode: only the gauge, the challenge and the blacklist */
 html,body{height:100%}
 body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#14223d 0%,transparent 60%),var(--bg);background-attachment:fixed;color:var(--txt);
   font:14px/1.45 "Inter","Segoe UI Variable","Segoe UI",system-ui,Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
@@ -382,16 +383,16 @@ dialog[open]{animation:dlgIn .2s ease-out}
         </div>
         <div class="chemmeta">
           <div class="t1">Squad chemistry <span id="filled" class="small mut" style="font-weight:400"></span><span id="sqRating" class="sqr" hidden></span></div>
-          <div class="grid2 mgr">
+          <div class="grid2 mgr" data-notsbc>
             <label class="f"><span>Manager nation <span class="infoi" title="Your manager counts like one extra player of that nation and league. League Modifier switches are always considered."><i data-ic="info"></i></span></span><select id="mNation"></select></label>
             <label class="f">Manager league (right now)<select id="mLeague"></select></label>
           </div>
         </div>
       </div>
-      <div class="small" id="mInfo" style="margin-top:8px"></div>
-      <div class="gamechk"><button class="linkbtn" id="gameTog" title="Type the chemistry the game shows to double-check this tool">Compare with the in-game total</button>
+      <div class="small" id="mInfo" data-notsbc style="margin-top:8px"></div>
+      <div class="gamechk" data-notsbc><button class="linkbtn" id="gameTog" title="Type the chemistry the game shows to double-check this tool">Compare with the in-game total</button>
         <label id="gameWrap" hidden style="display:flex;align-items:center;gap:6px">In-game total <input id="gameTotal" type="number" min="0" max="33" style="width:64px;padding:3px 6px"></label></div>
-      <div id="gameNote"></div>
+      <div id="gameNote" data-notsbc></div>
       <div class="sec">
         <div data-modepane="chem">
           <div class="small mut modedesc">Swaps, a step-by-step plan and manager changes that raise chemistry.</div>
@@ -1489,7 +1490,7 @@ function setMode(m, rerender=true){
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
   // SBC mode has its own options: the chemistry / upgrade filters, required stats, PlayStyles, favourites and presets
   // don't apply there (the blacklist does)
-  document.querySelectorAll("[data-notsbc]").forEach(el => el.hidden = m === "sbc");
+  document.body.classList.toggle("sbcmode", m === "sbc");
   $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : m === "sbc" ? "layers" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : m === "sbc" ? " Build SBC squads" : " Find chemistry upgrades");
   VIEW = LAST_VIEW[m];
   try{ DB.set("chemBuilder.mode", m); }catch(e){}
@@ -2658,7 +2659,8 @@ function sbcClubInfo(){
   $("sbcClub").innerHTML = (lines ? `${ic("check")} Using your club: <b>${lines}</b> cards <span class="mut">(your club list, shared with Filters → Only use cards I own in the other modes)</span>.`
     : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it from your FUT.GG club or with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>).`)
     + ` <button class="sm" data-ggclub>${lines ? "Re-import" : "Import"} my club from FUT.GG</button>`
-    + `<div style="margin-top:6px">${low.n ? `${ic("check")} Bronze &amp; silver cards: <b>${low.n.toLocaleString()}</b> <span class="mut">(downloaded ${esc(String(low.synced_at || "").slice(0, 10))})</span> <button class="sm ghost" id="sbcLowGo">Update</button>`
+    + `<div style="margin-top:6px">${low.n && !low.complete ? `<span style="color:var(--warn)">Bronze &amp; silver cards: only ${low.n.toLocaleString()} of about 17,000 were downloaded (FUT.GG's feed stops at 10,000 per search; fixed now).</span> <button class="sm" id="sbcLowGo">Download them again</button>`
+      : low.n ? `${ic("check")} Bronze &amp; silver cards: <b>${low.n.toLocaleString()}</b> <span class="mut">(downloaded ${esc(String(low.synced_at || "").slice(0, 10))})</span> <button class="sm ghost" id="sbcLowGo">Update</button>`
       : `<span class="mut">Bronze &amp; silver cards aren't downloaded yet, so only gold cards are used and club cards under 75 aren't recognised.</span> <button class="sm" id="sbcLowGo">Download bronze &amp; silver cards</button> <span class="small mut">(one-time, about 17,000 cards, takes several minutes)</span>`}
       <span class="small" id="sbcLowMsg"></span></div>`;
 }

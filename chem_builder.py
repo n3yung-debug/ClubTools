@@ -251,27 +251,44 @@ def diagnose():
     return steps
 
 
+FEED_CAP = 10000
+
+
 def sync_cards(min_rating=75, status=None, max_rating=None, path=None):
     """Download the card database from FUT.GG's player feed (one page at a time, paced). The main data is
     rating 75+ (cards.json); the SBC helper's bronze and silver cards (max_rating 74) go to cards_low.json."""
     status = status if status is not None else STATE["sync"]
     path = path or CACHE
     status.update(running=True, msg="starting", done=0, total=0)
-    cards, page = [], 1
-    rng = f"overall__gte={min_rating}" + (f"&overall__lte={max_rating}" if max_rating else "")
+    cards = []
     try:
-        while True:
-            d = fetch_json(f"{API}?page={page}&{rng}")
-            for r in d.get("data", []):
-                try:
-                    cards.append(normalize_card(r))
-                except Exception:  # noqa: BLE001
-                    continue
-            status.update(done=len(cards), total=d.get("total", 0), msg=f"page {page}")
-            if not d.get("next"):
-                break
-            page += 1
+        # FUT.GG's feed returns at most 10,000 results per search, so big rating ranges are fetched in bands
+        bands, todo = [], [(min_rating, max_rating or 99)]
+        while todo:
+            lo, hi = todo.pop(0)
+            d = fetch_json(f"{API}?page=1&overall__gte={lo}&overall__lte={hi}")
+            if int(d.get("total") or 0) >= FEED_CAP and hi > lo:
+                mid = (lo + hi) // 2
+                todo[:0] = [(mid + 1, hi), (lo, mid)]
+                time.sleep(0.4)
+                continue
+            bands.append((lo, hi, d))
             time.sleep(0.4)
+        total = sum(int(d.get("total") or 0) for *_, d in bands)
+        for lo, hi, first in sorted(bands, key=lambda b: -b[1]):
+            d, page = first, 1
+            while True:
+                for r in d.get("data", []):
+                    try:
+                        cards.append(normalize_card(r))
+                    except Exception:  # noqa: BLE001
+                        continue
+                status.update(done=len(cards), total=total, msg=f"ratings {lo}-{hi}, page {page}")
+                if not d.get("next"):
+                    break
+                page += 1
+                time.sleep(0.4)
+                d = fetch_json(f"{API}?page={page}&overall__gte={lo}&overall__lte={hi}")
         seen, uniq = set(), []
         for c in cards:
             if c["s"] not in seen:
@@ -281,6 +298,7 @@ def sync_cards(min_rating=75, status=None, max_rating=None, path=None):
                 "source": "fut.gg", "game": "FC 27", "count": len(uniq)}
         if max_rating:
             meta["max_rating"] = max_rating
+        meta["banded"] = True   # fetched in bands under the feed's 10,000-result cap (older low downloads stopped at it)
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump({"meta": meta, "cards": uniq}, f, ensure_ascii=False, separators=(",", ":"))
@@ -985,7 +1003,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, fh.read(), ASSET_TYPES[os.path.splitext(f)[1]], cache=True)
         if u.path == "/api/meta":
             return self._send(200, {"meta": STATE["meta"], "n": len(STATE["cards"]), **meta_lists(),
-                                    "low": {"n": len(STATE["low"]), "synced_at": STATE["low_meta"].get("synced_at")},
+                                    "low": {"n": len(STATE["low"]), "synced_at": STATE["low_meta"].get("synced_at"),
+                                            "complete": bool(STATE["low_meta"].get("banded"))},
                                     "playstyles": PLAYSTYLES, "gk_playstyles": sorted(GK_PLAYSTYLES),
                                     "formations": list(FORMATIONS.values()), "version": app_version(),
                                     "support_url": support_url(),
