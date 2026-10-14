@@ -419,7 +419,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           </details>
         </div>
         <div data-modepane="sbc" hidden>
-          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (Filters → Only use cards I own, or the FUTBIN club import), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.<br>The pitch is your SBC squad here: it starts empty, and any players you put on it stay while the helper builds around them. Your main squad comes back when you switch to another mode.</div>
+          <div class="small mut modedesc">Builds SBC squads with as many of your own cards as it can (your imported club), then fills the rest with the lowest-rated cards that work. SBC chemistry counts no manager.<br>The pitch is your SBC squad here: it starts empty, and any players you put on it stay while the helper builds around them. Your main squad comes back when you switch to another mode. Filters from the other modes don't apply here; the blacklist does.</div>
           <div class="grid2">
             <label class="f">Challenge<select id="sbcPreset"><option value="">Custom</option></select></label>
             <label class="f">Formation<select id="sbcForm"><option value="any">Any (ClubTools picks)</option></select></label>
@@ -436,14 +436,14 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <label class="chk" style="align-items:center">Use my own cards rated up to <input id="sbcMaxOwn" type="number" min="45" max="99" placeholder="any" style="width:64px;padding:2px 6px"></label>
           </div>
         </div>
-        <div class="presetbar" title="A preset saves your required stats, filters, PlayStyle preferences and tab settings under a name">
+        <div class="presetbar" data-notsbc title="A preset saves your required stats, filters, PlayStyle preferences and tab settings under a name">
           <span class="lbl">Preset</span>
           <select id="presetSel"><option value="">— current settings —</option></select>
           <button class="sm" id="presetSave">Save as…</button>
           <button class="sm" id="presetUpdate" hidden title="Overwrite the selected preset with the current settings">Update</button>
           <button class="sm ghost" id="presetDel" hidden>Delete</button>
         </div>
-        <details class="acc" id="filtDet"><summary>Filters <span class="mut small" id="filtSum" style="font-weight:400"></span></summary>
+        <details class="acc" id="filtDet" data-notsbc><summary>Filters <span class="mut small" id="filtSum" style="font-weight:400"></span></summary>
           <div class="accb">
             <div class="rqmode" style="margin-bottom:10px">
               <label class="chk"><input type="checkbox" id="cheapV" checked> <span><b>Cheapest version of each player</b> <span class="mut">suggest the lowest-rated version (usually the cheapest). Click the card afterwards to switch to a better version.</span></span></label>
@@ -467,7 +467,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
             </details>
           </div>
         </details>
-        <details class="acc" id="rqDet"><summary>Required stats <span class="mut small" id="rqSum" style="font-weight:400">· none</span></summary>
+        <details class="acc" id="rqDet" data-notsbc><summary>Required stats <span class="mut small" id="rqSum" style="font-weight:400">· none</span></summary>
           <div class="accb">
             <div id="rqMode" class="rqmode">
               <label class="chk"><input type="radio" name="rqmode" value="require" checked> <span><b>Require</b> <span class="mut">only suggest cards that meet these</span></span></label>
@@ -485,7 +485,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <label class="chk small" style="margin-top:6px"><input type="checkbox" id="rqAllPos"> Show all positions (not just this formation's)</label>
           </div>
         </details>
-        <details class="acc" id="psDet"><summary id="psSum">Preferred PlayStyles</summary>
+        <details class="acc" id="psDet" data-notsbc><summary id="psSum">Preferred PlayStyles</summary>
           <div class="accb">
             <div class="small mut">Cards with these PlayStyles are suggested first and count as upgrades. Each wanted PlayStyle<b>+</b> is worth
               <input id="psWPlus" type="number" min="0" max="10" step="0.5" value="3" style="width:56px;padding:3px 5px"> rating points, a plain PlayStyle
@@ -494,7 +494,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <button class="sm" id="psReset" style="margin-top:8px">Reset to defaults</button>
           </div>
         </details>
-        <details class="acc" id="fvDet"><summary id="fvSum">Favourites</summary>
+        <details class="acc" id="fvDet" data-notsbc><summary id="fvSum">Favourites</summary>
           <div class="accb">
             <div class="small mut">Cards you'd rather play at a position, even over higher-rated ones. Chemistry still comes first: a favourite is picked when it gives the same chemistry as the alternatives. Required stats and the women filter don't apply to a favourite at its position (blocks and the blacklist still do). Use <i data-ic="heart"></i> on a card on the pitch, a search result or a suggestion, or add one here.</div>
             <div class="rqmode" style="margin-top:8px">
@@ -1487,6 +1487,9 @@ function setMode(m, rerender=true){
   if(swap){ if(m === "sbc") enterSbcPitch(); else leaveSbcPitch(); if(rerender){ lastEval = null; refresh(); } }
   document.querySelectorAll(".modetabs .mt").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   document.querySelectorAll("[data-modepane]").forEach(p => p.hidden = p.dataset.modepane !== m);
+  // SBC mode has its own options: the chemistry / upgrade filters, required stats, PlayStyles, favourites and presets
+  // don't apply there (the blacklist does)
+  document.querySelectorAll("[data-notsbc]").forEach(el => el.hidden = m === "sbc");
   $("go").innerHTML = ic(m === "up" ? "trending-up" : m === "fill" ? "users" : m === "sbc" ? "layers" : "sparkles") + (m === "up" ? " Find rating upgrades" : m === "fill" ? " Fill empty slots" : m === "sbc" ? " Build SBC squads" : " Find chemistry upgrades");
   VIEW = LAST_VIEW[m];
   try{ DB.set("chemBuilder.mode", m); }catch(e){}
@@ -2652,8 +2655,8 @@ const SBC_TIERS = ["bronze","silver","gold"], tierName = t => t[0].toUpperCase()
 const sbcIds = f => { const ids = Array.isArray(f.ids) ? f.ids : f.id ? [f.id] : []; return ids.length ? ids : [""]; };
 function sbcClubInfo(){
   const lines = $("clubList").value.split(/\n/).filter(l => l.trim()).length, low = META.low || {};
-  $("sbcClub").innerHTML = (lines ? `${ic("check")} Using your club: <b>${lines}</b> cards (Filters → Only use cards I own).`
-    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it from your FUT.GG club, with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>), or paste it in Filters → <b>Only use cards I own</b>.`)
+  $("sbcClub").innerHTML = (lines ? `${ic("check")} Using your club: <b>${lines}</b> cards <span class="mut">(your club list, shared with Filters → Only use cards I own in the other modes)</span>.`
+    : `<span style="color:var(--warn)">No club imported yet</span>, so every card is one to buy. Import it from your FUT.GG club or with the FUTBIN bookmark (<b>Import squad → FUTBIN</b>).`)
     + ` <button class="sm" data-ggclub>${lines ? "Re-import" : "Import"} my club from FUT.GG</button>`
     + `<div style="margin-top:6px">${low.n ? `${ic("check")} Bronze &amp; silver cards: <b>${low.n.toLocaleString()}</b> <span class="mut">(downloaded ${esc(String(low.synced_at || "").slice(0, 10))})</span> <button class="sm ghost" id="sbcLowGo">Update</button>`
       : `<span class="mut">Bronze &amp; silver cards aren't downloaded yet, so only gold cards are used and club cards under 75 aren't recognised.</span> <button class="sm" id="sbcLowGo">Download bronze &amp; silver cards</button> <span class="small mut">(one-time, about 17,000 cards, takes several minutes)</span>`}
@@ -2694,6 +2697,8 @@ $("sbcFrom").addEventListener("click", e => {
   if(o){ const sels = $("sbcFrom").querySelectorAll(`[data-fid="${o.dataset.for}"]`); const last = sels[sels.length - 1]; last.value = ""; last.focus(); }
 });
 $("sbcAddFrom").onclick = () => { readSbcForm(); SBC.from.push({kind:"league", ids:[], op:"min", n:1}); saveSbc(); renderSbcForm(); };
+// SBC searches use only your club list and the blacklist, none of the other modes' filters
+function sbcOpts(){ const o = readOpts(); return {club_list:o.club_list, blacklist:o.blacklist, blacklist_cards:o.blacklist_cards, pos_bans:o.pos_bans}; }
 async function runSbc(){
   readSbcForm();
   const avoid = [];
@@ -2711,7 +2716,7 @@ async function runSbc(){
   watchProgress("Building SBC squads…"); $("go").disabled = true;
   $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
   try{
-    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: readOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
+    window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: sbcOpts(), avoid, own_only: $("sbcOwnOnly").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
     stopProgress(); $("goMsg").textContent = ""; renderSbc();
   }catch(e){ showError("SBC helper", e); }
   $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
