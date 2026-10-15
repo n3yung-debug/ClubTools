@@ -225,7 +225,47 @@ h4.sh{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase
 @media(max-width:760px){.cmp-grid{grid-template-columns:1fr}}
 .cmp-t{border-collapse:collapse;font-size:12px;width:100%} .cmp-t td,.cmp-t th{padding:1px 6px;text-align:right} .cmp-t td:first-child{text-align:left}
 .gobar{display:flex;flex-direction:column;gap:6px;margin:14px -14px -14px;padding:12px 14px;position:sticky;bottom:0;z-index:6;
-  background:linear-gradient(180deg,#111929ee,#101727);backdrop-filter:blur(6px);border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r)}
+  background:#0f1626;border-top:1px solid var(--line);border-radius:0 0 var(--r) var(--r);box-shadow:0 -14px 18px -6px #0a0f1af2}
+.gprog{height:4px;border-radius:3px;background:#ffffff10;overflow:hidden}
+.gprog i{display:block;height:100%;width:var(--w,35%);background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:3px;transition:width .3s}
+.gprog.ind i{animation:indet 1.1s ease-in-out infinite}
+@keyframes indet{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+/* loading placeholders */
+.skel .skrow{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:var(--r);margin:8px 0;background:var(--panel2)}
+.skel .skb{height:10px;border-radius:5px;background:linear-gradient(90deg,#ffffff0a 0%,#ffffff1c 50%,#ffffff0a 100%);background-size:200% 100%;animation:shim 1.2s linear infinite}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+#results{scroll-margin-top:70px}
+/* manager hints as tidy rows */
+.hintrow{display:flex;gap:8px;align-items:center;margin-top:3px} .hintrow>span{flex:1;min-width:0} .hintrow button{flex:none;white-space:nowrap}
+/* compact result rows: one line per swap, details on demand */
+.sw+.sw{margin-top:6px}
+.swl{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px}
+.swl .swacts{display:inline-flex;align-items:center;gap:2px;margin-left:2px}
+.swl .swacts .sm{padding:2px 6px}
+.swmore{padding:1px 4px!important;margin-left:auto;color:var(--mut)} .swmore .ic{transition:transform .15s}
+.sw.open .swmore .ic{transform:rotate(180deg)}
+.swdet{display:none;margin:4px 0 2px 2px;padding-left:8px;border-left:2px solid var(--line)}
+.sw.open .swdet,#results.showdet .swdet{display:block}
+#results.showdet .swmore{display:none}
+.resacts{display:flex;gap:4px;justify-content:flex-end;margin-top:4px}
+/* pitch: result hover + preview */
+.slot.hlx .card{outline:2px solid var(--acc);outline-offset:3px;box-shadow:0 0 0 6px #4da3ff22,0 10px 20px #000a}
+.card.incoming{outline:2px solid var(--ok);outline-offset:2px}
+.card .newb{font-size:9px;font-weight:800;color:#03140c;background:var(--ok);border-radius:4px;padding:0 4px}
+.pitch.previewing .card,.pitch.previewing .posSel,.pitch.previewing button{pointer-events:none}
+#prevBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;border:1px solid #2f7a5c;border-radius:var(--r);background:linear-gradient(90deg,#123a2a,#13284a);font-size:13px}
+#prevBar .sp{flex:1}
+/* chemistry state on the card edge */
+.card.zchem{border-color:var(--warn);box-shadow:0 0 0 2px #f5b84b55,0 4px 12px #0007}
+/* accordion count badges */
+details.acc>summary>span.mut{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.acc>summary[data-n]::after{content:attr(data-n);margin-left:auto;flex:none;font-size:11px;font-weight:800;padding:1px 8px;border-radius:99px;background:#1d3a66;color:var(--acc2);border:1px solid #4da3ff55}
+details.acc>summary[data-n="0"]::after{display:none}
+/* each mode's own options sit in one card at the top of the settings */
+[data-modepane="chem"],[data-modepane="up"],[data-modepane="fill"]{padding:2px 12px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
+[data-modepane] .modedesc{margin-top:8px}
+.reshead{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px} .reshead>strong{white-space:nowrap}
+.reshead .restools{margin-left:auto;display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
 .gobar #go{width:100%;padding:11px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
 #goMsg{text-align:center} #goMsg:empty{display:none}
 .support{white-space:nowrap;display:inline-block;font-size:12px;font-weight:700;color:#ff8fb0;text-decoration:none;padding:4px 10px;border:1px solid #ff8fb044;border-radius:99px;background:#ff8fb00d}
@@ -310,6 +350,10 @@ button.fav{color:var(--mut)} button.fav .ic{width:13px;height:13px} button.fav.o
 @keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
 .card.pop{animation:cardIn .34s cubic-bezier(.2,.8,.3,1.2) both}
 #results>.panel{animation:rise .28s ease-out both}
+[data-modepane]:not([hidden]){animation:rise .22s ease-out both}
+details.acc[open]>.accb{animation:rise .18s ease-out both}
+#undoToast:not([hidden]){animation:dlgIn .2s ease-out}
+.res{transition:border-color .15s,transform .15s} .res:hover{transform:translateY(-1px)}
 #results .res{animation:rise .3s ease-out both}
 #results .res:nth-child(2){animation-delay:.03s} #results .res:nth-child(3){animation-delay:.06s} #results .res:nth-child(4){animation-delay:.09s} #results .res:nth-child(n+5){animation-delay:.12s}
 dialog[open]{animation:dlgIn .2s ease-out}
@@ -367,6 +411,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
 <main>
   <section>
     <div class="pitchwrap">
+      <div id="prevBar" hidden></div>
       <div class="pitch" id="pitch"></div>
       <div class="tips"><span><b>Click</b> a card to pick or replace</span><span><b>Empty slot</b> → fill mode (type, Enter)</span><span><b>Drag</b> to swap</span><span><b><i data-ic="lock"></i></b> keeps a slot fixed</span><span><b>Ctrl+Z</b> undo</span></div>
     </div>
@@ -388,7 +433,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
           <div class="t1">Squad chemistry <span id="filled" class="small mut" style="font-weight:400"></span><span id="sqRating" class="sqr" hidden></span></div>
           <div class="grid2 mgr" data-notsbc>
             <label class="f"><span>Manager nation <span class="infoi" title="Your manager counts like one extra player of that nation and league. League Modifier switches are always considered."><i data-ic="info"></i></span></span><select id="mNation"></select></label>
-            <label class="f">Manager league (right now)<select id="mLeague"></select></label>
+            <label class="f" title="The league your manager counts for right now (a League Modifier can change it)">Manager league<select id="mLeague"></select></label>
           </div>
         </div>
       </div>
@@ -534,6 +579,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
         </details>
         <div class="gobar">
           <button class="primary" id="go">Find chemistry upgrades</button>
+          <div class="gprog ind" id="goBar" hidden><i></i></div>
           <span class="small mut" id="goMsg"></span>
         </div>
       </div>
@@ -960,15 +1006,16 @@ function rowsLayout(){
 /* ---------- state, history, storage ---------- */
 const snap = () => JSON.parse(JSON.stringify({formation:S.formation, slots:S.slots, squad:S.squad, locks:S.locks, mgr:S.mgr}));
 const UNDO = [], REDO = [];
-function commit(){ UNDO.push(snap()); if(UNDO.length>60) UNDO.shift(); REDO.length = 0; updUndo(); }
+function commit(){ endPreview(); UNDO.push(snap()); if(UNDO.length>60) UNDO.shift(); REDO.length = 0; updUndo(); }
 function restore(x){ Object.assign(S, JSON.parse(JSON.stringify(x))); syncMgrInputs(); $("formation").value = FORMATIONS[S.formation] ? S.formation : ""; $("results").innerHTML=""; refresh(); }
-function undo(){ if(!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop()); updUndo(); }
-function redo(){ if(!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
+function undo(){ endPreview(); if(!UNDO.length) return; REDO.push(snap()); restore(UNDO.pop()); updUndo(); }
+function redo(){ endPreview(); if(!REDO.length) return; UNDO.push(snap()); restore(REDO.pop()); updUndo(); }
 function updUndo(){ $("undo").disabled = !UNDO.length; $("redo").disabled = !REDO.length; }
 
 function save(){
   // in SBC mode the pitch is the SBC squad; the main squad is kept aside and saved as it was
-  DB.set(KEY, JSON.stringify({S: MAIN_STASH ? Object.assign({}, S, MAIN_STASH) : S, opts:readOpts()}));
+  const cur = PREV ? Object.assign({}, S, JSON.parse(JSON.stringify(PREV.snap))) : S;   // a preview is never saved
+  DB.set(KEY, JSON.stringify({S: MAIN_STASH ? Object.assign({}, cur, MAIN_STASH) : cur, opts:readOpts()}));
   if(MAIN_STASH) DB.set(KEY_SBCP, JSON.stringify(snap()));
 }
 /* SBC mode has its own pitch: entering it sets the main squad (and its undo history) aside, leaving brings it back */
@@ -1243,7 +1290,7 @@ function renderPitch(){
     for(const i of r){
       VIS.push(i);
       const c = S.squad[i], ev = lastEval && lastEval.players[i];
-      const el = document.createElement("div"); el.className = "slot"; el.dataset.slot = i;
+      const el = document.createElement("div"); el.className = "slot" + (HL.has(i) ? " hlx" : ""); el.dataset.slot = i;
       const sel = `<select data-i="${i}" class="posSel" title="Position of this slot">${POS.map(p=>`<option ${p===S.slots[i]?"selected":""}>${p}</option>`).join("")}</select>`;
       const lock = `<button class="lock ${S.locks[i]?"on":""}" data-lock="${i}" title="${S.locks[i]?"Locked: never swapped by suggestions":"Lock this slot"}" aria-label="${S.locks[i]?"Unlock":"Lock"} slot">${ic(S.locks[i]?"lock":"lock-open")}</button>`;
       const fv = c && isFav(c, S.slots[i]);
@@ -1255,14 +1302,14 @@ function renderPitch(){
       const pop = c && age < 340 ? ` pop" style="animation-delay:-${Math.round(age)}ms;` : "";
       if(!c){ el.innerHTML = `<div class="card empty" data-pick="${i}"><div class="ctop">${sel}${lock}</div><span class="plus">+</span><span class="small">Add player</span></div>`; }
       else{
-        const off = ev && !ev.inpos;
+        const off = ev && !ev.inpos, zchem = ev && ev.inpos && !ev.full && ev.chem === 0, inc = PREV && PREV.slots.has(i);
         const tip = ev && ev.inpos && !ev.full ? `club ${ev.club[0]} → +${ev.club[1]} · league ${ev.league[0]} → +${ev.league[1]} · nation ${ev.nation[0]} → +${ev.nation[1]} (counts include the manager)` : (ev&&ev.full?"full chemistry card":"");
         const tt = typeTag(c) || promoTag(c), th = cardTheme(c);
-        el.innerHTML = `<div class="card ${th.shine?"shine":""} ${th.light?"lt":""} ${off?"off":""}${pop ? pop : '" style="'}${themeVars(th)}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""} · ${esc(c.rt||"")}\n${esc(c.nn||"?")} · ${esc(c.cn||"no club")} · ${esc(c.ln||"?")}${tip?"\n"+esc(tip):""}">
+        el.innerHTML = `<div class="card ${th.shine?"shine":""} ${th.light?"lt":""} ${off?"off":""} ${zchem?"zchem":""} ${inc?"incoming":""}${pop ? pop : '" style="'}${themeVars(th)}" data-pick="${i}" draggable="true" title="${esc(c.n)} · ${esc(c.p)}${c.a&&c.a.length?" ("+esc(c.a.join(", "))+")":""} · ${esc(c.rt||"")}\n${esc(c.nn||"?")} · ${esc(c.cn||"no club")} · ${esc(c.ln||"?")}${tip?"\n"+esc(tip):""}">
           <div class="ctop"><span class="cov">${c.ov}</span>${sel}${favT}${lock}</div>
           <div class="cname">${esc(c.n)}</div>
           <div class="cl">${flagImg(c.nn) || `<span>${esc(c.nn||"?")} ·</span>`}<span>${esc(c.cn || c.ln || "?")}</span></div>${c.cn ? `<div class="cl cl2"><span>${esc(c.ln||"?")}</span></div>` : ""}
-          <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${dupOf(i)?`<span class="dupb" title="${esc(c.n)} is in your squad more than once (also at ${esc(dupOf(i))}) - the game won't allow that">DUP</span>`:""}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}</div></div>`;
+          <div class="cchem">${ev?diamonds(ev.chem):"<span></span>"}${dupOf(i)?`<span class="dupb" title="${esc(c.n)} is in your squad more than once (also at ${esc(dupOf(i))}) - the game won't allow that">DUP</span>`:""}${tt&&!off?`<span class="ctype">${tt}</span>`:""}${off?`<span class="offb" title="Out of position: 0 chemistry">OFF ${esc(c.p)}</span>`:""}${inc?`<span class="newb">NEW</span>`:""}</div></div>`;
       }
       row.appendChild(el);
     }
@@ -1307,21 +1354,28 @@ function renderTotal(){
   const mi = $("mInfo"), bm = lastEval && lastEval.best_mgr;
   let hint = "";
   if(lastEval && lastEval.best_total > lastEval.total && lastEval.best_li != null)
-    hint += `<div>${ic("lightbulb")} A League Modifier to <strong>${esc(leagueName(lastEval.best_li))}</strong> would give <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33. <button class="sm" id="useBestLi">Use it</button></div>`;
+    hint += `<div class="hintrow"><span>${ic("lightbulb")} League Modifier → <strong>${esc(leagueName(lastEval.best_li))}</strong> <span class="chip pos">+${lastEval.best_total - lastEval.total}</span> → ${lastEval.best_total}/33</span><button class="sm" id="useBestLi">Use it</button></div>`;
   if(bm && bm.nation && bm.total > Math.max(lastEval.total, lastEval.best_total || 0))
-    hint += `<div style="margin-top:3px">${ic("lightbulb")} Best manager for this squad: <strong>${mgrPair(bm)}</strong> → ${bm.total}/33 <span class="chip pos">+${bm.total - lastEval.total}</span> <span class="mut">(new manager card${bm.league?" + League Modifier":""})</span> <button class="sm" id="useBestMgr">Use it</button></div>`;
+    hint += `<div class="hintrow"><span title="New manager card${bm.league?" + League Modifier":""}">${ic("lightbulb")} Best manager: <strong>${mgrPair(bm)}</strong> <span class="chip pos">+${bm.total - lastEval.total}</span> → ${bm.total}/33</span><button class="sm" id="useBestMgr">Use it</button></div>`;
   if(!hint && lastEval && full) hint = `<span class="mut">${ic("check")} Your manager is already the best nation + league for this squad.</span>`;
   mi.innerHTML = hint;
 }
 
-async function refresh(){
+let evalDone = null;   // resolves the promise of a refresh whose evaluation was superseded
+async function refresh(){   // resolves once the chemistry of the squad as it is now has been worked out
   renderPitch(); renderTotal(); save(); updFillInfo(); renderRq();
   clearTimeout(evalTimer);
+  if(evalDone){ evalDone(); evalDone = null; }
   if(!S.squad.some(Boolean)){ lastEval = null; renderPitch(); renderTotal(); return; }
-  evalTimer = setTimeout(async ()=>{   // chemistry is live while the squad is being built, not only at 11/11
-    try{ lastEval = await api("/api/evaluate", {slots:S.slots, squad:S.squad, mgr:S.mgr}); renderPitch(); renderTotal(); }
-    catch(e){ $("goMsg").textContent = e.message; }
-  }, 60);
+  return new Promise(done => {
+    evalDone = done;
+    evalTimer = setTimeout(async ()=>{   // chemistry is live while the squad is being built, not only at 11/11
+      try{ lastEval = await api("/api/evaluate", {slots:S.slots, squad:S.squad, mgr:S.mgr}); renderPitch(); renderTotal(); }
+      catch(e){ $("goMsg").textContent = e.message; }
+      if(evalDone === done) evalDone = null;
+      done();
+    }, 60);
+  });
 }
 
 /* ---------- picker + fill mode ---------- */
@@ -1474,13 +1528,17 @@ $("pitch").addEventListener("drop", e => {
 $("pitch").addEventListener("dragend", () => { dragFrom = -1; document.querySelectorAll(".slot.dragover").forEach(x=>x.classList.remove("dragover")); });
 
 /* ---------- optimizer ---------- */
-const banBtn = (c, pos) => favBtn(c, pos) + banBtn0(c, pos);
+const banBtn = (c, pos) => favBtn(c, pos) + banBtn0(c, pos) + posBanBtn(c, pos);
 const banBtn0 = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") ? "" :
-  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)" aria-label="Blacklist this card">${ic("ban")}</button>`
-  + (pos && !isPosBanned(c, pos) ? ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>` : "");
+  ` <button class="sm ban" data-ban="${esc(c.s)}" data-name="${esc(c.n)}" data-ov="${c.ov}" data-rt="${esc(c.rt)}" title="Blacklist this card (only this version - cheaper versions of the player can still be suggested)" aria-label="Blacklist this card">${ic("ban")}</button>`;
+const posBanBtn = (c, pos) => c.bp == null || String(c.s).startsWith("custom:") || !pos || isPosBanned(c, pos) ? "" :
+  ` <button class="sm ban" data-posban="${esc(c.bp)}" data-pos="${esc(pos)}" data-name="${esc(c.n)}" title="Never suggest ${esc(c.n)} at ${esc(pos)} (every version; other positions still allowed)">not at ${esc(pos)}</button>`;
+// one line per swap ("ST 75 Rodríguez → 82 Gakpo"); the card's details open with the arrow (or for all with "Details")
 function swapHtml(s){
-  const a=s.out, b=s.in;
-  return `<div><span class="tag">${esc(S.slots[s.slot])}</span><span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span><strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}${cardLink(b)}${banBtn(b, S.slots[s.slot])}<div class="small mut">${esc(b.rt)} · ${cardLine(b, S.slots[s.slot])}${b.g===2?" · women":""}</div><div class="small">${faceStats(b, S.slots[s.slot])}</div>${psHtml(b, S.slots[s.slot])}</div>`;
+  const a=s.out, b=s.in, pos=S.slots[s.slot], ps = psHtml(b, pos);
+  const star = ps.includes("ps-want") ? `<span class="tag ps-want" title="Has a PlayStyle you prefer">★</span>` : "";
+  return `<div class="sw" data-swslot="${s.slot}"><div class="swl"><span class="tag">${esc(pos)}</span>${a.ov !== "" ? `<span class="mut">${a.ov} ${esc(a.n)}</span><span class="arrow">→</span>` : `<span class="arrow">+</span>`}<strong>${b.ov} ${esc(b.n)}</strong>${typeTag(b)?`<span class="tag">${typeTag(b)}</span>`:""}${star}${b.gg?`<span class="tag" title="FUT.GG score - display only, not used for ranking">GG ${b.gg}</span>`:""}<span class="swacts">${cardLink(b)}${favBtn(b, pos)}${banBtn0(b, pos)}</span><button class="sm ghost swmore" title="Show this card's details" aria-label="Details">${ic("chevron-down")}</button></div>
+    <div class="swdet"><div class="small mut">${esc(b.rt)} · ${cardLine(b, pos)}${b.g===2?" · women":""}${posBanBtn(b, pos)}</div><div class="small">${faceStats(b, pos)}</div>${ps}</div></div>`;
 }
 // "rating 85 → 86" for a result (squad rating of the starting XI after it)
 function ratingLine(after, now){
@@ -1496,6 +1554,7 @@ function updFillInfo(){
   if($("fillEmpty")) $("fillEmpty").textContent = n ? `${n} empty slot${n===1?"":"s"} to fill.` : "No empty slots yet — remove the players you don't want first.";
 }
 function setMode(m, rerender=true){
+  endPreview();
   const prev = MODE, swap = (m === "sbc") !== (prev === "sbc") && FORMATIONS && Object.keys(FORMATIONS).length;
   MODE = m;
   if(swap){ if(m === "sbc") enterSbcPitch(); else leaveSbcPitch(); if(rerender){ lastEval = null; refresh(); } }
@@ -1546,7 +1605,7 @@ function resultsBody(r){
       li = st.li;
       h += `<div class="res"><div style="flex:1"><div class="small mut">Step ${k+1}</div>${st.swaps.map(swapHtml).join("")}${lm}</div><div style="text-align:right">${chip(d)}<div class="small mut">→ ${st.total}/33</div>${ratingLine(st.rating, r.rating)}</div></div>`;
     });
-    h += `<button class="primary" id="applyChain">Apply whole plan (${r.base} → ${r.chain_total})</button>`;
+    h += `<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="primary" id="applyChain">Apply whole plan (${r.base} → ${r.chain_total})</button><button data-prev="applyChain" title="Show the squad after this plan on the pitch first">Preview on pitch</button></div>`;
     const ma = (r.mgr_suggest_after || []).slice(0,3);
     if(ma.length) h += `<div class="small mut" style="margin-top:8px">After this plan, a manager change could add more:</div>` +
       ma.map(o => `<div class="res"><div style="flex:1">${mgrText(o)}</div><div style="text-align:right">${chip(o.d)}<div class="small mut">${o.total}/33</div></div></div>`).join("");
@@ -1568,7 +1627,7 @@ function resultsBody(r){
     const blocked = (U.slots||[]).filter(w => w.higher && !w.in_cap);
     if(blocked.length) h += `<div class="small" style="margin-top:4px;color:var(--warn)">Max OVR leaves no upgrade for: ${blocked.map(w => `${esc(w.pos)} (now ${w.cur}, cap ${w.cap})`).join(", ")}.</div>`;
     const lm = mgrLine;
-    return h + list.map((c,j)=>`<div class="res"><div style="flex:1">${lm(c)}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right"><span class="chip pos">+${c.dr} OVR</span>${c.dv>c.dr?`<div class="small" style="color:var(--gold)">★ +${+(c.dv-c.dr).toFixed(1)} PlayStyles</div>`:""}<div class="small mut">chem ${r.base} → ${c.total}/33</div>${ratingLine(c.rating, r.rating)}<button class="sm" data-up="${j}">Apply</button></div></div>`).join("");
+    return h + list.map((c,j)=>`<div class="res"><div style="flex:1">${lm(c)}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right"><span class="chip pos">+${c.dr} OVR</span>${c.dv>c.dr?`<div class="small" style="color:var(--gold)">★ +${+(c.dv-c.dr).toFixed(1)} PlayStyles</div>`:""}<div class="small mut">chem ${r.base} → ${c.total}/33</div>${ratingLine(c.rating, r.rating)}<div class="resacts"><button class="sm" data-prev>Preview</button><button class="sm" data-up="${j}">Apply</button></div></div></div>`).join("");
   }
   const k = VIEW.slice(1), C = COMBO_MGR ? r.combosMgr : r.combos;
   if(!C) return `<div class="mut small">Searching…</div>`;
@@ -1578,7 +1637,7 @@ function resultsBody(r){
     return `<div class="mut small">No ${k}-player swap beats what fewer swaps already reach${lower.length?` (best: ${lower.map(([kk,t])=>`${kk} swap${kk==="1"?"":"s"} → ${t}/33`).join(", ")})`:""}${COMBO_MGR?"":", or try ticking “include a new manager”"}.</div>`;
   }
   const extra = mgrChange;
-  return list.map((c,j)=>`<div class="res"><div style="flex:1">${extra(c)?`<div class="small" style="margin-bottom:3px">${extra(c)}</div>`:""}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right">${chip(c.d)}<div class="small mut">${c.total}/33 · OVR ${c.dr>=0?"+":""}${c.dr}</div>${ratingLine(c.rating, r.rating)}<button class="sm" data-combo="${j}">Apply</button></div></div>`).join("");
+  return list.map((c,j)=>`<div class="res"><div style="flex:1">${extra(c)?`<div class="small" style="margin-bottom:3px">${extra(c)}</div>`:""}${c.swaps.map(swapHtml).join("")}</div><div style="text-align:right">${chip(c.d)}<div class="small mut">${c.total}/33 · OVR ${c.dr>=0?"+":""}${c.dr}</div>${ratingLine(c.rating, r.rating)}<div class="resacts"><button class="sm" data-prev>Preview</button><button class="sm" data-combo="${j}">Apply</button></div></div></div>`).join("");
 }
 // why the upgrade lists are short or empty: per position, what the cap and the chemistry limit leave
 function upgradeWhy(U, k){
@@ -1608,9 +1667,9 @@ function viewOptions(r){
 function renderResults(r){
   if(r) window.__R = r; r = window.__R;
   if(MODE === "up" ? !VIEW.startsWith("u") : VIEW.startsWith("u")) VIEW = LAST_VIEW[MODE];
-  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+  let h = `<div class="panel" style="margin-top:14px"><div class="reshead">
     <strong>${MODE === "up" ? ic("trending-up") + " Rating upgrades" : ic("flask-conical") + " Chemistry upgrades"}</strong>
-    <span class="small mut">Searched ${r.pool.toLocaleString()} candidate cards. Current ${r.base}/33.</span></div>`;
+    <span class="small mut">Searched ${r.pool.toLocaleString()} candidate cards. Current ${r.base}/33.</span>${resTools()}</div>`;
   if(r.unmatched && r.unmatched.length) h += `<div class="note warn">Not found in the database: ${r.unmatched.map(esc).join(", ")}</div>`;
   h += `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 6px">
     <label class="f" style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--txt)">Show <select id="resView">${viewOptions(r)}</select></label>
@@ -1618,6 +1677,7 @@ function renderResults(r){
   h += `<div id="resList">${resultsBody(r)}</div></div>`;
   $("results").innerHTML = h;
   $("resView").value = VIEW;
+  revealResults();
 }
 // what the server is doing during a search, shown under the button
 let progTimer = null;
@@ -1626,7 +1686,8 @@ function watchProgress(label){
   $("goMsg").textContent = label;
   progTimer = setInterval(async () => {
     try{ const p = await (await fetch("/api/progress")).json();
-      if(p.text) $("goMsg").textContent = p.of ? `${p.text} (${p.step} of ${p.of})` : p.text; }catch(e){}
+      if(p.text) $("goMsg").textContent = p.of ? `${p.text} (${p.step} of ${p.of})` : p.text;
+      if(p.of){ $("goBar").classList.remove("ind"); $("goBar").style.setProperty("--w", Math.round(p.step / p.of * 100) + "%"); } }catch(e){}
   }, 350);
 }
 function stopProgress(){ clearInterval(progTimer); progTimer = null; }
@@ -1645,12 +1706,12 @@ function reportProblem(where, msg){
 async function runFill(){
   if(S.squad.every(Boolean)){ $("goMsg").textContent = "No empty slots: click a player you don't want and choose “Remove player”."; return; }
   watchProgress("Building squads…"); $("go").disabled = true;
-  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
+  busy(true);
   try{
     window.__F = await api("/api/fill", {slots:S.slots, squad:S.squad, mgr:S.mgr, opts:readOpts()});
     stopProgress(); $("goMsg").textContent = ""; renderFill();
   }catch(e){ showError("Fill squad", e); }
-  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+  $("go").disabled = false; busy(false);
 }
 const mgrPair = m => `${m.ni==null?"no nation":esc(nationName(m.ni))} + ${m.li==null?"no league":esc(leagueName(m.li))}`;
 function bestMgrLine(b, now){
@@ -1661,16 +1722,17 @@ function bestMgrLine(b, now){
 }
 function renderFill(){
   const F = window.__F; if(!F) return;
-  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-    <strong>${ic("users")} Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span></div>`;
+  let h = `<div class="panel" style="margin-top:14px"><div class="reshead">
+    <strong>${ic("users")} Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span>${resTools()}</div>`;
   if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
   else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
       ${mgrLine(o)}
       ${o.fills.map(f => swapHtml({slot:f.slot, out:{ov:"", n:"empty"}, in:f.in})).join("")}
       ${bestMgrLine(o.best_mgr, o.total)}</div>
-    <div style="text-align:right"><span class="chip pos">${o.total}/33</span><div class="small mut">avg ${o.avg_ov} OVR</div>${ratingLine(o.rating)}<button class="sm" data-fill="${j}">Apply</button></div></div>`).join("");
+    <div style="text-align:right"><span class="chip pos">${o.total}/33</span><div class="small mut">avg ${o.avg_ov} OVR</div>${ratingLine(o.rating)}<div class="resacts"><button class="sm" data-prev>Preview</button><button class="sm" data-fill="${j}">Apply</button></div></div></div>`).join("");
   $("results").innerHTML = h + `</div>`;
+  revealResults();
 }
 function reqsDataWarning(){
   if(reqsActive() && (!META.has_wf || (!META.has_ar && Object.values(RQ).some(x => x.ht || x.ar)))){
@@ -1680,19 +1742,20 @@ function reqsDataWarning(){
   return false;
 }
 async function runOptimize(){
+  endPreview();
   if(reqsDataWarning()) return;
   if(MODE === "fill") return runFill();
   if(MODE === "sbc") return runSbc();
   if(!S.squad.every(Boolean)){ $("goMsg").textContent = "Fill all 11 slots first (or use the Fill squad tab)."; return; }
   watchProgress("Searching…"); $("go").disabled = true;
-  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";   // old results are out of date now
+  busy(true);
   try{
     const r = await api("/api/optimize", {slots:S.slots, squad:S.squad, locks:S.locks, mgr:S.mgr, opts:readOpts()});
     stopProgress(); $("goMsg").textContent = "";
     if(r.base >= 33 && MODE === "chem" && !r.chain.length) setMode("up", false);   // full chemistry: show rating upgrades
     renderResults(r);
   }catch(e){ showError(MODE === "up" ? "Rating upgrades search" : "Chemistry search", e); }
-  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+  $("go").disabled = false; busy(false);
 }
 // the card behind a ♥ button in the results (any swap or fill in the current results)
 function favFromResults(s){
@@ -2115,8 +2178,10 @@ $("cAdd").onclick = () => {
 $("mNation").onchange = e => { commit(); S.mgr.ni = e.target.value===""?null:+e.target.value; refresh(); };
 $("mLeague").onchange = e => { commit(); S.mgr.li = e.target.value===""?null:+e.target.value; refresh(); };
 $("mInfo").addEventListener("click", e => {
-  if(e.target.id==="useBestLi" && lastEval){ commit(); S.mgr.li = lastEval.best_li; syncMgrInputs(); refresh(); }
-  if(e.target.id==="useBestMgr" && lastEval && lastEval.best_mgr){ commit(); S.mgr.ni = lastEval.best_mgr.ni; S.mgr.li = lastEval.best_mgr.li; syncMgrInputs(); refresh(); }
+  if(e.target.id==="useBestLi" && lastEval){ const t0 = lastEval.total; commit(); S.mgr.li = lastEval.best_li; syncMgrInputs();
+    refresh().then(() => undoToast(`Manager league → ${esc(leagueName(S.mgr.li))} · chemistry ${t0} → ${lastEval ? lastEval.total : "?"}/33`, () => undo())); }
+  if(e.target.id==="useBestMgr" && lastEval && lastEval.best_mgr){ const t0 = lastEval.total; commit(); S.mgr.ni = lastEval.best_mgr.ni; S.mgr.li = lastEval.best_mgr.li; syncMgrInputs();
+    refresh().then(() => undoToast(`Manager → ${mgrPair(S.mgr)} · chemistry ${t0} → ${lastEval ? lastEval.total : "?"}/33`, () => undo())); }
 });
 $("impBtn").onclick = () => openImport("fgg");
 $("impClose").onclick = () => $("impDlg").close();
@@ -2184,6 +2249,17 @@ $("results").addEventListener("click", e => {
   const pb = e.target.closest("[data-posban]");
   if(pb){ posBan({bp:pb.dataset.posban, name:pb.dataset.name, pos:pb.dataset.pos});
     $("goMsg").textContent = `${pb.dataset.name} won't be suggested at ${pb.dataset.pos} — searching again…`; runOptimize(); return; }
+  const pv = e.target.closest("[data-prev]");
+  if(pv){
+    const target = pv.dataset.prev ? $(pv.dataset.prev) : pv.closest(".res") && pv.closest(".res").querySelector("[data-up],[data-combo],[data-fill]");
+    const act = target && resultAction(target);
+    if(act) startPreview(act);
+    return;
+  }
+  const mo = e.target.closest(".swmore");
+  if(mo){ mo.closest(".sw").classList.toggle("open"); return; }
+  if(e.target.id === "resDet"){ RES_DET = e.target.checked; try{ DB.set("chemBuilder.resDetails", RES_DET ? "1" : ""); }catch(err){} $("results").classList.toggle("showdet", RES_DET); return; }
+  if(e.target.closest("[data-totop]")){ $("sidePanel").scrollIntoView({behavior: reduceMotion() ? "auto" : "smooth", block:"start"}); return; }
   const af = e.target.closest("[data-fill]");
   if(af && window.__F){
     const o = window.__F.options[+af.dataset.fill];
@@ -2212,6 +2288,109 @@ $("results").addEventListener("click", e => {
     return confirmApply(c.swaps, {ni: c.mgr ? c.mgr.ni : undefined, li: c.league ? c.li : undefined});
   }
 });
+
+// the change a result's Apply button stands for -> {swaps, mgrPatch, after}
+function resultAction(btn){
+  const R = window.__R;
+  if(btn.dataset.fill != null && window.__F){
+    const o = window.__F.options[+btn.dataset.fill];
+    return {swaps: o.fills.map(f => ({slot:f.slot, out:null, in:f.in})), mgrPatch: {ni: o.mgr ? o.mgr.ni : undefined, li: o.league ? o.li : undefined}, after: () => { window.__F = null; }};
+  }
+  if(!R) return null;
+  if(btn.id === "applyChain"){
+    const last = R.chain[R.chain.length-1];
+    return {swaps: R.chain.flatMap(s => s.swaps), mgrPatch: {ni: R.chain_mgr ? R.chain_mgr.ni : undefined, li: last && last.li != null && last.li !== S.mgr.li ? last.li : undefined}};
+  }
+  const c = btn.dataset.up != null ? (R.upgrades.by_k[VIEW.slice(1)] || [])[+btn.dataset.up]
+          : btn.dataset.combo != null ? ((COMBO_MGR ? R.combosMgr : R.combos).by_k[VIEW.slice(1)] || [])[+btn.dataset.combo] : null;
+  return c ? {swaps: c.swaps, mgrPatch: {ni: c.mgr ? c.mgr.ni : undefined, li: c.league ? c.li : undefined}} : null;
+}
+/* ---------- preview a result on the pitch before applying it ---------- */
+let PREV = null;
+function startPreview(act){
+  endPreview();
+  PREV = {snap: snap(), act, slots: new Set(act.swaps.map(w => w.slot)), before: lastEval ? lastEval.total : null};
+  act.swaps.forEach(w => S.squad[w.slot] = w.in);
+  if(act.mgrPatch.ni != null) S.mgr.ni = act.mgrPatch.ni;
+  if(act.mgrPatch.li != null) S.mgr.li = act.mgrPatch.li;
+  syncMgrInputs(); $("pitch").classList.add("previewing");
+  renderPrevBar();
+  refresh().then(renderPrevBar);
+  if($("pitch").getBoundingClientRect().top < 0) $("pitch").scrollIntoView({behavior: reduceMotion() ? "auto" : "smooth", block:"start"});
+}
+function renderPrevBar(){
+  const bar = $("prevBar");
+  if(!PREV){ bar.hidden = true; bar.innerHTML = ""; return; }
+  const n = PREV.slots.size, t = lastEval ? lastEval.total : null;
+  bar.innerHTML = `${ic("sparkles")}<span><b>Preview</b> · ${n} change${n===1?"":"s"} outlined in green${PREV.before != null && t != null ? ` · chemistry ${PREV.before} → <b>${t}</b>/33` : ""}${lastEval && lastEval.rating ? ` · rating ${lastEval.rating.rating}` : ""}</span>
+    <span class="sp"></span><button class="sm primary" id="prevApply">Apply</button><button class="sm" id="prevBack">Back to my squad</button>`;
+  bar.hidden = false;
+}
+function endPreview(){
+  if(!PREV) return null;
+  const p = PREV; PREV = null;
+  Object.assign(S, JSON.parse(JSON.stringify(p.snap)));
+  syncMgrInputs(); $("pitch").classList.remove("previewing"); renderPrevBar(); refresh();
+  return p;
+}
+$("prevBar").addEventListener("click", e => {
+  if(e.target.id === "prevBack") endPreview();
+  if(e.target.id === "prevApply"){
+    const p = endPreview(); if(!p) return;
+    const mgr = Object.assign({}, S.mgr);
+    if(p.act.mgrPatch.ni != null) mgr.ni = p.act.mgrPatch.ni;
+    if(p.act.mgrPatch.li != null) mgr.li = p.act.mgrPatch.li;
+    applyNow(p.act.swaps.map(w => ({slot:w.slot, out: w.out || S.squad[w.slot], in: w.in})), mgr, p.act.after, p.before);
+  }
+});
+document.addEventListener("keydown", e => { if(e.key === "Escape" && PREV && !document.querySelector("dialog[open]")) endPreview(); });
+/* ---------- hovering a result outlines the slots it changes ---------- */
+let HL = new Set();
+function setHL(slots){
+  const key = [...slots].sort().join(","); if(key === [...HL].sort().join(",")) return;
+  HL = new Set(slots);
+  document.querySelectorAll("#pitch .slot").forEach(el => el.classList.toggle("hlx", HL.has(+el.dataset.slot)));
+}
+$("results").addEventListener("mouseover", e => {
+  const r = e.target.closest(".res");
+  setHL(r ? [...r.querySelectorAll("[data-swslot]")].map(x => +x.dataset.swslot) : []);
+});
+$("results").addEventListener("mouseleave", () => setHL([]));
+/* ---------- results: header tools, loading state, bring them into view ---------- */
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+let RES_DET = false, RES_SCROLL = false;
+try{ RES_DET = DB.get("chemBuilder.resDetails") === "1"; }catch(e){}
+function resTools(details=true){
+  return `<span class="restools">${details ? `<label class="chk small" title="Show every card's details (club, stats, PlayStyles) without opening them"><input type="checkbox" id="resDet" ${RES_DET?"checked":""}> Details</label>` : ""}<button class="sm ghost" data-totop title="Back to the settings">↑ Settings</button></span>`;
+}
+function busy(on){
+  $("goBar").hidden = !on;
+  if(on){
+    RES_SCROLL = true;
+    const row = w => `<div class="skrow"><div style="flex:1;display:grid;gap:7px"><div class="skb" style="width:${w}%"></div><div class="skb" style="width:${w - 25}%;opacity:.6"></div></div><div class="skb" style="width:54px;height:20px"></div></div>`;
+    $("results").innerHTML = `<div class="panel skel" style="margin-top:14px" aria-busy="true"><div class="skb" style="width:30%;height:12px;margin-bottom:6px"></div>${row(72)}${row(64)}${row(80)}</div>`;
+    $("goBar").classList.add("ind"); $("goBar").style.removeProperty("--w");
+  } else if($("results").querySelector(".skel")) $("results").innerHTML = "";
+}
+function revealResults(){
+  $("results").classList.toggle("showdet", RES_DET);
+  if(!RES_SCROLL) return;
+  RES_SCROLL = false;
+  const top = $("results").getBoundingClientRect().top;
+  if(top > innerHeight * .55 || top < 0) $("results").scrollIntoView({behavior: reduceMotion() ? "auto" : "smooth", block:"start"});
+}
+/* ---------- count badges on the settings sections ---------- */
+function accBadges(){
+  const set = (id, v) => { const d = $(id) && $(id).querySelector("summary"); if(d && d.dataset.n !== String(v || 0)) d.dataset.n = String(v || 0); };
+  const parts = t => String(t).replace(/^[\s·]+/, "").split("·").map(x => x.trim()).filter(Boolean).length;
+  const num = (id, re) => { const m = ($(id) ? $(id).textContent : "").match(re); return m ? +m[1] : 0; };
+  set("filtDet", parts($("filtSum").textContent));
+  set("rqDet", /none/i.test($("rqSum").textContent) ? 0 : parts($("rqSum").textContent));
+  set("psDet", num("psSum", /\((\d+)/));
+  set("fvDet", num("fvSum", /(\d+)/));
+  set("blDet", (($("blSum").textContent.match(/\d+/g)) || []).reduce((a, b) => a + +b, 0));
+}
+new MutationObserver(accBadges).observe(document.getElementById("sidePanel"), {subtree:true, childList:true, characterData:true});
 
 /* ---------- final check before applying player changes ---------- */
 let PENDING = null;
@@ -2270,15 +2449,27 @@ function compareHtml(swaps, ev0, ev1, mgrPatch){
 $("cmpCancel").onclick = () => { PENDING = null; $("cmpDlg").close(); };
 $("cmpOk").onclick = () => {
   const P = PENDING; if(!P) return;
-  commit();
-  P.swaps.forEach(w => S.squad[w.slot] = w.in);
-  S.mgr = P.mgr; syncMgrInputs();
-  if(P.after) P.after();
-  PENDING = null; $("cmpDlg").close(); $("results").innerHTML = ""; refresh();
+  PENDING = null; $("cmpDlg").close();
+  applyNow(P.swaps, P.mgr, P.after);
 };
+// apply swaps (+ manager), then say what changed with an Undo
+function applyNow(swaps, mgr, after, before){
+  const t0 = before !== undefined ? before : lastEval ? lastEval.total : null, m0 = Object.assign({}, S.mgr);
+  commit();
+  swaps.forEach(w => S.squad[w.slot] = w.in);
+  S.mgr = Object.assign({}, mgr); syncMgrInputs();
+  if(after) after();
+  $("results").innerHTML = "";
+  const names = swaps.map(w => w.out ? `${esc(w.out.n)} → ${esc(w.in.n)}` : `+ ${esc(w.in.n)}`);
+  const what = names.slice(0, 2).join(", ") + (names.length > 2 ? ` +${names.length - 2} more` : "");
+  const mg = (S.mgr.ni !== m0.ni || S.mgr.li !== m0.li) ? `${what ? " · " : ""}manager ${mgrPair(S.mgr)}` : "";
+  refresh().then(() => undoToast(`Applied: ${what}${mg}${t0 != null && lastEval ? ` · chemistry ${t0} → ${lastEval.total}/33` : ""}`, () => undo()));
+}
 function applyMgr(o){
+  const t0 = lastEval ? lastEval.total : null;
   commit(); S.mgr.ni = o.ni; if(o.league){ S.mgr.li = o.li; }
-  syncMgrInputs(); $("results").innerHTML = ""; refresh();
+  syncMgrInputs(); $("results").innerHTML = "";
+  refresh().then(() => undoToast(`Manager → ${mgrPair(S.mgr)}${t0 != null && lastEval ? ` · chemistry ${t0} → ${lastEval.total}/33` : ""}`, () => undo()));
 }
 $("results").addEventListener("change", async e => {
   const R = window.__R; if(!R) return;
@@ -2720,6 +2911,12 @@ async function runSbc(){
   if($("sbcKeepSquad").checked) (MAIN_STASH || S).squad.forEach(c => c && avoid.push(c.s));
   // players already on the SBC pitch stay; the rest is built around them
   const fixed = MAIN_STASH && S.squad.some(Boolean) ? {formation:S.formation, slots:S.slots, cards:S.squad} : null;
+  if(fixed && S.squad.every(Boolean)){
+    $("goMsg").innerHTML = `The SBC pitch already has 11 players, so there's nothing left to build. <button class="sm" id="sbcClear">Clear the SBC pitch and build</button>`;
+    $("sbcClear").onclick = () => { const before = snap(); commit(); S.squad = Array(11).fill(null); S.locks = Array(11).fill(false); $("goMsg").textContent = "";
+      refresh(); undoToast("SBC pitch cleared", () => restore(before)); runSbc(); };
+    return;
+  }
   if($("sbcKeepFav").checked) FAV.forEach(x => avoid.push(x.s));
   const named = list => id => (list.find(c => String(c[0]) === String(id)) || [, id])[1];
   const nameOf = {league: named(META.leagues), nation: named(META.nations), club: named(META.clubs), quality: tierName};
@@ -2729,12 +2926,12 @@ async function runSbc(){
   })});
   if(!Object.keys(req).some(k => k !== "from") && !req.from.length){ $("goMsg").textContent = "Set at least one requirement (or pick a challenge)."; return; }
   watchProgress("Building SBC squads…"); $("go").disabled = true;
-  $("results").style.opacity = .4; $("results").style.pointerEvents = "none";
+  busy(true);
   try{
     window.__SBC = await api("/api/sbc", {req, formation: SBC.formation, fixed, opts: sbcOpts(), avoid, own_only: $("sbcOwnOnly").checked, prefer_owned: $("sbcPreferOwn").checked, keep_special: $("sbcKeepSpecial").checked, max_own: +$("sbcMaxOwn").value || 0});
     stopProgress(); $("goMsg").textContent = ""; renderSbc();
   }catch(e){ showError("SBC helper", e); }
-  $("go").disabled = false; $("results").style.opacity = ""; $("results").style.pointerEvents = "";
+  $("go").disabled = false; busy(false);
 }
 // an option as shown: the lowest-rated build, or (after "Use my cards") the same squad with your cards swapped in
 const sbcShown = s => s.useClub && s.with_club ? Object.assign({}, s, s.with_club) : s;
@@ -2765,23 +2962,28 @@ function sbcSquadHtml(s0, j){
 }
 function renderSbc(){
   const R = window.__SBC; if(!R) return;
-  let h = `<div class="panel" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-    <strong>${ic("layers")} SBC squads</strong><span class="small mut">${R.owned ? `${R.owned} club cards available` : "no club imported"}${R.formations.length > 1 ? ` · tried ${R.formations.length} formations` : ""}</span></div>`;
+  let h = `<div class="panel" style="margin-top:14px"><div class="reshead">
+    <strong>${ic("layers")} SBC squads</strong><span class="small mut">${R.owned ? `${R.owned} club cards available` : "no club imported"}${R.formations.length > 1 ? ` · tried ${R.formations.length} formations` : ""}</span>${resTools(false)}</div>`;
   if(R.need_low) h += `<div class="note warn">This SBC asks for bronze or silver players, and the bronze &amp; silver cards aren't downloaded yet. Use <b>Download bronze &amp; silver cards</b> above, then build again.</div>`;
   if(R.unmatched && R.unmatched.length) h += `<div class="note warn">${R.n_unmatched || R.unmatched.length} club line${(R.n_unmatched || R.unmatched.length) === 1 ? "" : "s"} not found in the card data${R.low ? "" : " (cards under 75 need the bronze &amp; silver download above)"}: ${R.unmatched.slice(0, 8).map(esc).join(", ")}${R.unmatched.length > 8 ? "…" : ""}</div>`;
   if(R.solutions.length) h += R.solutions.map((s, j) => sbcSquadHtml(s, j)).join("");
   else if(R.closest) h += `<div class="note warn">No squad met every requirement in time. Here's the closest one; the red ones are missed. Try "Any" formation, fewer protections, or allow buying.</div>` + sbcSquadHtml(R.closest, 0);
   else h += `<div class="mut small">No squad found.</div>`;
   $("results").innerHTML = h + `</div>`;
+  revealResults();
 }
 $("results").addEventListener("click", e => {
   const u = e.target.closest("[data-sbcclub]");
-  if(u && window.__SBC){ const x = window.__SBC.solutions[+u.dataset.sbcclub]; x.useClub = !x.useClub; renderSbc(); return; }
+  if(u && window.__SBC){
+    const j = +u.dataset.sbcclub, x = window.__SBC.solutions[j], flip = () => { x.useClub = !x.useClub; renderSbc(); };
+    flip();
+    undoToast(x.useClub ? `Option ${j + 1}: ${x.with_club.swapped} of your club cards swapped in` : `Option ${j + 1}: back to the lowest-rated build`, flip);
+    return; }
   const b = e.target.closest("[data-sbcshow]"); if(!b || !window.__SBC) return;
   const s = sbcShown(window.__SBC.solutions[+b.dataset.sbcshow]);
   commit(); S.formation = FORMATIONS[s.formation] ? s.formation : ""; S.slots = s.slots.slice(); S.squad = s.cards.slice(); S.locks = Array(11).fill(false);
   $("formation").value = S.formation; refresh(); scrollTo({top:0, behavior:"smooth"});
-  undoToast("SBC squad shown on the pitch", () => undo());
+  undoToast(`SBC option ${+b.dataset.sbcshow + 1} shown on the pitch (${s.formation})`, () => undo());
 });
 
 /* ---------- send feedback (Google Form via /api/feedback) ---------- */
