@@ -579,6 +579,70 @@ def search_index(opts, pool):
     return by_pos
 
 
+def why_none(opts, pos, squad, max_ovr=None):
+    """No card is left for a position: say which filter removed which cards (your club only, when the
+    "Only use cards I own" list is used) and how to get some back. Returns {pos, own, total, reasons:
+    [{key, n, eg: [names], fix: {...}}]} - the first filter that removes a card counts for it."""
+    own = bool([ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()])
+    base = build_pool({"club_list": opts.get("club_list")})[0] if own else STATE["cards"]
+    cands = [c for c in base if pos == c["p"] or pos in (c.get("a") or ())]
+    excl = set(opts.get("exclude_types") or [])
+    gender = int(opts.get("gender") or 0)
+    banned = {str(x) for x in opts.get("blacklist") or []}
+    banned_cards = set(opts.get("blacklist_cards") or [])
+    pbans = {(str(bp), p) for bp, p in pos_bans(opts)}
+    no_women = set(opts.get("no_women") or ())
+    rq = reqs(opts)
+    min_r = int(opts.get("min_rating") or 0)
+    icon_max = int(opts.get("icon_max") or 0)
+    in_squad = {c["bp"] for c in squad if c}
+    favs_here = {s for s, p in favs(opts)[0] if p == pos}
+
+    def reason(c):
+        rt = str(c.get("rt") or "").lower()
+        if c["bp"] in in_squad:
+            return "in_squad"
+        if gender and c["g"] != gender:
+            return "gender"
+        if c["ty"] in excl:
+            return "type_" + c["ty"]
+        if "promo" in excl and rt not in eng.BASE_RARITY and not rt.startswith("base ") and rt != "custom":
+            return "promo"
+        if icon_max and c.get("ty") == "icon" and c["ov"] > icon_max:
+            return "icon_cap"
+        if str(c["bp"]) in banned or c["s"] in banned_cards:
+            return "blacklist"
+        if (str(c["bp"]), pos) in pbans:
+            return "pos_ban"
+        if c["s"] not in favs_here and c.get("g") == 2 and pos in no_women:
+            return "women"
+        if c["s"] not in favs_here and rq and not eng.meets(c, pos, rq):
+            return "reqs"
+        if c["ov"] < min_r:
+            return "min_rating"
+        if max_ovr and c["ov"] > max_ovr:
+            return "max_ovr"
+        return None
+    groups = {}
+    for c in cands:
+        r = reason(c)
+        if r:
+            groups.setdefault(r, []).append(c)
+    out = []
+    for key, cs in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+        cs.sort(key=lambda c: c["ov"])
+        fix = ({"kind": "max_ovr", "value": cs[0]["ov"]} if key == "max_ovr" else
+               {"kind": "women", "pos": pos} if key == "women" else
+               {"kind": "type", "type": key[5:]} if key.startswith("type_") else
+               {"kind": "promo"} if key == "promo" else
+               {"kind": "icon_cap"} if key == "icon_cap" else
+               {"kind": "min_rating", "value": cs[-1]["ov"]} if key == "min_rating" else
+               {"kind": "gender"} if key == "gender" else None)
+        out.append({"key": key, "n": len(cs), "eg": [f"{c['ov']} {c['n']}" for c in sorted(cs, key=lambda c: -c["ov"])[:4]],
+                    "fix": fix})
+    return {"pos": pos, "own": own, "total": len(cands), "reasons": out}
+
+
 def value_fn(opts):
     """Card value for ranking: overall + wanted PlayStyles + preferred stats + favourites."""
     return eng.make_value(opts.get("ps_prefs"), float(opts.get("ps_w_plus", 3) or 0), float(opts.get("ps_w", 1) or 0),
@@ -1165,6 +1229,8 @@ class Handler(BaseHTTPRequestHandler):
         args = dict(min_rating=int(o.get("min_rating", 0)), max_ovr=int(o.get("fill_max_ovr") or 0) or None, val=val)
         progress("Building squads with your manager…")
         res = eng.fill_squad(slots, squad, free, by_pos, **args)
+        if res.get("no_cards"):   # say which filters left a position without cards, and how to get some back
+            res["why"] = [why_none(o, p, squad, args["max_ovr"]) for p in dict.fromkeys(res["no_cards"])]
         # the same search with other manager nations (new manager card); League Modifier is free in all of them
         started, opts_all = time.time(), [dict(x, mgr=None) for x in res["options"]]
         alts = eng.candidate_nations(slots, squad, by_pos, free)

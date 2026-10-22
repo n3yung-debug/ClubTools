@@ -1720,11 +1720,46 @@ function bestMgrLine(b, now){
   const what = [b.nation?"a manager from that nation (new card)":"", b.league?"a League Modifier":""].filter(Boolean).join(" + ");
   return `<div class="small" style="margin-top:3px">Best manager: <b>${mgrPair(b)}</b> → ${b.total}/33${now!=null&&b.total>now?` <span class="chip pos">+${b.total-now}</span>`:""} <span class="mut">(${what})</span></div>`;
 }
+// a position with no cards left: which filter removed which cards, with a one-click fix where there is one
+const WHY_LABEL = {in_squad:"already in your squad", gender:"filtered out by “Gender in pool”", type_icon:"ICONs (No ICONs is ticked)",
+  type_hero:"Heroes (No Heroes is ticked)", type_hof:"Hall of FUT (No Hall of FUT is ticked)", promo:"promo cards (No promo cards is ticked)",
+  icon_cap:"ICONs rated over 90 (Skip ICONs rated over 90 is ticked)", blacklist:"on your blacklist", pos_ban:"blocked at this position",
+  women:"women, and women aren't suggested at this position", reqs:"don't meet your required stats", min_rating:"below your minimum rating",
+  max_ovr:"rated above “Max OVR of a filler card”"};
+function whyFixLabel(f, pos){
+  if(!f) return "";
+  return {max_ovr:`Raise max OVR to ${f.value}`, women:`Allow women at ${esc(pos)}`, type:`Allow ${f.type === "icon" ? "ICONs" : f.type === "hero" ? "Heroes" : "Hall of FUT"}`,
+    promo:"Allow promo cards", icon_cap:"Allow ICONs over 90", min_rating:`Lower minimum rating to ${f.value}`, gender:"Men and women"}[f.kind] || "";
+}
+function whyNoneHtml(w){
+  const where = w.own ? `you own ${w.total} card${w.total===1?"":"s"} for ${esc(w.pos)} (Only use cards I own)` : `${w.total} cards can play ${esc(w.pos)}`;
+  if(!w.total) return `<div class="note warn"><b>No ${esc(w.pos)} to suggest:</b> ${w.own ? `none of the cards in your club list play ${esc(w.pos)}. Evolved players aren't in a FUT.GG club import; add them with the evolution editor, or empty “Only use cards I own” to search every card.` : `no card in the data plays ${esc(w.pos)}.`}</div>`;
+  const rows = w.reasons.map(r => `<li><b>${r.n}</b> ${WHY_LABEL[r.key] || esc(r.key)} <span class="mut">(${r.eg.map(esc).join(", ")}${r.n > r.eg.length ? ", …" : ""})</span>
+    ${r.fix ? ` <button class="sm" data-whyfix='${esc(JSON.stringify(Object.assign({pos:w.pos}, r.fix)))}'>${whyFixLabel(r.fix, w.pos)}</button>` : ""}</li>`).join("");
+  return `<div class="note warn"><b>No ${esc(w.pos)} to suggest:</b> ${where}, and your filters rule out every one:<ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">${rows}</ul>
+    <div class="small mut" style="margin-top:6px">Fix one and the squads are built again.${w.own ? " Evolved players aren't in a FUT.GG club import; add them with the evolution editor." : ""}</div></div>`;
+}
+$("results").addEventListener("click", e => {
+  const b = e.target.closest("[data-whyfix]"); if(!b) return;
+  let f; try{ f = JSON.parse(b.dataset.whyfix); }catch(err){ return; }
+  const before = JSON.stringify(readOpts());
+  if(f.kind === "max_ovr") $("fillMaxOvr").value = f.value;
+  if(f.kind === "women"){ const x = document.querySelector(`#noWomen [data-nw="${f.pos}"]`); if(x) x.checked = false; }
+  if(f.kind === "type"){ const id = {icon:"xIcon", hero:"xHero", hof:"xHof"}[f.type]; if(id) $(id).checked = false; iconCapState(); }
+  if(f.kind === "promo") $("xPromo").checked = false;
+  if(f.kind === "icon_cap") $("iconCap").checked = false;
+  if(f.kind === "min_rating") $("minRating").value = f.value;
+  if(f.kind === "gender") $("gender").value = "0";
+  save(); updFiltSum();
+  undoToast(`${whyFixLabel(f, f.pos)} — building again`, () => { writeOpts(JSON.parse(before)); save(); updFiltSum(); });
+  runOptimize();
+});
 function renderFill(){
   const F = window.__F; if(!F) return;
   let h = `<div class="panel" style="margin-top:14px"><div class="reshead">
     <strong>${ic("users")} Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span>${resTools()}</div>`;
-  if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
+  if(F.why && F.why.length) h += F.why.map(whyNoneHtml).join("");
+  else if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
   else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
       ${mgrLine(o)}

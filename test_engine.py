@@ -666,6 +666,24 @@ def test_sbc_build_uses_bronze_and_silver_cards():
         cb.STATE["low"], cb.STATE["by_slug"] = saved
 
 
+def test_fill_says_why_a_position_has_no_cards():
+    cb.load_cache()
+    gks = [c for c in cb.STATE["cards"] if c["p"] == "GK" and c["ty"] == ""]
+    men = sorted((c for c in gks if c["g"] == 1), key=lambda c: -c["ov"])[:2]
+    women = [c for c in gks if c["g"] == 2][:2]
+    club = "\n".join(c["s"] for c in men + women)
+    cap = min(c["ov"] for c in men) - 1
+    o = {"club_list": club, "no_women": ["GK"], "fill_max_ovr": cap}
+    w = cb.why_none(o, "GK", [], cap)
+    by = {r["key"]: r for r in w["reasons"]}
+    assert w["own"] and w["total"] == 4 and by["max_ovr"]["n"] == 2 and by["women"]["n"] == 2
+    assert by["max_ovr"]["fix"] == {"kind": "max_ovr", "value": cap + 1} and by["women"]["fix"] == {"kind": "women", "pos": "GK"}
+    slots = ["GK"] + ["CB"] * 10
+    r = cb.Handler.fill({"slots": slots, "squad": [None] * 11, "opts": o}) if hasattr(cb, "Handler") else None
+    if r is not None:
+        assert r["no_cards"] and r["why"][0]["pos"] == "GK"
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
