@@ -1,0 +1,116 @@
+name: Build Mac app
+
+# ClubTools.app for macOS 12 Monterey and later, one universal app for Apple Silicon and Intel Macs.
+# Python comes from python.org's universal2 installer (built for macOS 10.13+): GitHub's own Python builds
+# are compiled on the build machine's newer macOS and wouldn't start on older Macs.
+# The app is not notarized (that needs a paid Apple Developer account), so the first start needs
+# System Settings -> Privacy & Security -> Open Anyway (the download page explains it).
+
+on:
+  push:
+    branches: [main, claude/tender-gates-cgrdaw]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: "Release version (blank = test build)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    env:
+      PY_VERSION: "3.13.16"
+      PY_SERIES: "3.13"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Python from python.org (universal2, runs on macOS 10.13 and later)
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/python.pkg" "https://www.python.org/ftp/python/$PY_VERSION/python-$PY_VERSION-macos11.pkg"
+          pkgutil --check-signature "$RUNNER_TEMP/python.pkg" | tee "$RUNNER_TEMP/sig.txt"
+          grep -q "Developer ID Installer: Python Software Foundation" "$RUNNER_TEMP/sig.txt"
+          sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
+          "/Library/Frameworks/Python.framework/Versions/$PY_SERIES/bin/python$PY_SERIES" -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install build tools
+        run: >
+          python -m pip install pywebview==6.2.1 pyinstaller==6.22.3
+          pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-Quartz==12.2.2 pyobjc-framework-WebKit==12.2.2
+          pyobjc-framework-Security==12.2.2 pyobjc-framework-UniformTypeIdentifiers==12.2.2
+
+      - name: Rule tests
+        run: python test_engine.py
+
+      - name: Stamp version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python -c "import datetime, os; v = os.environ.get('VERSION') or ''; open('version.txt', 'w', encoding='utf-8').write((v + ' · ' if v else '') + datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC') + ' (' + os.environ['GITHUB_SHA'][:7] + ')')"
+
+      - name: Third-party license notices (fails if a shipped component has no license text)
+        run: python tools/gen_notices.py
+
+      - name: Build ClubTools.app (universal2)
+        run: >
+          pyinstaller --noconfirm --windowed --target-arch universal2 --name ClubTools --icon icon.icns
+          --osx-bundle-identifier io.github.n3yung-debug.clubtools
+          --add-data "ui.html:." --add-data "assets:assets" --add-data "cards.json:." --add-data "version.txt:." --add-data "EULA.md:." --add-data "PRIVACY.md:." --add-data "LICENSE:." --add-data "THIRD_PARTY_NOTICES.txt:." --collect-all webview --exclude-module webview.__pyinstaller --exclude-module PyInstaller --exclude-module setuptools --exclude-module _distutils_hack --exclude-module pkg_resources --exclude-module altgraph --exclude-module packaging --exclude-module macholib chem_builder.py
+
+      - name: App details (version, minimum macOS) and ad-hoc signature
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          P=dist/ClubTools.app/Contents/Info.plist
+          V="${VERSION:-0.0.0}"
+          plutil -replace CFBundleShortVersionString -string "$V" "$P"
+          plutil -replace CFBundleVersion -string "$V" "$P"
+          plutil -replace LSMinimumSystemVersion -string "12.0" "$P"
+          plutil -replace NSHumanReadableCopyright -string "© nTre. Not affiliated with EA, FUT.GG or FUTBIN." "$P"
+          codesign --force --deep --sign - dist/ClubTools.app
+          codesign --verify --deep --strict dist/ClubTools.app
+          plutil -p "$P"
+
+      - name: Check what went into the app (only components covered by the license notices; no GPL PyInstaller modules)
+        run: python tools/check_bundle.py build/ClubTools/PYZ-00.toc
+
+      - name: Check the app runs on Apple Silicon and Intel Macs with macOS 12 or later
+        run: python tools/check_mac_app.py dist/ClubTools.app
+
+      - name: Self-test the app (server, page, card data) - Apple Silicon
+        run: |
+          LOG="$HOME/Library/Application Support/ClubTools/clubtools.log"
+          code=0; dist/ClubTools.app/Contents/MacOS/ClubTools --selftest --port 8790 || code=$?
+          cat "$LOG"; grep -q "SELFTEST OK" "$LOG" && [ $code -eq 0 ]
+
+      - name: Self-test the app - Intel code (through Rosetta)
+        run: |
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then echo "::warning::Rosetta isn't available on this build machine; Intel code not run (the architecture check above still passed)"; exit 0; fi
+          LOG="$HOME/Library/Application Support/ClubTools/clubtools.log"
+          code=0; arch -x86_64 dist/ClubTools.app/Contents/MacOS/ClubTools --selftest --port 8792 || code=$?
+          cat "$LOG"; grep -q "SELFTEST OK" "$LOG" && [ $code -eq 0 ]
+
+      - name: Window smoke test (opens the app window, checks the pitch renders, closes)
+        continue-on-error: true   # build machines may not allow a window; the self-tests above are the gate
+        run: |
+          D="$HOME/Library/Application Support/ClubTools"
+          rm -f "$D/smoke.txt"
+          dist/ClubTools.app/Contents/MacOS/ClubTools --smoke --port 8791 &
+          pid=$!
+          for i in $(seq 1 90); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          kill $pid 2>/dev/null || true
+          cat "$D/clubtools.log" || true
+          [ "$(cat "$D/smoke.txt" 2>/dev/null)" = "ok" ]
+
+      - name: Zip the app
+        run: ditto -c -k --sequesterRsrc --keepParent dist/ClubTools.app ClubTools-mac.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ClubTools-mac
+          path: ClubTools-mac.zip
+          retention-days: 30

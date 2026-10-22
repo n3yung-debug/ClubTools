@@ -5,6 +5,8 @@ name: Release ClubTools
 #   - or on GitHub:    Actions -> Release ClubTools -> Run workflow -> enter 1.2.0 (needs this file on the default branch)
 # The release goes out as a pre-release first (not offered to anyone), an older ClubTools then updates itself
 # to it on a Windows machine, and only if that works does it become the "latest" release users are offered.
+# The Mac app (ClubTools-mac.zip, macOS 12+, Apple Silicon and Intel) is built first by build-mac.yml and
+# attached to the same release.
 
 on:
   push:
@@ -26,7 +28,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: python
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          import os, re
+          v = (os.environ["INPUT_VERSION"] if os.environ["EVENT"] == "workflow_dispatch" else os.environ["REF_NAME"]).strip().lstrip("v")
+          if not re.fullmatch(r"\d+\.\d+\.\d+", v):
+              raise SystemExit(f"The version must look like 1.2.0 - got {v!r}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={v}\n")
+
+  mac:
+    needs: version
+    uses: ./.github/workflows/build-mac.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
   release:
+    needs: [version, mac]
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -89,6 +117,11 @@ jobs:
           Write-Output $log
           if ($p.ExitCode -ne 0 -or $log -notmatch "SELFTEST OK") { throw "self-test failed (exit $($p.ExitCode))" }
 
+      - uses: actions/download-artifact@v7
+        with:
+          name: ClubTools-mac
+          path: dist
+
       - name: Release notes
         shell: pwsh
         env:
@@ -124,7 +157,8 @@ jobs:
             gh release delete "v$env:VERSION" --yes --cleanup-tag
             if ($LASTEXITCODE -ne 0) { throw "could not remove the old pre-release" }
           }
-          gh release create "v$env:VERSION" dist/ClubTools.exe THIRD_PARTY_NOTICES.txt --title "ClubTools $env:VERSION" --notes-file notes.md --prerelease --target $env:GITHUB_SHA
+          if (-not (Test-Path dist/ClubTools-mac.zip)) { throw "the Mac app is missing" }
+          gh release create "v$env:VERSION" dist/ClubTools.exe dist/ClubTools-mac.zip THIRD_PARTY_NOTICES.txt --title "ClubTools $env:VERSION" --notes-file notes.md --prerelease --target $env:GITHUB_SHA
           if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
 
       - name: Update test - an older ClubTools updates itself to this release

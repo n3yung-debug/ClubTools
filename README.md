@@ -2,14 +2,16 @@
 
 > **ClubTools is free** (passive ads and voluntary donations, no paywall). Read [LEGAL.md](LEGAL.md) before turning on ads: card-data permission from FUT.GG comes first. ClubTools is proprietary ([LICENSE](LICENSE)); third-party licences are generated into THIRD_PARTY_NOTICES.txt at build time.
 
-Free Windows app for EA SPORTS FC 27 Ultimate Team: chemistry swaps, rating upgrades and complete squads built around the players you choose.
+Free Windows and Mac app for EA SPORTS FC 27 Ultimate Team: chemistry swaps, rating upgrades and complete squads built around the players you choose.
 
 ## Download
 
-**[⬇ Download ClubTools.exe](https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe)** (latest version, Windows 10 and 11) · [Release notes](https://github.com/n3yung-debug/ClubTools/releases/latest) · [Website](https://n3yung-debug.github.io/ClubTools/)
+**[⬇ Windows: ClubTools.exe](https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe)** (Windows 10 and 11) · **[⬇ Mac: ClubTools-mac.zip](https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools-mac.zip)** (macOS 12 Monterey or later, Apple Silicon and Intel) · [Release notes](https://github.com/n3yung-debug/ClubTools/releases/latest) · [Website](https://n3yung-debug.github.io/ClubTools/)
 
 1. Download **ClubTools.exe** and put it anywhere (Desktop, Documents…). It's one file, with no installer.
 2. Double-click it. The first time, Windows SmartScreen may say *"Windows protected your PC"* because the app isn't code-signed: click **More info → Run anyway**.
+
+**On a Mac:** download **ClubTools-mac.zip**, unzip it and drag **ClubTools** into Applications. The app isn't notarized (that needs a paid Apple Developer account), so the first start needs one extra step: on macOS 12–14, Control-click ClubTools → **Open** → **Open**; on macOS 15 Sequoia and later, open it once, click **Done**, then System Settings → **Privacy & Security** → **Open Anyway** → **Open**. Your data lives in `~/Library/Application Support/ClubTools`. The Mac app tells you about new versions and links to the download (it doesn't install updates itself). It's one universal app (Apple Silicon + Intel), built with python.org's Python for macOS 10.13+ so it runs on Monterey; the build checks every compiled file inside it supports macOS 12 and both chip types.
 3. That's it. ClubTools offers new versions itself (an update bar on start), so you don't need to download it again.
 
 ## Run

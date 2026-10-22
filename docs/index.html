@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClubTools — free squad chemistry tool for FC 27 Ultimate Team</title>
-<meta name="description" content="Free Windows app for EA SPORTS FC 27 Ultimate Team: chemistry swaps, rating upgrades and complete squads built around the players you choose.">
+<meta name="description" content="Free Windows and Mac app for EA SPORTS FC 27 Ultimate Team: chemistry swaps, rating upgrades and complete squads built around the players you choose.">
 <meta property="og:title" content="ClubTools — free squad chemistry tool for FC 27">
-<meta property="og:description" content="Chemistry swaps, rating upgrades and complete squads built around your players. Free for Windows.">
+<meta property="og:description" content="Chemistry swaps, rating upgrades and complete squads built around your players. Free for Windows and Mac.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://n3yung-debug.github.io/ClubTools/img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -76,6 +76,12 @@ h2{font-size:clamp(26px,3.4vw,38px);letter-spacing:-.8px;line-height:1.15;margin
 .step::before{counter-increment:s;content:counter(s);position:absolute;top:-14px;left:20px;width:30px;height:30px;border-radius:50%;background:var(--acc);color:#04101f;font-weight:800;display:grid;place-items:center;font-size:14px}
 .step h3{margin:6px 0 6px;font-size:16.5px} .step p{margin:0;color:var(--mut);font-size:14.5px}
 kbd{font:600 13px/1 "Inter",system-ui;padding:3px 7px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;background:var(--panel2);color:var(--txt)}
+.oscols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
+.oscol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.oscol .note{margin-top:auto}
+.osh{display:flex;align-items:center;gap:10px;margin:0;font-size:19px} .osh svg{width:22px;height:22px;flex:none}
+.ossteps{margin:0;padding-left:20px;display:grid;gap:10px;color:var(--mut);font-size:15px;line-height:1.55}
+.ossteps b{color:var(--txt)} .ossteps ul{margin:6px 0;padding-left:18px;display:grid;gap:6px}
 .note{margin-top:18px;padding:14px 16px;border-radius:12px;border:1px solid #2b4c80;background:#13284a;color:var(--txt);font-size:14.5px}
 /* faq */
 .faq{margin-top:26px;display:grid;gap:10px;max-width:860px}
@@ -95,7 +101,7 @@ footer a{color:var(--mut)}
   nav .links{display:none}
 }
 @media (max-width:600px){
-  .grid,.steps{grid-template-columns:1fr} .steps{gap:26px}
+  .grid,.steps,.oscols{grid-template-columns:1fr} .steps{gap:26px}
   .hero{padding-top:48px} section{padding:52px 0}
   nav .btn span.long{display:none}
 }
@@ -106,7 +112,7 @@ footer a{color:var(--mut)}
 <nav><div class="wrap">
   <a class="brand" href="#top"><img src="favicon.svg" alt=""><b>Club<span>Tools</span></b></a>
   <div class="links"><a href="#features">Features</a><a href="#install">Install</a><a href="#faq">FAQ</a><a href="https://docs.google.com/forms/d/e/1FAIpQLScLzDRqo-QV9XmWk0Stdx6gtrHALEhqvXj9kno34mwZQ1JQGg/viewform" target="_blank" rel="noopener">Feedback</a></div>
-  <a class="btn primary sm dl" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span>Download<span class="long"> for Windows</span></span></a>
+  <a class="btn primary sm" href="#install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg><span>Download</span></a>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
@@ -114,10 +120,11 @@ footer a{color:var(--mut)}
   <h1>Full chemistry, <em>built around your club.</em></h1>
   <p class="lead">ClubTools finds the swaps that raise your squad chemistry, the upgrades that keep it, and complete squads built around the players you choose — in seconds.</p>
   <div class="cta">
-    <a class="btn primary dl" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Download for Windows</a>
+    <a class="btn primary dl" data-os="win" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3zm8.4-1.2L21 3v8.5h-9.6zM3 12.5h7.5v7.1L3 18.5zm8.4 0H21V21l-9.6-1.3z"/></svg>Download for Windows</a>
+    <a class="btn primary dl" data-os="mac" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools-mac.zip"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7zM14.1 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></svg>Download for Mac</a>
     <a class="btn ghost" href="#features">See what it does</a>
   </div>
-  <div class="meta" id="dlMeta">Windows 10 and 11 · one file, no installer · free, no account</div>
+  <div class="meta" id="dlMeta">Windows 10 and 11 · macOS 12 Monterey or later (Apple Silicon and Intel) · free, no account</div>
   <div class="shot"><div class="bar"><i></i><i></i><i></i></div><img src="img/shot-app.jpg" width="1440" height="900" alt="ClubTools showing a 33/33 chemistry squad on the pitch with the rating-upgrade panel"></div>
 </div></header>
 
@@ -190,12 +197,33 @@ footer a{color:var(--mut)}
 <section id="install"><div class="wrap">
   <div class="kicker">Install</div>
   <h2>Up and running in a minute</h2>
-  <div class="steps">
-    <div class="step"><h3>Download</h3><p><a class="dl" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe">ClubTools.exe</a> is a single file — no installer. Put it anywhere, like your Desktop or Documents.</p></div>
-    <div class="step"><h3>Open it</h3><p>The first time, Windows may say <i>"Windows protected your PC"</i>. Click <kbd>More info</kbd> then <kbd>Run anyway</kbd>.</p></div>
-    <div class="step"><h3>Import your squad</h3><p>Paste a FUT.GG squad link, use the FUTBIN bookmark, or click slots to add players. Then hit the big blue button.</p></div>
+  <div class="oscols">
+    <div class="oscol" id="install-win">
+      <h3 class="osh"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3zm8.4-1.2L21 3v8.5h-9.6zM3 12.5h7.5v7.1L3 18.5zm8.4 0H21V21l-9.6-1.3z"/></svg> Windows 10 and 11</h3>
+      <a class="btn primary dl" data-os="win" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Download for Windows</a>
+      <ol class="ossteps">
+        <li><b>Download</b> <a href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe">ClubTools.exe</a>. It's a single file — no installer. Put it anywhere, like your Desktop or Documents.</li>
+        <li><b>Open it.</b> The first time, Windows may say <i>"Windows protected your PC"</i>. Click <kbd>More info</kbd> then <kbd>Run anyway</kbd>.</li>
+        <li><b>Import your squad</b> and hit the big blue button.</li>
+      </ol>
+      <div class="note"><b>Why the warning?</b> ClubTools is a free hobby project and isn't code-signed yet, so Windows doesn't recognise it. It updates itself from the GitHub releases and checks every download's checksum before installing it.</div>
+    </div>
+    <div class="oscol" id="install-mac">
+      <h3 class="osh"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7zM14.1 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></svg> Mac · macOS 12 Monterey or later</h3>
+      <a class="btn primary dl" data-os="mac" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools-mac.zip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Download for Mac</a>
+      <ol class="ossteps">
+        <li><b>Download</b> <a href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools-mac.zip">ClubTools-mac.zip</a> and double-click it if your browser didn't unzip it. Drag <b>ClubTools</b> into your <b>Applications</b> folder. One app for Apple Silicon and Intel Macs.</li>
+        <li><b>Open it the first time:</b>
+          <ul>
+            <li><b>macOS 12 Monterey, 13 Ventura, 14 Sonoma:</b> in Applications, <kbd>Control</kbd>-click (or right-click) ClubTools → <kbd>Open</kbd>, then <kbd>Open</kbd> again.</li>
+            <li><b>macOS 15 Sequoia and later:</b> open it once and click <kbd>Done</kbd> on the warning. Then go to <b>System Settings → Privacy &amp; Security</b>, scroll down, click <kbd>Open Anyway</kbd> next to ClubTools, then <kbd>Open</kbd>.</li>
+          </ul>
+          After that it opens normally with a double-click.</li>
+        <li><b>Import your squad</b> and hit the big blue button.</li>
+      </ol>
+      <div class="note"><b>Why the warning?</b> Apple only skips it for apps notarized through a paid Apple Developer account, which this free project doesn't have yet. On a Mac, ClubTools tells you when a new version is out and links to the download.</div>
+    </div>
   </div>
-  <div class="note"><b>Why the Windows warning?</b> ClubTools is a free hobby project and isn't code-signed yet, so Windows doesn't recognise it. It updates itself from this page's GitHub releases and checks every download's checksum before installing it.</div>
 </div></section>
 
 <section id="faq"><div class="wrap">
@@ -204,19 +232,21 @@ footer a{color:var(--mut)}
   <div class="faq">
     <details><summary>Is it really free?</summary><p>Yes. Every feature is free and nothing is locked. There's no account and no sign-up.</p></details>
     <details><summary>Does it touch my EA account?</summary><p>No. ClubTools never logs in to EA, the Web App or your console, and it doesn't interact with your account at all. It only works with the squad you import or build in the app.</p></details>
-    <details><summary>Is it safe?</summary><p>ClubTools runs on your PC and keeps your squads and settings in your Windows user folder. It has no ads, analytics or tracking. Updates come only from the official GitHub releases, and each download is checked against its published SHA-256 checksum before it's installed.</p></details>
+    <details><summary>Is it safe?</summary><p>ClubTools runs on your computer and keeps your squads and settings in your user folder. It has no ads, analytics or tracking. Updates come only from the official GitHub releases, and each download is checked against its published SHA-256 checksum before it's installed.</p></details>
     <details><summary>Where does the card data come from?</summary><p>Player and card data comes from FUT.GG and is downloaded when you press "Update card data" in the app. Every suggestion links to the card on FUT.GG and FUTBIN.</p></details>
     <details><summary>Does it show prices?</summary><p>Not yet — there's no price data it's allowed to use. Instead it suggests each player's cheapest version, can skip promo cards and expensive ICONs, and links every card to FUTBIN and FUT.GG so you can check the price.</p></details>
-    <details><summary>Mac, console or phone?</summary><p>ClubTools is a Windows 10/11 app for now. The squads you build work for every platform, since chemistry is the same everywhere.</p></details>
+    <details><summary>Mac, console or phone?</summary><p>ClubTools runs on Windows 10/11 and on Macs with macOS 12 Monterey or later (Apple Silicon and Intel). There's no phone version. The squads you build work on every platform, since chemistry is the same everywhere.</p></details>
+    <details><summary>My Mac says the app is "damaged" or won't open</summary><p>That's macOS blocking an app that isn't notarized, not real damage. Follow the <a href="#install-mac">Mac steps above</a>. If it still refuses, open <b>Terminal</b> and run <code>xattr -dr com.apple.quarantine /Applications/ClubTools.app</code>, then open ClubTools again.</p></details>
     <details><summary>How do I report a bug or suggest a feature?</summary><p>In the app, open ⚙ → <b>Send feedback</b>. Or use the <a href="https://docs.google.com/forms/d/e/1FAIpQLScLzDRqo-QV9XmWk0Stdx6gtrHALEhqvXj9kno34mwZQ1JQGg/viewform" target="_blank" rel="noopener">feedback form</a> here — no account needed. Leave an email or Discord name if you'd like a reply.</p></details>
-    <details><summary>How do I update?</summary><p>You don't need to come back here. When a new version is out, ClubTools shows an update bar on start — click Update now and it restarts on the new version.</p></details>
+    <details><summary>How do I update?</summary><p>You don't need to come back here. When a new version is out, ClubTools shows an update bar on start. On Windows, click <b>Update now</b> and it restarts on the new version. On a Mac, click <b>Download</b> and replace the app in Applications with the new one (your squads and settings are kept).</p></details>
   </div>
 </div></section>
 
 <div class="wrap"><div class="final">
   <h2 style="margin-top:0">Build your best squad tonight</h2>
-  <p class="sub" style="margin:0 auto 24px">Free for Windows 10 and 11.</p>
-  <a class="btn primary dl" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>Download ClubTools</a>
+  <p class="sub" style="margin:0 auto 24px">Free for Windows 10 and 11, and Macs with macOS 12 Monterey or later.</p>
+  <div class="cta" style="justify-content:center"><a class="btn primary dl" data-os="win" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools.exe"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3zm8.4-1.2L21 3v8.5h-9.6zM3 12.5h7.5v7.1L3 18.5zm8.4 0H21V21l-9.6-1.3z"/></svg>Download for Windows</a>
+  <a class="btn primary dl" data-os="mac" href="https://github.com/n3yung-debug/ClubTools/releases/latest/download/ClubTools-mac.zip"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7zM14.1 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></svg>Download for Mac</a></div>
   <div class="meta"><a href="https://github.com/n3yung-debug/ClubTools/releases/latest">Release notes</a> · <a href="https://github.com/n3yung-debug/ClubTools/releases">All versions</a></div>
 </div></div>
 
@@ -226,16 +256,21 @@ footer a{color:var(--mut)}
 </div></footer>
 
 <script>
+// a Mac visitor sees the Mac button first
+if(/Macintosh|Mac OS X/.test(navigator.userAgent)) document.querySelectorAll(".cta").forEach(c => { const m = c.querySelector('[data-os="mac"]'), w = c.querySelector('[data-os="win"]'); if(m && w) c.insertBefore(m, w); });
 // show the current version and file size from GitHub (the links above already point to the latest release)
 (async () => {
   try{
     const r = await fetch("https://api.github.com/repos/n3yung-debug/ClubTools/releases/latest", {headers:{Accept:"application/vnd.github+json"}});
     if(!r.ok) return;
-    const rel = await r.json(), exe = (rel.assets || []).find(a => a.name === "ClubTools.exe");
+    const rel = await r.json(), as = rel.assets || [];
+    const exe = as.find(a => a.name === "ClubTools.exe"), mac = as.find(a => a.name === "ClubTools-mac.zip");
     const v = String(rel.tag_name || "").replace(/^v/, "");
     if(!/^\d+\.\d+\.\d+$/.test(v)) return;
+    const mb = a => a ? " (" + Math.round(a.size / 1048576) + " MB)" : "";
     document.getElementById("verPill").textContent = "v" + v;
-    document.getElementById("dlMeta").textContent = `Version ${v}${exe ? " · " + Math.round(exe.size / 1048576) + " MB" : ""} · Windows 10 and 11 · one file, no installer · free, no account`;
+    document.getElementById("dlMeta").textContent = `Version ${v} · Windows 10 and 11${mb(exe)} · macOS 12 Monterey or later, Apple Silicon and Intel${mb(mac)} · free, no account`;
+    if(!mac) document.querySelectorAll('[data-os="mac"]').forEach(b => { b.href = "#install-mac"; b.title = "The Mac version comes with the next release"; });
   }catch(e){}
 })();
 </script>

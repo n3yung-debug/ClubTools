@@ -5,7 +5,7 @@ Last updated: 13 October 2026. Contact: n3yung@gmail.com.
 ClubTools runs on your computer. It has no user accounts, no analytics and no tracking, and it sends nothing about you to us.
 
 ## What stays on your computer
-Your squads, saved squads, blacklist, preferences and settings, the card database, and a log file. They are stored in `%APPDATA%\ClubTools` and never leave your computer unless you share them (for example with a share link).
+Your squads, saved squads, blacklist, preferences and settings, the card database, and a log file. They are stored in `%APPDATA%\ClubTools` on Windows or `~/Library/Application Support/ClubTools` on a Mac, and never leave your computer unless you share them (for example with a share link).
 
 ## What connects to the internet, and when
 

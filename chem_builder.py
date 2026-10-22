@@ -37,11 +37,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import chem_engine as eng
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FROZEN = getattr(sys, "frozen", False)                       # running as ClubTools.exe (PyInstaller)
+FROZEN = getattr(sys, "frozen", False)                       # running as ClubTools.exe / ClubTools.app (PyInstaller)
+MAC = sys.platform == "darwin"
 BUNDLE = getattr(sys, "_MEIPASS", HERE)                       # where ui.html / the shipped cards.json live
 APP_NAME = "ClubTools"
 _HOME = os.environ.get("APPDATA") or os.path.expanduser("~")
-DATA_DIR = os.path.join(_HOME, "ClubTools" if os.environ.get("APPDATA") else ".clubtools")
+DATA_DIR = (os.path.join(os.path.expanduser("~"), "Library", "Application Support", "ClubTools") if MAC and FROZEN
+            else os.path.join(_HOME, "ClubTools" if os.environ.get("APPDATA") else ".clubtools"))
 OLD_DATA_DIR = os.path.join(_HOME, "ChemBuilder" if os.environ.get("APPDATA") else ".chembuilder")   # before the rename
 CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards.json")   # the .exe keeps updatable card data in AppData
 LOW_CACHE = os.path.join(DATA_DIR if FROZEN else HERE, "cards_low.json")   # bronze + silver cards (SBC helper; optional download)
@@ -613,7 +615,7 @@ def save_png(data_url):
     path = os.path.join(downloads_dir(), time.strftime("ClubTools-squad-%Y%m%d-%H%M%S.png"))
     with open(path, "wb") as f:
         f.write(raw)
-    return {"path": path, "can_show": os.name == "nt"}
+    return {"path": path, "can_show": os.name == "nt" or MAC}
 
 
 def club_ids(ids):
@@ -1103,8 +1105,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, save_png(str(body.get("data") or "")))
             if self.path == "/api/show_file":
                 f = str(body.get("path") or "")
-                if os.path.dirname(f) == downloads_dir() and f.lower().endswith(".png") and os.path.exists(f) and os.name == "nt":
-                    subprocess.Popen(["explorer", "/select,", f])
+                if os.path.dirname(f) == downloads_dir() and f.lower().endswith(".png") and os.path.exists(f):
+                    if os.name == "nt":
+                        subprocess.Popen(["explorer", "/select,", f])
+                    elif MAC:
+                        subprocess.Popen(["open", "-R", f])   # Finder, with the file selected
                 return self._send(200, {"ok": True})
             if self.path == "/api/sbc":
                 return self._send(200, sbc_build(body))
@@ -1544,6 +1549,7 @@ LEGAL_DOCS = {"eula": "EULA.md", "privacy": "PRIVACY.md", "notices": "THIRD_PART
 UPDATE_REPO = "n3yung-debug/ClubTools"   # public (renamed from FifaChemPlus; GitHub redirects the old name)
 UPDATE_API = os.environ.get("CLUBTOOLS_UPDATE_API") or f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
 UPDATE_HOSTS = {"github.com", "api.github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"}
+UPDATE_ASSET = "ClubTools-mac.zip" if MAC else "ClubTools.exe"   # the Mac app is offered as a download (no self-install)
 UPDATE = {"state": "idle", "latest": None, "error": "", "done": 0, "total": 0, "updated": False}
 WINDOW = {"win": None, "port": 8765}
 
@@ -1589,7 +1595,7 @@ def check_update():
     try:
         rel = _github_json(UPDATE_API)
         tag = str(rel.get("tag_name") or "")
-        asset = next((x for x in rel.get("assets") or [] if x.get("name") == "ClubTools.exe"), None)
+        asset = next((x for x in rel.get("assets") or [] if x.get("name") == UPDATE_ASSET), None)
         UPDATE["latest"] = {"version": tag.lstrip("v"), "notes": str(rel.get("body") or "")[:5000],
                             "page": rel.get("html_url") or "", "published": rel.get("published_at") or "",
                             "asset": asset and {"url": asset.get("browser_download_url") or "", "size": asset.get("size") or 0,
@@ -1746,8 +1752,8 @@ def auto_update_on():
 
 
 def windowless():
-    """True under pythonw (start.bat), where there is no console to print to."""
-    return sys.stdout is None or sys.stderr is None
+    """True under pythonw (start.bat) or in the Mac app, where there is no console to print to."""
+    return sys.stdout is None or sys.stderr is None or (FROZEN and MAC)
 
 
 def fatal(msg):
@@ -1756,6 +1762,13 @@ def fatal(msg):
         try:
             import ctypes
             ctypes.windll.user32.MessageBoxW(None, msg + f"\n\nDetails: {LOG}", "ClubTools", 0x10)
+        except Exception:  # noqa: BLE001
+            pass
+    elif MAC and windowless():   # the Mac app: a standard alert (the text goes in as an argument, never as script)
+        try:
+            subprocess.run(["osascript", "-e", "on run argv", "-e",
+                            'display alert "ClubTools" message (item 1 of argv) as critical', "-e", "end run",
+                            msg + f"\n\nDetails: {LOG}"], timeout=600)
         except Exception:  # noqa: BLE001
             pass
     sys.exit(1)

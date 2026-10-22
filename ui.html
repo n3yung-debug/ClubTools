@@ -3134,6 +3134,11 @@ $("capGrid").addEventListener("input", () => { const n = Object.keys(readCaps())
 $("filtDet").addEventListener("input", updFiltSum); $("filtDet").addEventListener("change", updFiltSum);
 $("filtDet").addEventListener("change", () => rqRefreshCounts());
 
+// on a Mac the shortcuts are Cmd (they already accept it); say so
+if(/Mac/i.test(navigator.platform || navigator.userAgent)){
+  for(const el of document.querySelectorAll("#undo, #redo")) el.title = el.title.replace("Ctrl", "⌘");
+  for(const el of document.querySelectorAll(".tips b, kbd")) if(el.textContent === "Ctrl+Z" || el.textContent === "Ctrl") el.textContent = el.textContent.replace("Ctrl", "⌘");
+}
 init().then(() => { loadUiState(); updFiltSum(); rqRefreshCounts(); pollUpdate(); setTimeout(pollUpdate, 4000); checkDataAge(); if(DB.get(KEY_TOUR) !== "1") setTimeout(() => showTour(0), 600); setTimeout(() => whatsNew(false), 900); });
 </script>
 </body>

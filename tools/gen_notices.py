@@ -21,15 +21,26 @@ SHIPPED = {
     "bottle": "used by pywebview",
     "proxy_tools": "used by pywebview",
     "typing_extensions": "used by pywebview",
+    "pyobjc-core": "pywebview's bridge to the macOS window and WebKit (Mac app only)",
+    "pyobjc-framework-Cocoa": "used by pywebview on macOS",
+    "pyobjc-framework-Quartz": "used by pywebview on macOS",
+    "pyobjc-framework-WebKit": "used by pywebview on macOS",
+    "pyobjc-framework-Security": "used by pywebview on macOS",
+    "pyobjc-framework-UniformTypeIdentifiers": "used by pywebview on macOS",
     "pyinstaller": "bootloader that starts the exe (GPL-2.0-or-later with the Bootloader Exception)",
     "pyinstaller-hooks-contrib": "runtime hooks included in the exe",
 }
 WIN_ONLY = {"pythonnet", "clr_loader"}
+MAC_ONLY = {"pyobjc-core", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz", "pyobjc-framework-WebKit",
+            "pyobjc-framework-Security", "pyobjc-framework-UniformTypeIdentifiers"}
 # installed only to build or test, never shipped
 BUILD_ONLY = {"pip", "setuptools", "wheel", "packaging", "altgraph", "pefile", "pywin32-ctypes", "macholib",
               "importlib-metadata", "zipp"}
 # license texts that are not inside the installed package
-VENDORED = {"proxy_tools": "legal/proxy_tools-LICENSE.txt"}
+VENDORED = {"proxy_tools": "legal/proxy_tools-LICENSE.txt",
+            # PyObjC is MIT; these wheels don't carry the text (the Cocoa/WebKit/Quartz ones do)
+            "pyobjc-core": "legal/pyobjc-LICENSE.txt", "pyobjc-framework-Security": "legal/pyobjc-LICENSE.txt",
+            "pyobjc-framework-UniformTypeIdentifiers": "legal/pyobjc-LICENSE.txt"}
 EXTRA = [("Microsoft WebView2 SDK", "shipped inside pywebview (Core, WinForms and Loader DLLs)",
           "legal/webview2-LICENSE.txt"),
          ("Inter font 4.x (@fontsource-variable/inter 5.3.0)", "the app's typeface (assets/fonts)", "legal/inter-OFL.txt"),
@@ -65,6 +76,8 @@ def main():
              "ClubTools itself is proprietary; these licenses apply only to the components named.", ""]
 
     py_lic = os.path.join(sys.base_prefix, "LICENSE.txt")
+    if not os.path.exists(py_lic):   # python.org's macOS framework build keeps it with the standard library
+        py_lic = os.path.join(sys.base_prefix, "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}", "LICENSE.txt")
     if os.path.exists(py_lic):
         parts.append(f"=== Python {sys.version.split()[0]} (runtime and standard library, including the third-party "
                      "libraries it bundles such as OpenSSL, libffi, zlib, bzip2, xz and expat) ===\n")
@@ -76,6 +89,8 @@ def main():
         d = installed.get(norm(name))
         if d is None and name in WIN_ONLY and os.name != "nt":
             continue   # only installed (and shipped) on Windows
+        if d is None and name in MAC_ONLY and sys.platform != "darwin":
+            continue   # only installed (and shipped) on macOS
         if d is None:
             raise SystemExit(f"{name} is listed as shipped but is not installed")
         texts = license_texts(d)
