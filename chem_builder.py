@@ -583,7 +583,7 @@ def why_none(opts, pos, squad, max_ovr=None):
     """No card is left for a position: say which filter removed which cards (your club only, when the
     "Only use cards I own" list is used) and how to get some back. Returns {pos, own, total, reasons:
     [{key, n, eg: [names], fix: {...}}]} - the first filter that removes a card counts for it."""
-    own = bool([ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()])
+    own = opts.get("own_only", True) and bool([ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()])
     base = build_pool({"club_list": opts.get("club_list")})[0] if own else STATE["cards"]
     cands = [c for c in base if pos == c["p"] or pos in (c.get("a") or ())]
     excl = set(opts.get("exclude_types") or [])
@@ -716,7 +716,8 @@ def build_pool(opts, low=False):
         return str(c["bp"]) not in banned and c["s"] not in banned_cards
     pool = [c for c in STATE["cards"] + (STATE["low"] if low else []) if (not gender or c["g"] == gender) and c["ty"] not in excl and allowed(c)]
     unmatched = []
-    lines = [ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()]
+    # "Only use cards I own": the club list limits the pool unless the box is unticked (the list itself is kept)
+    lines = [ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()] if opts.get("own_only", True) else []
     if lines:
         chosen = {}
         for ln in lines:

@@ -678,6 +678,9 @@ def test_fill_says_why_a_position_has_no_cards():
     by = {r["key"]: r for r in w["reasons"]}
     assert w["own"] and w["total"] == 4 and by["max_ovr"]["n"] == 2 and by["women"]["n"] == 2
     assert by["max_ovr"]["fix"] == {"kind": "max_ovr", "value": cap + 1} and by["women"]["fix"] == {"kind": "women", "pos": "GK"}
+    # unticking "Only use cards I own" keeps the list but searches every card
+    assert len(cb.build_pool(dict(o, own_only=True))[0]) == 4 and len(cb.build_pool(dict(o, own_only=False))[0]) > 1000
+    assert not cb.why_none(dict(o, own_only=False), "GK", [], cap)["own"]
     slots = ["GK"] + ["CB"] * 10
     r = cb.Handler.fill({"slots": slots, "squad": [None] * 11, "opts": o}) if hasattr(cb, "Handler") else None
     if r is not None:

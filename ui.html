@@ -275,6 +275,9 @@ details.acc>summary[data-n="0"]::after{display:none}
 .updbar b{color:#8ff0c0} .updbar .sp{flex:1}
 .updbar pre{flex-basis:100%;margin:4px 0 0;white-space:pre-wrap;font-family:inherit;font-size:12px;line-height:1.5;color:var(--txt);background:#0006;border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px;max-height:220px;overflow:auto}
 .updbar progress{width:180px;height:8px;accent-color:var(--ok)}
+.ownbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
+.ownbar.on{border-color:#2f7a5c;background:#0f2a20}
+.ownbar #ownInfo{min-width:0}
 .presetbar{display:flex;align-items:center;gap:6px;margin-top:12px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--bg2)}
 .presetbar .lbl{font-size:12px;color:var(--mut);font-weight:700}
 .presetbar select{flex:1;min-width:0;padding:5px 8px}
@@ -486,6 +489,11 @@ dialog[open]{animation:dlgIn .2s ease-out}
             <label class="chk" style="align-items:center">Use my own cards rated up to <input id="sbcMaxOwn" type="number" min="45" max="99" placeholder="any" style="width:64px;padding:2px 6px"></label>
           </div>
         </div>
+        <div class="ownbar" data-notsbc>
+          <label class="chk" title="Search only the cards in your club list (untick to search every card; the list is kept)"><input type="checkbox" id="ownOnly" checked> <b>Only use cards I own</b></label>
+          <span class="small mut" id="ownInfo"></span><span class="spacer"></span>
+          <button class="sm ghost" id="ownEdit" title="See or edit your club list">Edit list</button><button class="sm ghost" data-ggclub>Import from FUT.GG</button>
+        </div>
         <div class="presetbar" data-notsbc title="A preset saves your required stats, filters, PlayStyle preferences and tab settings under a name">
           <span class="lbl">Preset</span>
           <select id="presetSel"><option value="">— current settings —</option></select>
@@ -511,7 +519,7 @@ dialog[open]{animation:dlgIn .2s ease-out}
               <label class="chk"><input type="checkbox" id="xHero"> No Heroes</label>
               <label class="chk"><input type="checkbox" id="xHof"> No Hall of FUT</label>
             </div>
-            <details><summary>Only use cards I own (optional)</summary>
+            <details id="clubDet"><summary>Your club list <span class="mut">(for “Only use cards I own” and the SBC helper)</span></summary>
               <div class="small" style="margin:2px 0 6px"><button class="sm" data-ggclub>Import my club from FUT.GG</button> <span class="mut">or use the FUTBIN bookmark (Import squad → FUTBIN)</span></div>
               <textarea id="clubList" rows="5" style="width:100%" placeholder="One card per line: name, or name + rating (e.g. Alisson 87). Rows copied from a club list (FUTBIN My Club, FUT.GG) also work. Leave empty to search every card."></textarea>
             </details>
@@ -1223,7 +1231,7 @@ function rqDescribe(x){
 const readNoWomen = () => [...document.querySelectorAll("#noWomen input:checked")].map(i => i.dataset.nw);
 function readOpts(){
   return {    max_drop:+$("maxDrop").value||0, min_rating:+$("minRating").value||0, gender:+$("gender").value,
-    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), reqs:readReqs(), fill_max_ovr:+$("fillMaxOvr").value||0,
+    max_steps:+$("maxSteps").value||5, club_list:$("clubList").value, own_only:$("ownOnly").checked, upgrade_loss:$("upLoss").value===""?3:Math.max(0,+$("upLoss").value), upgrade_max_ovr:+$("upMaxOvr").value||0, upgrade_pos_caps:readCaps(), no_women:readNoWomen(), reqs:readReqs(), fill_max_ovr:+$("fillMaxOvr").value||0,
     exclude_types:[$("xIcon").checked&&"icon",$("xHero").checked&&"hero",$("xHof").checked&&"hof",$("xPromo").checked&&"promo"].filter(Boolean),
     cheap_versions:$("cheapV").checked, icon_max:$("iconCap").checked ? 90 : 0,
     favs:FAV.map(x => ({s:x.s, pos:x.pos})), fav_mode:favMode(), fav_w:favMode()==="always"?100:($("favW").value===""?10:+$("favW").value),
@@ -1231,7 +1239,7 @@ function readOpts(){
 }
 function writeOpts(o){
   $("maxDrop").value=o.max_drop??3; $("minRating").value=o.min_rating??0; $("gender").value=o.gender??0;
-  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("favW").value=o.fav_mode==="points"?(o.fav_w??10):($("favW").value||10); document.querySelectorAll('[name="favmode"]').forEach(r => r.checked = r.value === (o.fav_mode || "always")); $("psW").value=o.ps_w??1;
+  $("maxSteps").value=o.max_steps??5; $("clubList").value=o.club_list||""; $("ownOnly").checked = o.own_only ?? true; $("upLoss").value=o.upgrade_loss??3; $("upMaxOvr").value=o.upgrade_max_ovr||""; writeCaps(o.upgrade_pos_caps||{}); writeNoWomen(o.no_women || NW_DEFAULT); writeReqs(o.reqs); $("fillMaxOvr").value=o.fill_max_ovr||""; $("psWPlus").value=o.ps_w_plus??3; $("favW").value=o.fav_mode==="points"?(o.fav_w??10):($("favW").value||10); document.querySelectorAll('[name="favmode"]').forEach(r => r.checked = r.value === (o.fav_mode || "always")); $("psW").value=o.ps_w??1;
   const ex=o.exclude_types||[]; $("xIcon").checked=ex.includes("icon"); $("xHero").checked=ex.includes("hero"); $("xHof").checked=ex.includes("hof"); $("xPromo").checked=ex.includes("promo"); $("cheapV").checked=o.cheap_versions ?? true; $("iconCap").checked = (o.icon_max ?? 90) > 0; iconCapState();
 }
 
@@ -1729,14 +1737,15 @@ const WHY_LABEL = {in_squad:"already in your squad", gender:"filtered out by “
 function whyFixLabel(f, pos){
   if(!f) return "";
   return {max_ovr:`Raise max OVR to ${f.value}`, women:`Allow women at ${esc(pos)}`, type:`Allow ${f.type === "icon" ? "ICONs" : f.type === "hero" ? "Heroes" : "Hall of FUT"}`,
-    promo:"Allow promo cards", icon_cap:"Allow ICONs over 90", min_rating:`Lower minimum rating to ${f.value}`, gender:"Men and women"}[f.kind] || "";
+    promo:"Allow promo cards", icon_cap:"Allow ICONs over 90", min_rating:`Lower minimum rating to ${f.value}`, gender:"Men and women", own_off:"Search every card, not just yours"}[f.kind] || "";
 }
 function whyNoneHtml(w){
   const where = w.own ? `you own ${w.total} card${w.total===1?"":"s"} for ${esc(w.pos)} (Only use cards I own)` : `${w.total} cards can play ${esc(w.pos)}`;
-  if(!w.total) return `<div class="note warn"><b>No ${esc(w.pos)} to suggest:</b> ${w.own ? `none of the cards in your club list play ${esc(w.pos)}. Evolved players aren't in a FUT.GG club import; add them with the evolution editor, or empty “Only use cards I own” to search every card.` : `no card in the data plays ${esc(w.pos)}.`}</div>`;
+  if(!w.total) return `<div class="note warn"><b>No ${esc(w.pos)} to suggest:</b> ${w.own ? `none of the cards in your club list play ${esc(w.pos)}. Evolved players aren't in a FUT.GG club import; add them with the evolution editor.` : `no card in the data plays ${esc(w.pos)}.`}${w.own ? ` <button class="sm" data-whyfix='${esc(JSON.stringify({pos:w.pos, kind:"own_off"}))}'>Search every card, not just yours</button>` : ""}</div>`;
   const rows = w.reasons.map(r => `<li><b>${r.n}</b> ${WHY_LABEL[r.key] || esc(r.key)} <span class="mut">(${r.eg.map(esc).join(", ")}${r.n > r.eg.length ? ", …" : ""})</span>
     ${r.fix ? ` <button class="sm" data-whyfix='${esc(JSON.stringify(Object.assign({pos:w.pos}, r.fix)))}'>${whyFixLabel(r.fix, w.pos)}</button>` : ""}</li>`).join("");
   return `<div class="note warn"><b>No ${esc(w.pos)} to suggest:</b> ${where}, and your filters rule out every one:<ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">${rows}</ul>
+    ${w.own ? `<div style="margin-top:6px"><button class="sm" data-whyfix='${esc(JSON.stringify({pos:w.pos, kind:"own_off"}))}'>Search every card, not just yours</button></div>` : ""}
     <div class="small mut" style="margin-top:6px">Fix one and the squads are built again.${w.own ? " Evolved players aren't in a FUT.GG club import; add them with the evolution editor." : ""}</div></div>`;
 }
 $("results").addEventListener("click", e => {
@@ -1750,6 +1759,7 @@ $("results").addEventListener("click", e => {
   if(f.kind === "icon_cap") $("iconCap").checked = false;
   if(f.kind === "min_rating") $("minRating").value = f.value;
   if(f.kind === "gender") $("gender").value = "0";
+  if(f.kind === "own_off"){ $("ownOnly").checked = false; updOwnInfo(); }
   save(); updFiltSum();
   undoToast(`${whyFixLabel(f, f.pos)} — building again`, () => { writeOpts(JSON.parse(before)); save(); updFiltSum(); });
   runOptimize();
@@ -2070,7 +2080,7 @@ async function init(){
   if(!$("noWomen").children.length) writeNoWomen(NW_DEFAULT);
   if(!$("rqBody").children.length) renderRq(true);
   setMode(["up","fill","sbc"].includes(DB.get("chemBuilder.mode")) ? DB.get("chemBuilder.mode") : "chem", false);
-  renderSaved(); renderBL(); renderFAV(); renderPS(); renderSbcForm(); sbcClubInfo(); updUndo(); refresh();
+  renderSaved(); renderBL(); renderFAV(); renderPS(); renderSbcForm(); sbcClubInfo(); updOwnInfo(); updUndo(); refresh();
   if(!started){ started = true; ping(); setInterval(ping, 10000); handleHash(); }
 }
 addEventListener("hashchange", handleHash);
@@ -2607,7 +2617,7 @@ function undoToast(msg, undo){
 
 /* ---------- saved presets (#2) ---------- */
 const KEY_PRESETS = "chemBuilder.presets";
-const PRESET_SKIP = ["blacklist", "blacklist_cards", "pos_bans", "club_list", "favs"];   // global, not part of a preset
+const PRESET_SKIP = ["blacklist", "blacklist_cards", "pos_bans", "club_list", "own_only", "favs"];   // global, not part of a preset
 let PRESETS = {};
 function loadPresets(){ try{ PRESETS = JSON.parse(DB.get(KEY_PRESETS) || "{}") || {}; }catch(e){ PRESETS = {}; } renderPresets(); }
 function savePresets(){ DB.set(KEY_PRESETS, JSON.stringify(PRESETS)); renderPresets(); }
@@ -2624,7 +2634,7 @@ function presetSnapshot(){
 }
 function applySettings(o){
   const keep = {}; for(const k of PRESET_SKIP) keep[k] = readOpts()[k];
-  writeOpts(Object.assign({}, o, {club_list: keep.club_list}));
+  writeOpts(Object.assign({}, o, {club_list: keep.club_list, own_only: keep.own_only}));
   if(o.ps_prefs){ PSP = JSON.parse(JSON.stringify(o.ps_prefs)); savePS(); }
   save(); updFiltSum(); rqRefreshCounts();
 }
@@ -2719,6 +2729,17 @@ async function clubChoice(ids){
   $("clubDlg").showModal();
 }
 function clubLines(){ return $("clubList").value.split("\n").filter(l => l.trim()); }
+// the "Only use cards I own" bar: how many cards the list has, greyed out until there is one
+function updOwnInfo(){
+  const n = clubLines().length, on = $("ownOnly").checked && n > 0;
+  $("ownOnly").disabled = !n;
+  $("ownInfo").textContent = !n ? "import your club first" : on ? `${n.toLocaleString()} cards in your club list` : `off: every card is searched (your ${n.toLocaleString()}-card list is kept)`;
+  document.querySelector(".ownbar").classList.toggle("on", on);
+}
+$("ownOnly").addEventListener("change", () => { save(); updFiltSum(); updOwnInfo(); rqRefreshCounts();
+  undoToast($("ownOnly").checked ? "Only your own cards are searched" : "Every card is searched (your club list is kept)", () => { $("ownOnly").checked = !$("ownOnly").checked; save(); updFiltSum(); updOwnInfo(); rqRefreshCounts(); }); });
+$("ownEdit").onclick = () => { $("filtDet").open = true; $("clubDet").open = true; $("clubList").scrollIntoView({block:"center", behavior: reduceMotion() ? "auto" : "smooth"}); $("clubList").focus(); };
+$("clubList").addEventListener("input", updOwnInfo);
 async function clubImport(replace){
   let r; try{ r = await api("/api/club_ids", {ids:CLUB_IDS}); }catch(e){ $("clubInfo").textContent = e.message; return; }
   const before = $("clubList").value;
@@ -2726,11 +2747,11 @@ async function clubImport(replace){
   const have = new Set(lines.map(l => l.trim().split(/\s+/)[0]));
   let added = 0;
   for(const c of r.cards) if(!have.has(c.s)){ lines.push(`${c.s}  ${c.n} ${c.ov} (${c.rt})`); have.add(c.s); added++; }
-  $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts(); sbcClubInfo();
+  $("clubList").value = lines.join("\n"); save(); updFiltSum(); rqRefreshCounts(); sbcClubInfo(); updOwnInfo();
   $("clubDlg").close();
   const skipped = r.unknown ? (r.low ? ` ${r.unknown} not in the card data were skipped (update the card data and try again).`
     : ` ${r.unknown} rated under 75 were skipped: download the bronze & silver cards in the SBC tab, then click the bookmark again.`) : "";
-  undoToast(`${replace ? "Club list replaced" : "Added to your club"}: ${added} new card${added===1?"":"s"} (${clubLines().length} total).${skipped}`, () => { $("clubList").value = before; save(); updFiltSum(); });
+  undoToast(`${replace ? "Club list replaced" : "Added to your club"}: ${added} new card${added===1?"":"s"} (${clubLines().length} total).${skipped}`, () => { $("clubList").value = before; save(); updFiltSum(); updOwnInfo(); });
 }
 $("clubAdd").onclick = () => clubImport(false);
 $("clubReplace").onclick = () => clubImport(true);
@@ -3161,7 +3182,7 @@ function updFiltSum(){
   const x = ["xIcon","xHero","xHof","xPromo"].filter(k => $(k).checked).length; if(x) o.push(`${x} type${x>1?"s":""} excluded`);
   if($("cheapV").checked) o.push("cheapest versions");
   if($("iconCap").checked && !$("xIcon").checked) o.push("ICONs ≤90");
-  if($("clubList").value.trim()) o.push("own cards only");
+  if($("clubList").value.trim() && $("ownOnly").checked) o.push("own cards only");
   updRqSum();
   $("filtSum").textContent = o.length ? "· "+o.join(" · ") : "";
 }
