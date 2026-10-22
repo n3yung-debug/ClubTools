@@ -30,7 +30,7 @@ SHIPPED = {
     "pyinstaller": "bootloader that starts the exe (GPL-2.0-or-later with the Bootloader Exception)",
     "pyinstaller-hooks-contrib": "runtime hooks included in the exe",
 }
-WIN_ONLY = {"pythonnet", "clr_loader"}
+WIN_ONLY = {"pythonnet", "clr_loader", "cffi", "pycparser"}   # cffi + pycparser come with clr_loader
 MAC_ONLY = {"pyobjc-core", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz", "pyobjc-framework-WebKit",
             "pyobjc-framework-Security", "pyobjc-framework-UniformTypeIdentifiers"}
 # installed only to build or test, never shipped
