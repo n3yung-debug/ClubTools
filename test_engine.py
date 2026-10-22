@@ -837,7 +837,7 @@ def test_update_version_compare():
 
 def test_update_check_reads_release(monkeypatch=None):
     rel = {"tag_name": "v9.9.9", "published_at": "2030-01-01T00:00:00Z", "html_url": "https://github.com/n3yung-debug/x",
-           "body": "notes", "assets": [{"name": "ClubTools.exe", "browser_download_url": "https://github.com/a/b",
+           "body": "notes", "assets": [{"name": cb.UPDATE_ASSET, "browser_download_url": "https://github.com/a/b",
                                         "size": 3, "digest": "sha256:" + "0" * 64}]}
     old_json, old_ver = cb._github_json, cb.current_version
     try:
