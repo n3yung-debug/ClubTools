@@ -579,13 +579,13 @@ def search_index(opts, pool):
     return by_pos
 
 
-def why_none(opts, pos, squad, max_ovr=None):
+def why_none(opts, pos, squad, max_ovr=None, above=None):
     """No card is left for a position: say which filter removed which cards (your club only, when the
     "Only use cards I own" list is used) and how to get some back. Returns {pos, own, total, reasons:
     [{key, n, eg: [names], fix: {...}}]} - the first filter that removes a card counts for it."""
     own = opts.get("own_only", True) and bool([ln for ln in (opts.get("club_list") or "").splitlines() if ln.strip()])
     base = build_pool({"club_list": opts.get("club_list")})[0] if own else STATE["cards"]
-    cands = [c for c in base if pos == c["p"] or pos in (c.get("a") or ())]
+    cands = [c for c in base if (pos == c["p"] or pos in (c.get("a") or ())) and (above is None or c["ov"] > above)]
     excl = set(opts.get("exclude_types") or [])
     gender = int(opts.get("gender") or 0)
     banned = {str(x) for x in opts.get("blacklist") or []}
@@ -640,7 +640,21 @@ def why_none(opts, pos, squad, max_ovr=None):
                {"kind": "gender"} if key == "gender" else None)
         out.append({"key": key, "n": len(cs), "eg": [f"{c['ov']} {c['n']}" for c in sorted(cs, key=lambda c: -c["ov"])[:4]],
                     "fix": fix})
-    return {"pos": pos, "own": own, "total": len(cands), "reasons": out}
+    return {"pos": pos, "own": own, "total": len(cands), "reasons": out, "above": above}
+
+
+def slot_report(slots, squad, locks, by_pos, max_drop, min_rating):
+    """What a chemistry search had to work with, per slot: cards that pass every filter for the position
+    (fit) and how many of those are within the allowed rating drop (near). Explains an empty result."""
+    rows = []
+    for i, (pos, c) in enumerate(zip(slots, squad)):
+        if c is None:
+            continue
+        cs = [x for x in by_pos.get(pos, ()) if x["bp"] != c["bp"]]
+        floor = max(min_rating, c["ov"] - max_drop)
+        rows.append({"slot": i, "pos": pos, "cur": c["ov"], "name": c["n"], "locked": bool(locks[i]), "fit": len(cs),
+                     "near": sum(1 for x in cs if x["ov"] >= floor), "floor": floor})
+    return rows
 
 
 def value_fn(opts):
@@ -1319,6 +1333,14 @@ class Handler(BaseHTTPRequestHandler):
                                                 # same upgrade with and without a new manager: the one without wins
                                                 lambda x: (-x["dv"], x["mgr"] is not None, -x["total"]), 25)
         progress("")
+        # explanations for empty results: what each slot had to work with, and why a position has nothing
+        explain = slot_report(slots, squad, locks, by_pos, max_drop, min_rating)
+        for row in explain:
+            if not row["fit"] and not row["locked"]:
+                row["why"] = why_none(o, row["pos"], squad)
+        for w in upgrades.get("slots") or []:
+            if not w.get("higher"):
+                w["why"] = why_none(o, w["pos"], squad, None, above=w["cur"])
         for st_i, st in enumerate(chain):
             st["rating"] = with_rating(squad, [w for s in chain[:st_i + 1] for w in s["swaps"]])
         for C in (combos, combos_mgr, upgrades):
@@ -1328,6 +1350,7 @@ class Handler(BaseHTTPRequestHandler):
         return {"rating": (eng.squad_rating(squad) or {}).get("rating"),
                 "base": base, "base_free": base_free, "li_now": li_now, "li_cur": fixed.get("li"),
                 "singles": singles, "chain": chain, "chain_total": chain_total, "chain_mgr": chain_mgr, "lock_hint": lock_hint,
+                "explain": explain, "max_drop": max_drop, "own_only": bool(o.get("own_only", True) and (o.get("club_list") or "").strip()),
                 "combos": combos, "combosMgr": combos_mgr, "upgrades": upgrades, "pool": len(pool), "unmatched": unmatched,
                 "mgr_suggest": eng.manager_suggestions(slots, squad, fixed, top=15),
                 "best_mgr": eng.best_manager(slots, squad, fixed),
@@ -1415,12 +1438,15 @@ def sbc_build(b):
     if not names:
         raise ValueError("Unknown formation")
     prefer = bool(b.get("prefer_owned")) or bool(b.get("own_only"))
+    reasons = []
     budget, results = (8.0 if len(names) > 1 else 6.0), []
     for k, fname in enumerate(names):
         progress(f"SBC: trying {fname}…", k + 1, len(names)) if len(names) > 1 else progress("SBC: building squads…")
         slots = pitch_slots or FORMATIONS[fname]["slots"]
         r = eng.sbc_solve(slots, by_pos, owned, req, time_limit=budget / len(names), avoid=b.get("avoid") or (),
                           fixed=fixed, prefer_owned=prefer)   # no manager in SBCs
+        if r.get("reason"):
+            reasons.append({"formation": fname, "reason": r["reason"]})
         for s in r["solutions"] + ([r["closest"]] if not r["solutions"] and r.get("closest") else []):
             results.append(dict(s, formation=fname, slots=slots, own=[c["s"] in owned for c in s["cards"]],
                                 placed=[i in fixed for i in range(len(slots))]))
@@ -1437,7 +1463,20 @@ def sbc_build(b):
                                   "rating": (eng.squad_rating(cards) or {}).get("rating"),
                                   "chem": eng._ttotal(x["slots"], [eng._t(c) for c in cards], None, None, False)}
     closest = None if valid else min(results, key=lambda x: sum(not c["ok"] for c in x["checks"]), default=None)
-    return {"solutions": valid, "closest": closest, "prefer_owned": prefer, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
+    why = None
+    if not valid and not closest:   # nothing at all: which positions had no card, and what removed them
+        q = req.get("quality") or {}
+        avoid_set = set(b.get("avoid") or ())
+        why = []
+        for pos in sorted({p for x in reasons for p in x["reason"].replace("no cards for ", "").split(", ")}):
+            every = [c for c in STATE["cards"] + STATE["low"] if pos == c["p"] or pos in (c.get("a") or ())]
+            n_q = sum(1 for c in every if not eng.quality_ok(c, q))
+            n_prot = sum(1 for c in every if c["s"] in protected)
+            n_club = sum(1 for c in every if b.get("own_only") and c["s"] not in owned)
+            n_avoid = sum(1 for c in every if c["s"] in avoid_set)
+            why.append({"pos": pos, "total": len(every), "quality": n_q, "protected": n_prot, "not_owned": n_club,
+                        "avoid": n_avoid, "own_only": bool(b.get("own_only")), "low": bool(STATE["low"])})
+    return {"solutions": valid, "closest": closest, "prefer_owned": prefer, "why": why, "reasons": reasons, "owned": len(owned), "club_lines": len(club_text.strip().splitlines()),
             "unmatched": unmatched[:20], "n_unmatched": len(unmatched), "formations": names,
             "low": len(STATE["low"]), "need_low": not STATE["low"] and sbc_needs_low(req)}
 

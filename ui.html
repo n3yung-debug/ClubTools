@@ -1605,7 +1605,7 @@ function resultsBody(r){
   if(VIEW === "plan"){
     if(r.chain_mgr) h += `<div class="note">${ic("users")} This plan uses a manager from <b>${esc(r.chain_mgr.nn || nationName(r.chain_mgr.ni))}</b> (new manager card): it reaches more chemistry than any plan with your current manager.</div>`;
     if(!r.chain.length && r.chain_mgr) return h + `<div class="res"><div style="flex:1">${mgrChange({mgr:r.chain_mgr})}</div><div style="text-align:right">${chip(r.chain_total - r.base)}<div class="small mut">→ ${r.chain_total}/33</div></div></div><button class="primary" id="applyChain">Apply (${r.base} → ${r.chain_total})</button>`;
-    if(!r.chain.length) return h + `<div class="mut small">${r.base>=33?"Already 33/33 — open the <b>Upgrades</b> tab for higher-rated players.":"No swap improves chemistry with the current locks and filters (try raising \"max rating drop\" or unlocking players)."}</div>`;
+    if(!r.chain.length) return h + planEmptyHtml(r);
     let run = r.base, li = r.li_cur;
     r.chain.forEach((st,k)=>{
       const d = st.total-run; run = st.total;
@@ -1651,7 +1651,11 @@ function resultsBody(r){
 function upgradeWhy(U, k){
   const rows = (U.slots || []).map(w => {
     const where = `<span class="tag">${esc(w.pos)}</span> now ${w.cur}`;
-    if(!w.higher) return `<li>${where}: no better card exists for this position with your filters (${reqHard(w.pos) ? `<b>required stats (${esc(rqDescribe(reqHard(w.pos)))})</b>, ` : ""}blacklist, position blocks, minimum rating).</li>`;
+    if(!w.higher) return w.why && !w.why.total ? (w.why.own
+        ? `<li>${where}: your club list has no ${esc(w.pos)} rated above ${w.cur} (only your own cards are searched). ${fixBtn({kind:"own_off"}, "Search every card, not just yours")}</li>`
+        : `<li>${where}: no card rated above ${w.cur} plays ${esc(w.pos)} — this is already the best there is.</li>`)
+      : w.why ? `<li>${where}: ${w.why.total} card${w.why.total===1?"":"s"} rated above ${w.cur} play ${esc(w.pos)}${w.why.own ? " in your club list" : ""}, and your filters rule out every one:${whyList(w.why)}</li>`
+      : `<li>${where}: no better card exists for this position with your filters.</li>`;
     if(!w.in_cap) return `<li>${where}: max OVR ${w.cap} — all ${w.higher} better cards are rated above it, and an upgrade has to be rated higher than ${w.cur}. Raise the cap above ${w.cur} for ${esc(w.pos)}.</li>`;
     if(!w.keep_chem) return `<li>${where}: ${w.in_cap} better card${w.in_cap===1?"":"s"} within the cap, but each drops chemistry below ${U.floor}. Allow more chemistry loss to see them.</li>`;
     return `<li>${where}: ${w.keep_chem} upgrade${w.keep_chem===1?"":"s"} possible on its own.</li>`;
@@ -1737,7 +1741,31 @@ const WHY_LABEL = {in_squad:"already in your squad", gender:"filtered out by “
 function whyFixLabel(f, pos){
   if(!f) return "";
   return {max_ovr:`Raise max OVR to ${f.value}`, women:`Allow women at ${esc(pos)}`, type:`Allow ${f.type === "icon" ? "ICONs" : f.type === "hero" ? "Heroes" : "Hall of FUT"}`,
-    promo:"Allow promo cards", icon_cap:"Allow ICONs over 90", min_rating:`Lower minimum rating to ${f.value}`, gender:"Men and women", own_off:"Search every card, not just yours"}[f.kind] || "";
+    promo:"Allow promo cards", icon_cap:"Allow ICONs over 90", min_rating:`Lower minimum rating to ${f.value}`, gender:"Men and women", own_off:"Search every card, not just yours",
+    max_drop:`Allow a rating drop of ${f.value}`, unlock_all:"Unlock all players"}[f.kind] || "";
+}
+function whyList(w){
+  return `<ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">${w.reasons.map(r => `<li><b>${r.n}</b> ${WHY_LABEL[r.key] || esc(r.key)} <span class="mut">(${r.eg.map(esc).join(", ")}${r.n > r.eg.length ? ", …" : ""})</span>
+    ${r.fix ? ` <button class="sm" data-whyfix='${esc(JSON.stringify(Object.assign({pos:w.pos}, r.fix)))}'>${whyFixLabel(r.fix, w.pos)}</button>` : ""}</li>`).join("")}</ul>`
+    + (w.own ? `<div style="margin-top:6px"><button class="sm" data-whyfix='${esc(JSON.stringify({pos:w.pos, kind:"own_off"}))}'>Search every card, not just yours</button></div>` : "");
+}
+const fixBtn = (f, label) => `<button class="sm" data-whyfix='${esc(JSON.stringify(f))}'>${label}</button>`;
+// the step-by-step plan found nothing: what each slot had to work with, and what would open it up
+function planEmptyHtml(r){
+  if(r.base >= 33) return `<div class="mut small">Already 33/33 — open the <b>Upgrades</b> tab for higher-rated players.</div>`;
+  const E = r.explain || [], free = E.filter(x => !x.locked), near = free.reduce((a, x) => a + x.near, 0);
+  const causes = [];
+  if(!free.length) causes.push(`Every player is locked, so nothing can be swapped. ${fixBtn({kind:"unlock_all"}, "Unlock all and search again")}`);
+  else if(!near) causes.push(`No card that passes your filters is within your <b>max rating drop (${r.max_drop})</b> of the player it would replace. ${fixBtn({kind:"max_drop", value:r.max_drop + 3}, `Allow a drop of ${r.max_drop + 3}`)}`);
+  else causes.push(`${near.toLocaleString()} cards were within reach (no more than ${r.max_drop} rating below the player they'd replace), but none of them adds chemistry. ${fixBtn({kind:"max_drop", value:r.max_drop + 3}, `Allow a drop of ${r.max_drop + 3}`)}`
+    + ` <span class="mut">Also try “Manager change only” or the k-player swaps in the list above${E.some(x => x.locked) ? ", or unlock players" : ""}.</span>`);
+  if(E.some(x => x.locked) && free.length) causes.push(`${E.filter(x => x.locked).length} locked player${E.filter(x => x.locked).length === 1 ? " is" : "s are"} never swapped. ${fixBtn({kind:"unlock_all"}, "Unlock all and search again")}`);
+  if(r.own_only) causes.push(`Only your own cards are searched. ${fixBtn({kind:"own_off"}, "Search every card, not just yours")}`);
+  const rows = E.map(x => `<tr><td><span class="tag">${esc(x.pos)}</span></td><td>${x.cur} ${esc(x.name)}</td><td>${x.locked ? `<span class="mut">locked</span>` : x.fit.toLocaleString()}</td><td>${x.locked ? "" : `<b style="color:${x.near ? "var(--txt)" : "var(--warn)"}">${x.near.toLocaleString()}</b> <span class="mut">(≥ ${x.floor})</span>`}</td></tr>`
+    + (x.why ? `<tr><td></td><td colspan="3" class="small">${esc(x.pos)}: no card passes your filters —${whyList(x.why)}</td></tr>` : "")).join("");
+  return `<div class="note warn"><b>No swap raises chemistry.</b><ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:5px">${causes.map(c => `<li>${c}</li>`).join("")}</ul>
+    <details style="margin-top:8px"><summary class="small">What each position had to work with</summary>
+    <table class="pv" style="font-size:12px"><tr class="mut"><td></td><td>now</td><td>cards that pass your filters</td><td>within the rating drop</td></tr>${rows}</table></details></div>`;
 }
 function whyNoneHtml(w){
   const where = w.own ? `you own ${w.total} card${w.total===1?"":"s"} for ${esc(w.pos)} (Only use cards I own)` : `${w.total} cards can play ${esc(w.pos)}`;
@@ -1760,6 +1788,8 @@ $("results").addEventListener("click", e => {
   if(f.kind === "min_rating") $("minRating").value = f.value;
   if(f.kind === "gender") $("gender").value = "0";
   if(f.kind === "own_off"){ $("ownOnly").checked = false; updOwnInfo(); }
+  if(f.kind === "max_drop") $("maxDrop").value = f.value;
+  if(f.kind === "unlock_all"){ commit(); S.locks = S.locks.map(() => false); refresh(); }
   save(); updFiltSum();
   undoToast(`${whyFixLabel(f, f.pos)} — building again`, () => { writeOpts(JSON.parse(before)); save(); updFiltSum(); });
   runOptimize();
@@ -1770,7 +1800,7 @@ function renderFill(){
     <strong>${ic("users")} Fill squad</strong><span class="small mut">${F.empty.length} empty slot${F.empty.length===1?"":"s"} · searched ${F.pool.toLocaleString()} cards</span>${resTools()}</div>`;
   if(F.why && F.why.length) h += F.why.map(whyNoneHtml).join("");
   else if(F.no_cards && F.no_cards.length) h += `<div class="note warn">No card fits ${F.no_cards.map(esc).join(", ")} with your filters (${F.no_cards.some(p => reqHard(p)) ? `<b>required stats</b> (${F.no_cards.filter(p => reqHard(p)).map(p => `${esc(p)}: ${esc(rqDescribe(reqHard(p)))}`).join("; ")}), ` : ""}max OVR, minimum rating, blacklist, position blocks, women filter, owned cards).</div>`;
-  else if(!F.options.length) h += `<div class="mut small">No complete squad found.</div>`;
+  else if(!F.options.length) h += `<div class="note warn"><b>No complete squad found.</b> Every empty slot has cards, but the search couldn't put together a squad from them in time (players you've placed can't be used twice). Try fewer empty slots, raise “Max OVR of a filler card”, or loosen the filters. ${fixBtn({kind:"max_ovr", value:Math.min(99, (+$("fillMaxOvr").value || 90) + 3)}, "Raise max OVR by 3")}</div>`;
   h += F.options.map((o,j) => `<div class="res"><div style="flex:1">
       ${mgrLine(o)}
       ${o.fills.map(f => swapHtml({slot:f.slot, out:{ov:"", n:"empty"}, in:f.in})).join("")}
@@ -3016,6 +3046,20 @@ function sbcSquadHtml(s0, j){
       <span style="flex:1"></span>${clubBtn}${s.valid ? `<button class="sm" data-sbcshow="${j}">Show on pitch</button>` : ""}</div>
     <div class="sbcchecks">${s.checks.map(x => `<span class="${x.ok?"":"no"}">${x.ok ? "✓" : "✗"} ${esc(x.label)} <span class="mut">(${x.have})</span></span>`).join("")}</div>${rows}</div>`;
 }
+// the SBC helper found no squad at all: which positions had no usable card, and what removed them
+function sbcWhyHtml(R){
+  const W = R.why || [];
+  if(!W.length) return `<div class="note warn"><b>No squad found.</b> ${R.reasons && R.reasons.length ? esc(R.reasons[0].reason) : "Try “Any” formation or fewer requirements."}</div>`;
+  const q = (SBC.req || {}).quality, items = W.map(w => {
+    const why = [w.quality && q ? `${w.quality} don't meet “Player quality: ${esc(opLabel[q.op] || q.op)} ${esc(tierName(q.tier))}”` : "",
+      w.quality && q && q.tier !== "gold" && !w.low ? "the bronze &amp; silver cards aren't downloaded" : "",
+      w.not_owned ? `${w.not_owned} aren't in your club (Only my club is ticked)` : "", w.protected ? `${w.protected} are your ICONs / Heroes / promos or above your rating cap (kept out)` : "",
+      w.avoid ? `${w.avoid} are in your main squad or favourites (kept out)` : ""].filter(Boolean);
+    return `<li><span class="tag">${esc(w.pos)}</span> ${w.total.toLocaleString()} cards play ${esc(w.pos)}: ${why.join("; ") || "all filtered out (blacklist or position blocks)"}</li>`;
+  }).join("");
+  return `<div class="note warn"><b>No squad found:</b> some positions had no card the rules allow.<ul style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">${items}</ul>
+    <div class="small mut" style="margin-top:6px">Change the rule or option named above (the bronze &amp; silver download is at the top of this tab).</div></div>`;
+}
 function renderSbc(){
   const R = window.__SBC; if(!R) return;
   let h = `<div class="panel" style="margin-top:14px"><div class="reshead">
@@ -3024,7 +3068,7 @@ function renderSbc(){
   if(R.unmatched && R.unmatched.length) h += `<div class="note warn">${R.n_unmatched || R.unmatched.length} club line${(R.n_unmatched || R.unmatched.length) === 1 ? "" : "s"} not found in the card data${R.low ? "" : " (cards under 75 need the bronze &amp; silver download above)"}: ${R.unmatched.slice(0, 8).map(esc).join(", ")}${R.unmatched.length > 8 ? "…" : ""}</div>`;
   if(R.solutions.length) h += R.solutions.map((s, j) => sbcSquadHtml(s, j)).join("");
   else if(R.closest) h += `<div class="note warn">No squad met every requirement in time. Here's the closest one; the red ones are missed. Try "Any" formation, fewer protections, or allow buying.</div>` + sbcSquadHtml(R.closest, 0);
-  else h += `<div class="mut small">No squad found.</div>`;
+  else h += sbcWhyHtml(R);
   $("results").innerHTML = h + `</div>`;
   revealResults();
 }

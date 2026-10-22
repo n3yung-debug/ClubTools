@@ -687,6 +687,14 @@ def test_fill_says_why_a_position_has_no_cards():
         assert r["no_cards"] and r["why"][0]["pos"] == "GK"
 
 
+def test_slot_report_explains_an_empty_plan():
+    sq = squad_of(ni=1, li=1, ov=80)
+    by_pos = {"ST": [card(50, "ST", ov=79), card(51, "ST", ov=70)], "GK": []}
+    rows = cb.slot_report(SLOTS, sq, [False] * 10 + [True], by_pos, 3, 0)
+    st = [r for r in rows if r["pos"] == "ST"][0]
+    assert st["fit"] == 2 and st["near"] == 1 and st["floor"] == 77 and rows[-1]["locked"]
+
+
 def test_server_reads_favourites():
     o = {"favs": [{"s": "27-271446", "pos": "CM"}, {"s": "x", "pos": "nope"}, "junk"], "fav_w": "7"}
     assert cb.favs(o) == ({("27-271446", "CM")}, 7.0)
